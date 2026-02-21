@@ -1,0 +1,48 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sysml_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Monte le dépôt SysML-v2-Release en lecture seule dans le container
+      - ../SysML-v2-Release:/app/SysML-v2-Release:ro
+      # Persiste les données (sessions, ChromaDB) entre les redémarrages
+      - backend_data:/app/data
+    env_file:
+      - .env
+    environment:
+      - SYSML_REPO_PATH=/app/SysML-v2-Release
+      - PLANTUML_SERVER_URL=http://plantuml:8080
+      - GEMINI_API_KEYS=${GEMINI_API_KEYS}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - LLM_MODEL=${LLM_MODEL}
+      - GEMINI_MODEL=${GEMINI_MODEL}
+    depends_on:
+      - plantuml
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sysml_frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  plantuml:
+    image: plantuml/plantuml-server:tomcat
+    container_name: sysml_plantuml
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  backend_data:

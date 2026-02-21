@@ -1,0 +1,27 @@
+# === Framework web ===
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# === Validation des données ===
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# === RAG : Base vectorielle ===
+chromadb==0.6.3
+
+# === RAG : Embeddings locaux ===
+sentence-transformers==3.4.1
+
+# === LLM : Google Gemini ===
+google-genai==1.7.0
+
+# === Utilitaires ===
+python-dotenv==1.0.1
+httpx==0.28.1
+
+# === Tests ===
+pytest==8.3.4
+pytest-asyncio==0.25.0
+
+# === ANTLR4 pour validation SysML v2 (réservé pour future intégration) ===
+# antlr4-python3-runtime==4.13.2
