@@ -81,3 +81,7 @@ experiments/results/
 
 # SysML-v2-Release repo (mounted as Docker volume, not part of this project)
 SysML-v2-Release/
+
+# Livrables binaires et archives (à conserver hors du repo)
+LIVRABLES_v1.zip
+LIVRABLES_v1/

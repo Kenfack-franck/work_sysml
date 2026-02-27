@@ -1,0 +1,3466 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SysML v2 Agent — Rapport interactif | Safran × ENSTA</title>
+
+  <!-- Bootstrap 5.3 CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
+  <!-- Highlight.js 11.9 CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+
+  <style>
+    /* ─── Variables & base ──────────────────────────────────────────────── */
+    :root {
+      --safran-blue:   #003366;
+      --safran-light:  #f5f5f5;
+      --safran-orange: #e67e22;
+      --safran-white:  #ffffff;
+      --safran-border: #dee2e6;
+    }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-size: 0.95rem;
+      color: #222;
+      scroll-behavior: smooth;
+    }
+    /* Offset for fixed navbar */
+    section { scroll-margin-top: 72px; }
+
+    /* ─── Navbar ────────────────────────────────────────────────────────── */
+    .navbar-safran {
+      background-color: var(--safran-blue) !important;
+    }
+    .navbar-safran .navbar-brand,
+    .navbar-safran .nav-link {
+      color: #fff !important;
+    }
+    .navbar-safran .nav-link:hover,
+    .navbar-safran .nav-link.active {
+      color: var(--safran-orange) !important;
+    }
+    .navbar-safran .navbar-toggler-icon {
+      filter: invert(1);
+    }
+
+    /* ─── Section titles ────────────────────────────────────────────────── */
+    .section-title {
+      border-left: 4px solid var(--safran-blue);
+      padding-left: 1rem;
+      margin-bottom: 1.5rem;
+      font-weight: 700;
+      color: var(--safran-blue);
+    }
+
+    /* ─── Section padding ───────────────────────────────────────────────── */
+    section.section-block { padding: 3rem 0; }
+
+    /* ─── Stat cards ────────────────────────────────────────────────────── */
+    .stat-card {
+      background: var(--safran-white);
+      border: 1px solid var(--safran-border);
+      border-radius: 0.75rem;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+      transition: transform .2s;
+    }
+    .stat-card:hover { transform: translateY(-3px); }
+    .stat-card .stat-number {
+      font-size: 2.4rem;
+      font-weight: 800;
+      color: var(--safran-orange);
+      line-height: 1.1;
+    }
+    .stat-card .stat-label {
+      font-size: 0.82rem;
+      color: #555;
+      margin-top: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    /* ─── Pipeline steps ────────────────────────────────────────────────── */
+    .pipeline-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      justify-content: center;
+    }
+    .pipeline-step {
+      border-radius: 0.6rem;
+      padding: 0.65rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-align: center;
+      min-width: 120px;
+      line-height: 1.3;
+    }
+    .pipeline-step.step-io {
+      background-color: var(--safran-blue);
+      color: #fff;
+    }
+    .pipeline-step.step-llm {
+      background-color: var(--safran-orange);
+      color: #fff;
+    }
+    .pipeline-step.step-data {
+      background-color: #e9f0fa;
+      color: var(--safran-blue);
+      border: 2px solid var(--safran-blue);
+    }
+    .pipeline-arrow {
+      font-size: 1.4rem;
+      color: #888;
+      line-height: 1;
+    }
+
+    /* ─── Accordions ────────────────────────────────────────────────────── */
+    .accordion-button:not(.collapsed) {
+      background-color: #e9f0fa;
+      color: var(--safran-blue);
+      font-weight: 600;
+      box-shadow: none;
+    }
+    .accordion-button:focus { box-shadow: none; }
+    .accordion-button .badge-level {
+      background-color: var(--safran-blue);
+      color: #fff;
+      font-size: 0.72rem;
+      padding: 0.2em 0.55em;
+      border-radius: 0.35rem;
+      margin-right: 0.5rem;
+    }
+
+    /* ─── Code blocks ───────────────────────────────────────────────────── */
+    pre {
+      border-radius: 0.5rem;
+      font-size: 0.82rem;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+    code.language-sysml, code.language-SysML {
+      /* Highlight.js doesn't have a sysml grammar — reuse go */
+    }
+
+    /* ─── Cycle diagram ─────────────────────────────────────────────────── */
+    .cycle-step {
+      background: var(--safran-white);
+      border: 2px solid var(--safran-blue);
+      border-radius: 0.6rem;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.83rem;
+      font-weight: 600;
+      color: var(--safran-blue);
+      text-align: center;
+      min-width: 130px;
+    }
+
+    /* ─── Table header blue ─────────────────────────────────────────────── */
+    .table-safran thead th {
+      background-color: var(--safran-blue);
+      color: #fff;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .table-safran tbody tr:nth-child(even) { background-color: #f0f4fb; }
+    .table-safran tbody tr:hover { background-color: #e3ecff; }
+
+    /* ─── Rule badges ───────────────────────────────────────────────────── */
+    .rule-badge {
+      display: inline-block;
+      background-color: var(--safran-blue);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.15em 0.55em;
+      border-radius: 0.35rem;
+      margin-right: 0.4rem;
+      vertical-align: middle;
+    }
+    .rule-badge.orange { background-color: var(--safran-orange); }
+
+    /* ─── Intro paragraph ───────────────────────────────────────────────── */
+    .intro-block {
+      border-left: 3px solid var(--safran-orange);
+      padding-left: 1rem;
+      color: #444;
+      font-size: 0.95rem;
+      margin-bottom: 2rem;
+    }
+
+    /* ─── Footer ────────────────────────────────────────────────────────── */
+    footer {
+      background-color: var(--safran-blue);
+      color: rgba(255,255,255,.75);
+      padding: 1.5rem 0;
+      font-size: 0.83rem;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       SECTION HANA — IA généraliste & SysMLv2
+    ═══════════════════════════════════════════════════════════════════════ */
+    #hana-section {
+      --navy:     #0f172a;
+      --blue:     #2563eb;
+      --teal:     #0d9488;
+      --green:    #16a34a;
+      --amber:    #d97706;
+      --red:      #dc2626;
+      --muted:    #64748b;
+      --code-bg:  #0f172a;
+      --r:        12px;
+      --shadow:   0 1px 3px rgba(0,0,0,.1), 0 4px 12px rgba(0,0,0,.06);
+      --shadow-lg:0 4px 16px rgba(0,0,0,.12);
+      background: #f8fafc;
+      padding: 3rem 0;
+    }
+    #hana-section .hana-inner { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+
+    /* Stat chips */
+    #hana-section .h-stats { display:flex; gap:1.5rem; flex-wrap:wrap; margin-top:1.5rem; }
+    #hana-section .h-stat {
+      background:#fff; border-radius:var(--r); padding:.6rem 1.2rem;
+      box-shadow:var(--shadow); text-align:center; min-width:90px;
+    }
+    #hana-section .h-stat .n { font-size:1.8rem; font-weight:800; color:var(--safran-orange); line-height:1; }
+    #hana-section .h-stat .l { font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+
+    /* Cards */
+    #hana-section .h-card {
+      background:#fff; border-radius:var(--r); padding:1.25rem 1.5rem;
+      box-shadow:var(--shadow); border-left:4px solid transparent; height:100%;
+    }
+    #hana-section .h-card.teal  { border-color:#0d9488; }
+    #hana-section .h-card.green { border-color:#16a34a; }
+    #hana-section .h-card.blue  { border-color:#2563eb; }
+    #hana-section .h-card.red   { border-color:#dc2626; }
+    #hana-section .h-card.amber { border-color:#d97706; }
+    #hana-section .h-card h4 { font-size:.95rem; font-weight:700; color:var(--navy); margin-bottom:.4rem; }
+    #hana-section .h-card p  { font-size:.85rem; color:var(--muted); margin:0; }
+    #hana-section .h-icon    { font-size:1.5rem; margin-bottom:.75rem; display:block; }
+
+    /* Compare table */
+    #hana-section .h-compare th  { background:var(--safran-blue); color:#fff; font-weight:600; white-space:nowrap; }
+    #hana-section .h-compare .th-claude { background:#7c3aed; }
+    #hana-section .h-compare .th-gemini { background:#0d9488; }
+    #hana-section .h-compare .th-deep   { background:#0f172a; }
+    #hana-section .h-compare tbody tr:nth-child(even) { background:#f8fafc; }
+    #hana-section .tick  { color:#16a34a; }
+    #hana-section .warn  { color:#d97706; }
+    #hana-section .cross { color:#dc2626; }
+
+    /* Score bars */
+    #hana-section .score-row { display:flex; align-items:center; gap:.75rem; margin-bottom:.6rem; }
+    #hana-section .score-label { font-size:.8rem; color:var(--navy); flex:0 0 280px; }
+    #hana-section .score-bar-wrap { flex:1; background:#e2e8f0; border-radius:99px; height:12px; overflow:hidden; }
+    #hana-section .score-bar { height:100%; border-radius:99px; width:0; transition:width 1.2s ease; }
+    #hana-section .score-val { font-size:.8rem; font-weight:700; color:var(--navy); flex:0 0 55px; text-align:right; }
+
+    /* Rule cards */
+    #hana-section .rule-card {
+      display:flex; gap:1rem; align-items:flex-start;
+      background:#fff; border-radius:var(--r); padding:1.25rem; margin-bottom:.75rem;
+      box-shadow:var(--shadow);
+    }
+    #hana-section .rule-num {
+      flex-shrink:0; width:2rem; height:2rem; border-radius:50%;
+      color:#fff; font-weight:800; font-size:.95rem;
+      display:flex; align-items:center; justify-content:center;
+    }
+    #hana-section .rule-body h4 { font-size:.92rem; font-weight:700; color:var(--navy); margin-bottom:.3rem; }
+    #hana-section .rule-body p  { font-size:.83rem; color:var(--muted); margin-bottom:.5rem; }
+    #hana-section .h-fix {
+      background:#0f172a; border-radius:8px; padding:.75rem 1rem;
+      font-family:monospace; font-size:.75rem; color:#86efac;
+      white-space:pre-wrap; border-left:3px solid #16a34a;
+    }
+
+    /* Steps */
+    #hana-section .h-step { display:flex; gap:1rem; align-items:flex-start; margin-bottom:.75rem; }
+    #hana-section .h-step-dot {
+      flex-shrink:0; width:2rem; height:2rem; border-radius:50%;
+      color:#fff; font-weight:800; font-size:.9rem;
+      display:flex; align-items:center; justify-content:center;
+    }
+    #hana-section .h-step h4 { font-size:.9rem; font-weight:700; color:var(--navy); margin:0 0 .2rem; }
+    #hana-section .h-step p  { font-size:.82rem; color:var(--muted); margin:0; }
+
+    /* Accordion */
+    #hana-section .h-acc { background:#fff; border-radius:var(--r); margin-bottom:.5rem; box-shadow:var(--shadow); overflow:hidden; }
+    #hana-section .h-acc-header { display:flex; justify-content:space-between; align-items:center; padding:.9rem 1.2rem; cursor:pointer; }
+    #hana-section .h-acc-header:hover { background:#f8fafc; }
+    #hana-section .h-acc-header h4 { font-size:.88rem; font-weight:700; color:var(--navy); margin:0; }
+    #hana-section .h-sub { font-size:.78rem; color:var(--muted); }
+    #hana-section .h-acc-body { display:none; padding:.25rem 1.2rem 1.2rem; }
+    #hana-section .h-acc.open .h-acc-body { display:block; }
+    #hana-section .h-acc-chevron { transition:transform .25s; font-size:.8rem; }
+    #hana-section .h-acc.open .h-acc-chevron { transform:rotate(180deg); }
+
+    /* Agents flow */
+    #hana-section .agents-flow { display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; }
+    #hana-section .agent-box { border-radius:var(--r); padding:.9rem 1.1rem; border:2px solid; flex:1; min-width:130px; max-width:200px; }
+    #hana-section .a-num  { font-size:1.1rem; font-weight:800; }
+    #hana-section .a-role { font-size:.85rem; font-weight:700; color:var(--navy); margin:.15rem 0; }
+    #hana-section .a-desc { font-size:.78rem; color:var(--muted); }
+    #hana-section .agent-arrow { font-size:1.4rem; color:#94a3b8; }
+
+    /* Variations */
+    #hana-section .var-row {
+      display:grid; grid-template-columns:1fr 24px 1fr 1fr; gap:.75rem; align-items:start;
+      background:#fff; border-radius:var(--r); padding:1rem 1.25rem; margin-bottom:.75rem;
+      box-shadow:var(--shadow); font-size:.83rem;
+    }
+    #hana-section .var-before { color:#7f1d1d; white-space:pre-line; }
+    #hana-section .var-after  { color:#14532d; white-space:pre-line; }
+    #hana-section .var-arrow  { font-size:1.4rem; color:#94a3b8; text-align:center; align-self:center; }
+
+    /* Code block */
+    #hana-section .h-code-block {
+      background:#0f172a; border-radius:var(--r); padding:1.25rem 1.5rem;
+      font-family:monospace; font-size:.78rem; position:relative; overflow-x:auto;
+    }
+    #hana-section .h-code-block .cmt { color:#64748b; }
+    #hana-section .h-code-block .kw  { color:#818cf8; }
+    #hana-section .h-code-block .type{ color:#67e8f9; }
+    #hana-section .h-code-block .str { color:#fca5a5; }
+    #hana-section .h-code-block .ok  { color:#86efac; }
+    #hana-section .copy-btn {
+      position:absolute; top:.75rem; right:.75rem;
+      background:#1e293b; color:#94a3b8; border:1px solid #334155;
+      border-radius:6px; padding:.25rem .6rem; font-size:.72rem; cursor:pointer;
+    }
+    #hana-section .copy-btn:hover { background:#334155; color:#fff; }
+
+    @media(max-width:640px) {
+      #hana-section .score-label { flex:0 0 160px; font-size:.72rem; }
+      #hana-section .var-row { grid-template-columns:1fr; }
+      #hana-section .var-arrow { display:none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  NAVBAR                                                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<nav class="navbar navbar-expand-lg navbar-safran fixed-top shadow-sm">
+  <div class="container-xl">
+    <a class="navbar-brand fw-bold" href="#">
+      <span style="color:var(--safran-orange)">SysML v2</span> Agent
+      <small class="text-white-50 fw-normal ms-2 d-none d-md-inline">| Safran × ENSTA — Février 2026</small>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMain">
+      <ul class="navbar-nav ms-auto gap-1">
+        <li class="nav-item"><a class="nav-link" href="#overview">Vue d'ensemble</a></li>
+        <li class="nav-item"><a class="nav-link" href="#architecture">Architecture</a></li>
+        <li class="nav-item"><a class="nav-link" href="#prompts">Prompts génération</a></li>
+        <li class="nav-item"><a class="nav-link" href="#visualization">Visualisation</a></li>
+        <li class="nav-item"><a class="nav-link" href="#experiments">Résultats BAS</a></li>
+        <li class="nav-item"><a class="nav-link" href="#conclusions">Conclusions</a></li>
+        <li class="nav-item"><a class="nav-link" href="#hana-section">Synthèse Hana</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  HERO                                                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div style="background: linear-gradient(135deg, var(--safran-blue) 60%, #005599 100%); padding: 6rem 0 3.5rem; margin-top: 56px;">
+  <div class="container-xl text-center text-white">
+    <h1 class="fw-bold mb-2" style="font-size:2.2rem;">Génération automatique de modèles SysML v2 par IA</h1>
+    <p class="mb-1 opacity-75">Rapport de mission — BAS Silvercrest (Safran × ENSTA Junior Entreprise)</p>
+    <p class="opacity-50 mb-0" style="font-size:0.85rem;">Version 1.0 — Février 2026 — 2 Journées d'Étude Homme</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  SECTION 1 — VUE D'ENSEMBLE                                             -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="overview" class="section-block" style="background:var(--safran-light);">
+  <div class="container-xl">
+
+    <h2 class="section-title mb-4">Vue d'ensemble</h2>
+
+    <!-- Stat cards -->
+    <div class="row g-3 mb-5">
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-number">4</div>
+          <div class="stat-label">Niveaux MBSE</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-number">8</div>
+          <div class="stat-label">Corrections de prompts P1–P8</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-number">337</div>
+          <div class="stat-label">Chunks RAG indexés</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-number">42%→75%</div>
+          <div class="stat-label">Couverture V1 → V2</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 1.1 Contexte de la mission ─────────────────────────────────── -->
+    <h3 class="fw-semibold mb-3" style="color:var(--safran-blue);">1.1 — Contexte de la mission</h3>
+    <p class="mb-3">
+      Dans le cadre d'un partenariat entre <strong>Safran</strong> et l'<strong>ENSTA</strong> via la Junior Entreprise,
+      cette mission de <strong>2 Journées d'Étude Homme (JEH)</strong> s'est fixé pour objectif d'explorer la capacité
+      de l'intelligence artificielle générative à produire automatiquement du <strong>code SysML v2 complet</strong>
+      et des diagrammes d'architecture à partir de descriptions en langage naturel.
+    </p>
+    <p class="mb-4">
+      <strong>SysML v2</strong> (Systems Modeling Language version 2) est la norme de facto pour la modélisation de
+      systèmes complexes dans l'industrie aéronautique et de défense. Sa maîtrise requiert une expertise spécialisée
+      et un investissement en temps considérable. L'émergence des grands modèles de langage (LLM) ouvre une voie
+      nouvelle : déléguer la production de la syntaxe formelle à une IA, tout en conservant à l'ingénieur système
+      la maîtrise des choix d'architecture.
+    </p>
+
+    <!-- ── 1.2 Objectifs ──────────────────────────────────────────────── -->
+    <h3 class="fw-semibold mb-3" style="color:var(--safran-blue);">1.2 — Objectifs de la mission</h3>
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="card border-0 h-100" style="border-left:4px solid var(--safran-blue) !important; border-left-style:solid !important; background:#fff;">
+          <div class="card-body py-3 px-4">
+            <h6 class="fw-bold mb-2" style="color:var(--safran-blue);">① Prompts de génération SysML v2</h6>
+            <p class="text-muted mb-0" style="font-size:.88rem;">
+              Formuler, tester et affiner les instructions envoyées à l'IA pour qu'elle produise du code SysML v2
+              <strong>syntaxiquement valide et sémantiquement fidèle</strong> à la description fournie,
+              niveau par niveau selon l'approche MBSE.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card border-0 h-100" style="border-left:4px solid var(--safran-orange) !important; border-left-style:solid !important; background:#fff;">
+          <div class="card-body py-3 px-4">
+            <h6 class="fw-bold mb-2" style="color:var(--safran-orange);">② Prompts de visualisation des diagrammes</h6>
+            <p class="text-muted mb-0" style="font-size:.88rem;">
+              Explorer comment l'IA peut guider la génération de représentations graphiques (use case, BDD, IBD…)
+              et comment <strong>Eclipse SysON</strong> peut servir de visualisateur open-source de référence.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="alert alert-light border py-2 px-3 mb-4" style="font-size:.85rem;">
+      Ces livrables sont directement réutilisables par les ingénieurs Safran comme base de travail pour de futurs
+      projets de modélisation assistée par IA. L'approche repose sur <strong>Google Gemini 2.5 Flash</strong>,
+      un RAG de <strong>337 chunks</strong> SysML v2 officiels, et une progression en <strong>4 niveaux MBSE</strong>.
+    </div>
+
+    <!-- ── 1.3 Système testé — BAS Silvercrest ───────────────────────── -->
+    <h3 class="fw-semibold mb-3" style="color:var(--safran-blue);">1.3 — Système testé : BAS Silvercrest</h3>
+    <p class="text-muted mb-3" style="font-size:.88rem;">
+      Le <strong>BAS (Bleed Air System)</strong> du moteur Silvercrest est un système de prélèvement et de
+      conditionnement d'air intercalé entre la turbomachine et l'avion. Représentatif de la complexité des
+      systèmes avioniques embarqués, il constitue le cas de test principal de la mission.
+    </p>
+    <div class="table-responsive mb-4">
+      <table class="table table-bordered table-safran align-middle mb-0" style="font-size:.87rem;">
+        <thead><tr><th>Dimension</th><th>Détail</th></tr></thead>
+        <tbody>
+          <tr><td class="fw-semibold">Entités externes</td><td>6 : A/C Avionics, Turbomachine, Fan by-pass duct, Nacelle, A/C Pneumatic System, SOV</td></tr>
+          <tr><td class="fw-semibold">Fonctions de service</td><td>4 : fourniture d'air régulé, dégivrage nacelle, auto-diagnostic, communication avionique</td></tr>
+          <tr><td class="fw-semibold">Modes de fonctionnement</td><td>3 : OFF · Stand-by · Running</td></tr>
+          <tr><td class="fw-semibold">Sous-systèmes</td><td>5 : Prélèvement · Dégivrage · Conditionnement · Mesure finale · Contrôle-Commande (EEC)</td></tr>
+          <tr><td class="fw-semibold">Composants physiques</td><td>~15 : IP Port, HP Port, HPV, IPCV, NAIV, PRV, Exchanger (ACAC), FAV, Filter, capteurs pression &amp; température, Electronic BAS Control</td></tr>
+          <tr><td class="fw-semibold">Exigences mesurables</td><td>4 : −40 °C / +85 °C · ≤ 500 ms · 20–50 PSI · 150–230 °C</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── 1.4 Comparaison des modèles LLM ───────────────────────────── -->
+    <h3 class="fw-semibold mb-2" style="color:var(--safran-blue);">1.4 — Choix du LLM pour un pipeline SysML v2</h3>
+    <p class="text-muted mb-3" style="font-size:.88rem;">
+      Les différentes variantes au sein d'une même famille de modèles présentent des profils très distincts.
+      Pour un pipeline SysML v2, le choix se fait selon trois critères : <strong>qualité du code structuré généré</strong>,
+      <strong>coût et latence</strong>, et <strong>capacité à suivre des contraintes strictes</strong>
+      (schéma IR JSON, RAG, règles de fidélité).
+    </p>
+    <div class="table-responsive mb-0">
+      <table class="table table-safran table-sm table-bordered align-middle mb-0" style="font-size:.83rem;">
+        <thead>
+          <tr>
+            <th style="width:80px;">Famille</th>
+            <th style="width:110px;">Variante</th>
+            <th>Profil typique</th>
+            <th>Usage recommandé (SysML v2)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Claude -->
+          <tr>
+            <td rowspan="3" class="fw-bold align-middle text-center" style="color:var(--safran-blue); background:#f5f8ff;">Claude</td>
+            <td><span class="badge bg-secondary">Haiku</span></td>
+            <td>Plus rapide / moins coûteux · extraction et tâches simples bien cadrées</td>
+            <td>Étape NL → IR JSON sur cas simples, batch de normalisation</td>
+          </tr>
+          <tr>
+            <td><span class="badge text-white" style="background:var(--safran-blue);">Sonnet ★</span></td>
+            <td>Bon compromis qualité / coût / vitesse · très solide pour génération de code structuré</td>
+            <td><strong>Candidat principal pour IR → SysML v2</strong></td>
+          </tr>
+          <tr>
+            <td><span class="badge text-white" style="background:var(--safran-orange);">Opus</span></td>
+            <td>Plus capable (raisonnement complexe) · plus cher / plus lent</td>
+            <td>Cas ambigus, validations complexes, prompts longs</td>
+          </tr>
+          <!-- OpenAI -->
+          <tr>
+            <td rowspan="4" class="fw-bold align-middle text-center" style="color:var(--safran-blue); background:#f5f8ff;">OpenAI GPT</td>
+            <td><span class="badge text-white" style="background:var(--safran-orange);">GPT-5.2</span></td>
+            <td>Flagship généraliste / coding-agentic · bon pour pipelines outillées</td>
+            <td>Chaîne complète IR + RAG + validation + réparation automatique</td>
+          </tr>
+          <tr>
+            <td><span class="badge text-white" style="background:var(--safran-blue);">GPT-5 mini ★</span></td>
+            <td>Plus rapide / moins cher · bon pour tâches définies et prompts précis</td>
+            <td>Extraction IR, classification, normalisation sémantique</td>
+          </tr>
+          <tr>
+            <td><span class="badge bg-secondary">GPT-5 nano</span></td>
+            <td>Très rapide / coût minimal · micro-tâches et pré/post-traitements</td>
+            <td>Checks simples, filtres, sanitation, scoring heuristique</td>
+          </tr>
+          <tr>
+            <td><span class="badge bg-dark">GPT-5.2 Codex</span></td>
+            <td>Optimisé coding / agentic longue-horizon</td>
+            <td>Pipeline avec outils + boucle de correction itérative</td>
+          </tr>
+          <!-- Gemini -->
+          <tr>
+            <td rowspan="2" class="fw-bold align-middle text-center" style="color:var(--safran-blue); background:#f5f8ff;">Gemini</td>
+            <td><span class="badge text-white" style="background:var(--safran-orange);">Pro</span></td>
+            <td>Capacité plus élevée · tâches complexes / contexte riche</td>
+            <td>Génération SysML v2 complète + raisonnement sur cas difficiles</td>
+          </tr>
+          <tr>
+            <td><span class="badge text-white" style="background:var(--safran-blue);">Flash ★ <small>(utilisé)</small></span></td>
+            <td>Plus rapide / efficace · faible latence</td>
+            <td>Étapes de pipeline / RAG orchestration / IR — <strong>modèle retenu pour cette mission</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-muted mt-2 mb-0" style="font-size:.8rem;">
+      ★ = variante recommandée pour le cas d'usage SysML v2 en pipeline RAG. L'architecture du pipeline
+      (<code>LLMBase</code> + Factory) permet de switcher entre modèles sans modifier les prompts.
+    </p>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  SECTION 2 — ARCHITECTURE DU PIPELINE                                   -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="architecture" class="section-block" style="background:var(--safran-white);">
+  <div class="container-xl">
+
+    <h2 class="section-title mb-2">Architecture du pipeline</h2>
+    <p class="text-muted mb-4" style="font-size:.9rem;">
+      Découvrez les 7 étapes de construction — du besoin initial jusqu'à l'itération V2 sur le BAS Silvercrest.
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ÉTAPE 0 — LE BESOIN INITIAL                                        -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header fw-bold text-white d-flex align-items-center gap-2" style="background:var(--safran-blue);">
+        <span class="badge rounded-pill fs-6 px-3" style="background:var(--safran-orange);">Étape 0</span>
+        Le besoin initial
+      </div>
+      <div class="card-body">
+        <p class="mb-3">L'<strong>architecte système</strong> dispose d'une description en langage naturel de son système. Il veut obtenir :</p>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="pipeline-step step-io text-center h-100">
+              <div class="fw-bold mb-1" style="color:var(--safran-blue);">① Modèle SysML v2</div>
+              <div class="text-muted" style="font-size:.85rem;">Code textuel complet, 4 niveaux MBSE, syntaxe conforme OMG</div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="pipeline-step step-llm text-center h-100">
+              <div class="fw-bold mb-1" style="color:var(--safran-blue);">② Diagrammes visualisables</div>
+              <div class="text-muted" style="font-size:.85rem;">Architecture graphique, éditable dans Eclipse SysON</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ÉTAPE 1 — RAG                                                      -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header fw-bold text-white d-flex align-items-center gap-2" style="background:var(--safran-blue);">
+        <span class="badge rounded-pill fs-6 px-3" style="background:var(--safran-orange);">Étape 1</span>
+        Construction du socle de connaissances — RAG
+      </div>
+      <div class="card-body">
+        <div class="alert alert-light border mb-3 py-2 px-3" style="font-size:.88rem;">
+          <strong>Problème :</strong> le LLM ne connaît pas bien SysML v2 (standard récent, 2023+).
+          <strong>Solution :</strong> on indexe la documentation officielle et on injecte des exemples réels à chaque appel.
+        </div>
+        <div class="pipeline-step step-data mb-3">
+          <div class="row align-items-center gy-2">
+            <div class="col-md-5">
+              <div class="fw-semibold" style="color:var(--safran-blue);">Source — Dépôt officiel SysML v2</div>
+              <div class="text-muted small"><code>Systems-Modeling/SysML-v2-Release</code></div>
+              <div class="text-muted small">196 fichiers <code>.sysml</code> (exemples + bibliothèque)</div>
+            </div>
+            <div class="col-md-2 text-center fs-4 text-muted">↓</div>
+            <div class="col-md-5">
+              <div class="fw-semibold" style="color:var(--safran-blue);">Base vectorielle ChromaDB</div>
+              <div class="text-muted small"><strong>337 chunks</strong> indexés · chunks de 1 500 chars</div>
+              <div class="text-muted small">Embeddings : <code>all-MiniLM-L6-v2</code> (local, sans API)</div>
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-safran table-sm table-bordered align-middle mb-0" style="font-size:.84rem;">
+            <thead><tr><th>Paramètre</th><th>Valeur</th></tr></thead>
+            <tbody>
+              <tr><td>Fichiers indexés</td><td>196 fichiers <code>.sysml</code></td></tr>
+              <tr><td>Nombre de chunks</td><td>337 extraits</td></tr>
+              <tr><td>Taille par chunk</td><td>1 500 chars, chevauchement 200 chars</td></tr>
+              <tr><td>Modèle d'embeddings</td><td><code>all-MiniLM-L6-v2</code> (local)</td></tr>
+              <tr><td>Base vectorielle</td><td>ChromaDB (persistée sur disque)</td></tr>
+              <tr><td>Top-K injecté par appel</td><td>8 extraits les plus pertinents</td></tr>
+              <tr><td>Temps de requête</td><td>&lt; 100 ms</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ÉTAPE 2 — 4 NIVEAUX MBSE                                          -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header fw-bold text-white d-flex align-items-center gap-2" style="background:var(--safran-blue);">
+        <span class="badge rounded-pill fs-6 px-3" style="background:var(--safran-orange);">Étape 2</span>
+        Pipeline de génération — 4 niveaux MBSE progressifs
+      </div>
+      <div class="card-body">
+        <p class="mb-3 text-muted" style="font-size:.9rem;">On ne génère pas tout d'un coup. La description est décomposée en 4 niveaux d'abstraction croissants, chacun enrichissant le suivant.</p>
+
+        <!-- Progression verticale des 4 niveaux -->
+        <div class="d-flex flex-column gap-0 mb-3">
+
+          <div class="pipeline-step step-io p-3">
+            <div class="d-flex align-items-start gap-3">
+              <span class="badge-level flex-shrink-0">N1</span>
+              <div>
+                <div class="fw-bold">Opérationnel <span class="fw-normal text-muted">— QUI et POURQUOI ?</span></div>
+                <div class="text-muted" style="font-size:.83rem;"><strong>Entrée :</strong> description NL de l'utilisateur</div>
+                <div class="text-muted" style="font-size:.83rem;"><strong>Sortie JSON :</strong> stakeholders · systèmes externes · use cases · scénarios · exigences</div>
+              </div>
+            </div>
+          </div>
+          <div class="text-center text-muted fs-5 py-1">↓</div>
+
+          <div class="pipeline-step step-llm p-3">
+            <div class="d-flex align-items-start gap-3">
+              <span class="badge-level flex-shrink-0">N2</span>
+              <div>
+                <div class="fw-bold">Fonctionnel <span class="fw-normal text-muted">— QUE FAIT le système ?</span></div>
+                <div class="text-muted" style="font-size:.83rem;"><strong>Entrée :</strong> JSON N1 + description NL</div>
+                <div class="text-muted" style="font-size:.83rem;"><strong>Sortie JSON :</strong> fonctions · sous-fonctions · flux fonctionnels typés (pneumatique / info / électrique)</div>
+              </div>
+            </div>
+          </div>
+          <div class="text-center text-muted fs-5 py-1">↓</div>
+
+          <div class="pipeline-step step-data p-3">
+            <div class="d-flex align-items-start gap-3">
+              <span class="badge-level flex-shrink-0">N3</span>
+              <div>
+                <div class="fw-bold">Logique <span class="fw-normal text-muted">— COMMENT est-il structuré ?</span></div>
+                <div class="text-muted" style="font-size:.83rem;"><strong>Entrée :</strong> JSON N2 + JSON N1 + description NL</div>
+                <div class="text-muted" style="font-size:.83rem;"><strong>Sortie JSON :</strong> composants logiques · ports · interfaces · connexions · allocation exigences</div>
+              </div>
+            </div>
+          </div>
+          <div class="text-center text-muted fs-5 py-1">↓</div>
+
+          
+
+        </div>
+
+        <!-- Récapitulatif 4 niveaux -->
+        
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ÉTAPE 3 — 2 APPELS LLM PAR NIVEAU                                 -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header fw-bold text-white d-flex align-items-center gap-2" style="background:var(--safran-blue);">
+        <span class="badge rounded-pill fs-6 px-3" style="background:var(--safran-orange);">Étape 3</span>
+        Le pipeline en 2 appels LLM par niveau
+      </div>
+      <div class="card-body">
+        <p class="mb-3 text-muted" style="font-size:.9rem;">Pour chaque niveau MBSE, deux appels successifs au LLM sont effectués :</p>
+
+        <!-- Flux horizontal : appel 1 -->
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+          <div class="pipeline-step step-io text-center" style="min-width:150px;">
+            <div class="fw-semibold small">Description NL</div>
+            <div class="text-muted" style="font-size:.76rem;">+ JSON niveaux précédents<br>+ Exemples RAG</div>
+          </div>
+          <div class="pipeline-arrow fs-4">→</div>
+          <div class="pipeline-step step-llm text-center" style="min-width:150px;">
+            <div class="fw-semibold small">APPEL LLM #1</div>
+            <div class="text-muted" style="font-size:.76rem;">Prompt MBSE<br>+ Règles P1-P8</div>
+          </div>
+          <div class="pipeline-arrow fs-4">→</div>
+          <div class="pipeline-step step-data text-center" style="min-width:150px;">
+            <div class="fw-semibold small">JSON structuré</div>
+            <div class="text-muted" style="font-size:.76rem;">Inspectable<br>Modifiable</div>
+          </div>
+          <div class="pipeline-arrow fs-4">→</div>
+          <div class="pipeline-step step-llm text-center" style="min-width:150px;">
+            <div class="fw-semibold small">APPEL LLM #2</div>
+            <div class="text-muted" style="font-size:.76rem;">JSON → SysML v2<br>+ Exemples RAG</div>
+          </div>
+          <div class="pipeline-arrow fs-4">→</div>
+          <div class="pipeline-step step-io text-center" style="min-width:150px;">
+            <div class="fw-semibold small">Code SysML v2</div>
+            <div class="text-muted" style="font-size:.76rem;">Syntaxe textuelle<br>OMG</div>
+          </div>
+        </div>
+
+        <div class="alert alert-light border py-2 px-3 mb-0" style="font-size:.85rem;">
+          <strong>Pourquoi 2 appels et pas 1 ?</strong>
+          <ul class="mb-0 mt-1">
+            <li>Le <strong>JSON intermédiaire est inspectable</strong> : l'ingénieur peut vérifier ce que l'IA a compris avant de générer le code.</li>
+            <li>Le <strong>JSON est modifiable</strong> : l'utilisateur peut corriger la compréhension avant la traduction SysML v2.</li>
+            <li>La <strong>sortie est stable</strong> : le JSON contraint la structure du code SysML v2 généré.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ÉTAPE 4 — INGÉNIERIE DES PROMPTS P1-P8                            -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header fw-bold text-white d-flex align-items-center gap-2" style="background:var(--safran-blue);">
+        <span class="badge rounded-pill fs-6 px-3" style="background:var(--safran-orange);">Étape 4</span>
+        Ingénierie des prompts — 8 corrections P1-P8
+      </div>
+      <div class="card-body">
+        <p class="mb-3 text-muted" style="font-size:.9rem;">Les prompts initiaux produisaient des erreurs. Un processus itératif <strong>Test → Diagnostic → Corrections</strong> a identifié 8 corrections :</p>
+        <div class="table-responsive mb-0">
+          <table class="table table-safran table-sm table-bordered align-middle mb-0" style="font-size:.84rem;">
+            <thead>
+              <tr>
+                <th style="width:50px;">ID</th>
+                <th>Niveau</th>
+                <th>Problème observé</th>
+                <th>Solution intégrée dans le prompt</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="rule-badge">P1</span></td>
+                <td>Opérationnel</td>
+                <td>Confusion stakeholder / système externe</td>
+                <td>Stakeholder = personne ou système qui UTILISE activement le système</td>
+              </tr>
+              <tr>
+                <td><span class="rule-badge">P2</span></td>
+                <td>Opérationnel</td>
+                <td>Trop d'exigences inventées (comportements → REQ)</td>
+                <td>Exigences = contraintes chiffrées et mesurables uniquement</td>
+              </tr>
+              <tr>
+                <td><span class="rule-badge">P3</span></td>
+                <td>Logique</td>
+                <td>Connexions vers des composants inexistants dans <code>parts</code></td>
+                <td>Vérifier que les 2 bouts de chaque connexion existent dans <code>parts</code></td>
+              </tr>
+              <tr>
+                <td><span class="rule-badge">P4</span></td>
+                <td>Logique</td>
+                <td>0 exigences allouées au niveau logique</td>
+                <td>Forcer l'allocation des exigences via <code>satisfied_by</code></td>
+              </tr>
+              <tr>
+                <td><span class="rule-badge orange">P5</span></td>
+                <td>Opérationnel</td>
+                <td><code>stakeholders=[]</code> vide malgré des entités actives</td>
+                <td>Distinguer acteur (participe aux UC) vs système passif (frontière)</td>
+              </tr>
+              <tr>
+                <td><span class="rule-badge orange">P6</span></td>
+                <td>Fonctionnel</td>
+                <td>Flux non typés (noms génériques, pas de catégorie physique)</td>
+                <td>Ajouter champ <code>flow_type</code> : pneumatique / information / électrique…</td>
+              </tr>
+              <tr>
+                <td><span class="rule-badge orange">P7</span></td>
+                <td>Fonctionnel</td>
+                <td>Pas de lien entre composant physique et sa fonction</td>
+                <td>Notation <code>Composant::Fonction</code> pour les sous-fonctions</td>
+              </tr>
+              <tr>
+                <td><span class="rule-badge orange">P8</span></td>
+                <td>Opérationnel</td>
+                <td>Use cases trop génériques (1 UC "Fournir air" au lieu de 3)</td>
+                <td>Décomposer par destination si plusieurs destinations sont mentionnées</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ÉTAPE 5 — DIAGNOSTIC QUALITÉ                                       -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header fw-bold text-white d-flex align-items-center gap-2" style="background:var(--safran-blue);">
+        <span class="badge rounded-pill fs-6 px-3" style="background:var(--safran-orange);">Étape 5</span>
+        Diagnostic qualité — comparaison avec les vrais diagrammes
+      </div>
+      <div class="card-body">
+        <p class="mb-3 text-muted" style="font-size:.9rem;">
+          Le code SysML v2 généré a été comparé aux <strong>4 diagrammes de référence</strong> du BAS Silvercrest fournis par Safran.
+        </p>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-3 col-6">
+            <div class="pipeline-step step-data text-center py-2 px-2">
+              <div class="fw-semibold small">Lifecycle Diagram</div>
+            </div>
+          </div>
+          <div class="col-md-3 col-6">
+            <div class="pipeline-step step-data text-center py-2 px-2">
+              <div class="fw-semibold small">Use Case (Services)</div>
+            </div>
+          </div>
+          <div class="col-md-3 col-6">
+            <div class="pipeline-step step-data text-center py-2 px-2">
+              <div class="fw-semibold small">Use Case (Maintenance)</div>
+            </div>
+          </div>
+          <div class="col-md-3 col-6">
+            <div class="pipeline-step step-data text-center py-2 px-2">
+              <div class="fw-semibold small">Functional Behavior Diagram</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="alert d-flex align-items-center gap-2 mb-3" style="background:#fff3cd; border-left:4px solid #e67e22;">
+          <span class="fw-bold fs-4">42 %</span>
+          <div>couverture globale V1 sur 46 éléments attendus<br><small class="text-muted">(9 présents + 11 partiels + 26 absents)</small></div>
+        </div>
+
+        <h6 class="fw-semibold mb-2">Analyse des causes :</h6>
+        <div class="mb-1 d-flex align-items-center gap-2">
+          <span style="width:180px; font-size:.85rem;" class="text-end"><span class="rule-badge">DESCRIPTION</span></span>
+          <div class="progress flex-grow-1" style="height:24px;">
+            <div class="progress-bar bg-danger" style="width:70%; font-size:.82rem;">70 % — éléments non mentionnés par l'utilisateur</div>
+          </div>
+        </div>
+        <div class="mb-1 d-flex align-items-center gap-2">
+          <span style="width:180px; font-size:.85rem;" class="text-end"><span class="rule-badge orange">PROMPT</span></span>
+          <div class="progress flex-grow-1" style="height:24px;">
+            <div class="progress-bar bg-warning text-dark" style="width:27%; font-size:.82rem;">27 % — mentionné, mal capturé</div>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span style="width:180px; font-size:.85rem;" class="text-end"><span class="badge bg-secondary">IA</span></span>
+          <div class="progress flex-grow-1" style="height:24px;">
+            <div class="progress-bar bg-success" style="width:3%; font-size:.82rem;">3 %</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ÉTAPE 6 — ITÉRATION V2                                            -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div class="card border-0 shadow-sm mb-2">
+      <div class="card-header fw-bold text-white d-flex align-items-center gap-2" style="background:var(--safran-blue);">
+        <span class="badge rounded-pill fs-6 px-3" style="background:var(--safran-orange);">Étape 6</span>
+        Itération V2 — description enrichie + prompts corrigés P5-P8
+      </div>
+      <div class="card-body">
+        <div class="row g-4 mb-3">
+          <div class="col-md-6">
+            <div class="pipeline-step step-io h-100 p-3">
+              <div class="fw-bold mb-2" style="color:var(--safran-blue);">V1 — 56 lignes</div>
+              <ul class="mb-0" style="font-size:.85rem;">
+                <li>4 fonctions de service</li>
+                <li>3 acteurs (stakeholders vides)</li>
+                <li>0 use case de maintenance</li>
+                <li>0 phase de cycle de vie</li>
+                <li>Flux non typés</li>
+                <li>Pas de notation composant::fonction</li>
+              </ul>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="pipeline-step step-llm h-100 p-3" style="border-color:var(--safran-orange); background:#fff9f5;">
+              <div class="fw-bold mb-2" style="color:var(--safran-orange);">V2 — 155 lignes (+177 %)</div>
+              <ul class="mb-0" style="font-size:.85rem;">
+                <li>7 use cases décomposés par destination</li>
+                <li>5 acteurs (+EECS, +Opérateur maintenance)</li>
+                <li>4 use cases de maintenance</li>
+                <li>8 phases de cycle de vie</li>
+                <li>Flux typés (pneumatique, info, électrique)</li>
+                <li>Notation <code>composant::fonction</code></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <h6 class="fw-semibold mb-2">Résultats de l'itération :</h6>
+        <div class="table-responsive mb-3">
+          <table class="table table-safran table-sm table-bordered align-middle mb-0" style="font-size:.85rem;">
+            <thead><tr><th>Métrique</th><th>V1</th><th>V2</th><th>Évolution</th></tr></thead>
+            <tbody>
+              <tr><td>Couverture Use Cases Services</td><td>54 %</td><td>75 %</td><td><span class="badge bg-success">+21 points</span></td></tr>
+              <tr><td>Couverture Maintenance</td><td>0 %</td><td>43 %</td><td><span class="badge bg-success">Nouvelle couverture</span></td></tr>
+              <tr><td>Acteurs identifiés</td><td>3</td><td>5</td><td><span class="badge bg-success">+2</span></td></tr>
+              <tr><td>Use cases générés</td><td>4</td><td>8</td><td><span class="badge bg-success">+4</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Cycle itératif visuel -->
+        <div class="d-flex align-items-center flex-wrap gap-2 justify-content-center">
+          <div class="cycle-step">① Test V1</div>
+          <div class="pipeline-arrow">→</div>
+          <div class="cycle-step">② Diagnostic qualité</div>
+          <div class="pipeline-arrow">→</div>
+          <div class="cycle-step">③ Analyse des causes</div>
+          <div class="pipeline-arrow">→</div>
+          <div class="cycle-step">④ Corrections P1-P8</div>
+          <div class="pipeline-arrow">→</div>
+          <div class="cycle-step">⑤ Test V2 +33 pts</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Accordéon 4 niveaux MBSE (détail) -->
+    <h5 class="fw-semibold mb-3 mt-4" style="color:var(--safran-blue);">Détail des 4 niveaux MBSE</h5>
+    <div class="accordion mb-4" id="accordionMBSE">
+
+      <!-- Niveau 1 — Opérationnel -->
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#mbse1">
+            <span class="badge-level">N1</span>
+            Opérationnel — <em class="ms-1 fw-normal">QUI et POURQUOI ?</em>
+          </button>
+        </h2>
+        <div id="mbse1" class="accordion-collapse collapse show" data-bs-parent="#accordionMBSE">
+          <div class="accordion-body">
+            <p>Le niveau opérationnel décrit le système vu de l'extérieur, comme une <strong>boîte noire</strong>.
+            Il répond aux questions : <em>Qui interagit avec le système ? Dans quel but ? Dans quels contextes ?</em></p>
+            <ul>
+              <li><strong>Stakeholders</strong> : acteurs humains (opérateurs, maintenanciers) et systèmes techniques qui interagissent activement (A/C Avionics, EECS, système pneumatique avion).</li>
+              <li><strong>Systèmes externes</strong> : entités à la frontière du périmètre (ex. : SOV — Shut-Off Valve comme frontière physique passive).</li>
+              <li><strong>Use cases</strong> : fonctions de service rendues par le système à ses stakeholders (ex. : <code>PressuriserEtTempererLaCabine</code>, <code>DegivrerLaNacelle</code>, <code>DiagnostiquerLEtat</code>).</li>
+              <li><strong>Scénarios opérationnels</strong> : séquences d'interactions décrivant le déroulement des use cases.</li>
+              <li><strong>Exigences de haut niveau</strong> : contraintes mesurables liant le système à son environnement.</li>
+            </ul>
+            <div class="alert alert-light border py-2 px-3 mb-0" style="font-size:0.83rem;">
+              <strong>Diagrammes associés :</strong> diagramme de contexte, diagramme de cas d'utilisation.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Niveau 2 — Fonctionnel -->
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mbse2">
+            <span class="badge-level">N2</span>
+            Fonctionnel — <em class="ms-1 fw-normal">QUE FAIT le système ?</em>
+          </button>
+        </h2>
+        <div id="mbse2" class="accordion-collapse collapse" data-bs-parent="#accordionMBSE">
+          <div class="accordion-body">
+            <p>Le niveau fonctionnel ouvre la boîte noire et décrit les <strong>fonctions internes</strong> qui permettent de réaliser les use cases opérationnels. Il reste indépendant de toute technologie.</p>
+            <ul>
+              <li><strong>Fonctions</strong> avec leurs sous-fonctions hiérarchiques (ex. : <code>GérerLePrélèvement</code> → <code>PréléverAirIP</code>, <code>PréléverAirHP</code>).</li>
+              <li><strong>Flux fonctionnels typés</strong> : chaque échange est catégorisé — <code>pneumatique</code>, <code>information</code>, <code>électrique</code>, <code>thermique</code>, <code>mécanique</code>.</li>
+              <li><strong>Modes opératoires</strong> : configuration des fonctions actives selon l'état du système (OFF, Stand-by, Running).</li>
+            </ul>
+            <div class="alert alert-light border py-2 px-3 mb-0" style="font-size:0.83rem;">
+              <strong>Règle de traçabilité :</strong> chaque use case du niveau opérationnel doit être couvert par au moins une fonction.<br/>
+              <strong>Diagrammes associés :</strong> arborescence fonctionnelle (FBS), diagramme de comportement fonctionnel.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Niveau 3 — Logique -->
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mbse3">
+            <span class="badge-level">N3</span>
+            Logique — <em class="ms-1 fw-normal">COMMENT est-il structuré ?</em>
+          </button>
+        </h2>
+        <div id="mbse3" class="accordion-collapse collapse" data-bs-parent="#accordionMBSE">
+          <div class="accordion-body">
+            <p>Le niveau logique décompose le système en <strong>composants logiques</strong> indépendants de la technologie. Il décrit l'architecture de solution sans descendre aux choix d'équipements.</p>
+            <ul>
+              <li><strong>Parts</strong> (composants logiques) avec leurs ports d'interface.</li>
+              <li><strong>Connexions</strong> entre ports (ex. : <code>FluxAirHautePression : GestionnairePrelevement.sortieAir → RégulationPression.entreeAir</code>).</li>
+              <li><strong>Allocation des exigences</strong> : chaque exigence est allouée au composant logique responsable.</li>
+            </ul>
+            <div class="alert alert-light border py-2 px-3 mb-0" style="font-size:0.83rem;">
+              <strong>Règle de cohérence :</strong> toute connexion doit lier deux composants définis dans <code>parts</code>.<br/>
+              <strong>Diagrammes associés :</strong> Block Definition Diagram (BDD), Internal Block Diagram (IBD).
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Niveau 4 — Technique -->
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mbse4">
+            <span class="badge-level">N4</span>
+            Technique — <em class="ms-1 fw-normal">AVEC QUOI est-il construit ?</em>
+          </button>
+        </h2>
+        <div id="mbse4" class="accordion-collapse collapse" data-bs-parent="#accordionMBSE">
+          <div class="accordion-body">
+            <p>Le niveau technique instancie l'architecture logique avec des <strong>composants physiques réels</strong> et des technologies concrètes.</p>
+            <ul>
+              <li><strong>Composants physiques</strong> nommés avec leur désignation d'équipement (ex. : <code>HPV</code>, <code>PRV</code>, <code>Exchanger_ACAC</code>, <code>ElectronicBASControl</code>).</li>
+              <li><strong>Connexions physiques</strong> (canalisations, câblages, interfaces mécaniques).</li>
+              <li><strong>Choix technologiques</strong> documentés (matériaux, normes, protocoles).</li>
+            </ul>
+            <div class="alert alert-light border py-2 px-3 mb-0" style="font-size:0.83rem;">
+              <strong>Règle :</strong> l'IA ne propose jamais de marque ou modèle non mentionné par l'utilisateur.<br/>
+              <strong>Diagrammes associés :</strong> diagramme d'architecture technique.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /accordion MBSE -->
+
+    <!-- Récapitulatif 4 niveaux table -->
+    <div class="table-responsive mb-4">
+      <table class="table table-bordered table-safran align-middle" style="font-size:0.85rem;">
+        <thead>
+          <tr>
+            <th>Niveau</th><th>Question centrale</th><th>Abstraction</th><th>Éléments clés</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Opérationnel</strong></td><td>QUI et POURQUOI ?</td><td>Boîte noire</td><td>Stakeholders, use cases, scénarios, exigences</td></tr>
+          <tr><td><strong>Fonctionnel</strong></td><td>QUE FAIT ?</td><td>Boîte blanche fonctionnelle</td><td>Fonctions, flux typés, modes</td></tr>
+          <tr><td><strong>Logique</strong></td><td>COMMENT structuré ?</td><td>Architecture logique</td><td>Parts, ports, connexions, allocations</td></tr>
+          <tr><td><strong>Technique</strong></td><td>AVEC QUOI construit ?</td><td>Implémentation physique</td><td>Équipements, technologies, connexions physiques</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  SECTION 3 — PROMPTS DE GÉNÉRATION                                      -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="prompts" class="section-block" style="background:var(--safran-light);">
+  <div class="container-xl">
+
+    <h2 class="section-title">Catégorie 1 — Prompts de génération du modèle SysML v2</h2>
+
+    <div class="intro-block">
+      Un prompt efficace pour générer du SysML v2 est composé de <strong>6 éléments</strong> :
+      <em>① Rôle</em>, <em>② Contexte MBSE</em>, <em>③ Règles de fidélité</em>,
+      <em>④ Format de sortie JSON</em>, <em>⑤ Exemple de structure annoté</em>,
+      <em>⑥ Exemples RAG injectés dynamiquement</em>.
+      Cette architecture a été validée empiriquement sur le BAS Silvercrest : les variantes qui omettent
+      l'un de ces composants produisent systématiquement des régressions mesurables.
+    </div>
+
+    <!-- Structure 6 composants visuelle -->
+    <div class="row g-2 mb-4">
+      <div class="col-12">
+        <div class="d-flex flex-wrap gap-2">
+          <span class="badge text-bg-primary fs-6 py-2 px-3">① Rôle</span>
+          <span class="pipeline-arrow align-self-center">→</span>
+          <span class="badge text-bg-primary fs-6 py-2 px-3">② Contexte MBSE</span>
+          <span class="pipeline-arrow align-self-center">→</span>
+          <span class="badge text-bg-primary fs-6 py-2 px-3">③ Règles fidélité</span>
+          <span class="pipeline-arrow align-self-center">→</span>
+          <span class="badge text-bg-secondary fs-6 py-2 px-3">④ Schéma JSON</span>
+          <span class="pipeline-arrow align-self-center">→</span>
+          <span class="badge text-bg-secondary fs-6 py-2 px-3">⑤ Exemple</span>
+          <span class="pipeline-arrow align-self-center">→</span>
+          <span class="badge fs-6 py-2 px-3" style="background:var(--safran-orange);">⑥ RAG</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Accordéon 4 niveaux de prompts -->
+    <div class="accordion mb-5" id="accordionPrompts">
+
+      <!-- ── ITEM 1 : PROMPT OPÉRATIONNEL ── -->
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#promptOp">
+            <span class="badge-level">N1</span>
+            Prompt Opérationnel
+          </button>
+        </h2>
+        <div id="promptOp" class="accordion-collapse collapse show" data-bs-parent="#accordionPrompts">
+          <div class="accordion-body">
+            <p><strong>Objectif :</strong> extraire de la description utilisateur les acteurs, les systèmes externes,
+            les cas d'utilisation, les scénarios opérationnels et les exigences mesurables.
+            Fichier source : <code>backend/prompts/operational_prompt.py</code> —
+            fonction <code>build_operational_json_prompt()</code>.</p>
+
+            <!-- Sous-accordéon règles -->
+            <div class="accordion accordion-flush mb-3" id="subOp">
+              <div class="accordion-item border">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#subOpRules">
+                    <span class="rule-badge">P1/P5</span>
+                    <span class="rule-badge">P2</span>
+                    <span class="rule-badge">P8</span>
+                    Règles de fidélité intégrées
+                  </button>
+                </h2>
+                <div id="subOpRules" class="accordion-collapse collapse">
+                  <div class="accordion-body" style="font-size:0.88rem;">
+                    <p><span class="rule-badge">P1/P5</span> <strong>Distinction stakeholder / système externe :</strong></p>
+                    <blockquote class="blockquote border-start border-3 ps-3" style="font-size:0.85rem;">
+                      Un stakeholder est soit une PERSONNE/ORGANISATION, soit un SYSTÈME TECHNIQUE qui est
+                      ACTEUR dans un cas d'utilisation (qui initie des interactions, envoie des commandes,
+                      ou reçoit activement des services). Exemples : un calculateur moteur (EECS) qui envoie
+                      des consignes EST un stakeholder de type "system". En revanche, une vanne d'isolement
+                      physique (frontière passive) n'est PAS un stakeholder mais un external_system.
+                      Le champ "stakeholders" ne doit JAMAIS être vide si des entités interagissent activement.
+                    </blockquote>
+                    <p><span class="rule-badge">P2</span> <strong>Exigences = contraintes mesurables uniquement :</strong></p>
+                    <blockquote class="blockquote border-start border-3 ps-3" style="font-size:0.85rem;">
+                      Ne génère des requirements QUE pour des contraintes explicitement chiffrées ou mesurables
+                      (temps de réponse, disponibilité, capacité, température, etc.). Un comportement fonctionnel
+                      décrit (ex: "la vanne s'ouvre") N'EST PAS une exigence. C'est un comportement normal du
+                      système capturé dans les use cases, pas dans les exigences.
+                    </blockquote>
+                    <p><span class="rule-badge">P8</span> <strong>Décomposition des use cases par destination :</strong></p>
+                    <blockquote class="blockquote border-start border-3 ps-3" style="font-size:0.85rem;">
+                      Si un cas d'utilisation est de type "Fournir/Envoyer X à Y" et que la description mentionne
+                      PLUSIEURS destinations distinctes, décompose-le en sous-use cases séparés par destination.
+                      Exemple : "Le système fournit de l'air régulé à l'avion pour pressuriser la cabine,
+                      dégivrer les ailes et pressuriser les réservoirs" → génère 3 use cases distincts.
+                    </blockquote>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Template prompt complet -->
+              <div class="accordion-item border">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#subOpTemplate">
+                    Template du prompt JSON complet (<code>build_operational_json_prompt</code>)
+                  </button>
+                </h2>
+                <div id="subOpTemplate" class="accordion-collapse collapse">
+                  <div class="accordion-body p-0">
+                    <pre><code class="language-plaintext">Tu es un ingénieur système expert en analyse opérationnelle. Tu analyses une description pour identifier le périmètre opérationnel du système.
+
+=== TON RÔLE ===
+- Tu identifies QUI utilise le système (stakeholders, acteurs)
+- Tu identifies AVEC QUOI le système interagit (systèmes externes)
+- Tu définis le PÉRIMÈTRE du système (ce qui est dedans, ce qui est dehors)
+- Tu extrais les CAS D'UTILISATION (use cases)
+- Tu identifies les SCÉNARIOS OPÉRATIONNELS (séquences d'interactions)
+- Tu formules les BESOINS OPÉRATIONNELS (requirements de haut niveau)
+
+=== RÈGLES DE FIDÉLITÉ (CRITIQUE) ===
+- Tu ne dois RIEN inventer qui n'est pas explicitement décrit
+- Tu ne dois RIEN ajouter qui n'est pas mentionné
+- Si quelque chose est ambigu ou incohérent, ajoute un warning dans le champ "warnings"
+- Utilise le vocabulaire exact de l'utilisateur pour les noms
+- DISTINCTION STAKEHOLDER / SYSTÈME EXTERNE (P4+P5) : Un stakeholder est soit une
+  PERSONNE/ORGANISATION, soit un SYSTÈME TECHNIQUE qui est ACTEUR dans un cas d'utilisation.
+  Exemples : un calculateur moteur (EECS) qui envoie des consignes EST un stakeholder de type
+  "system". Une vanne d'isolement physique (frontière passive) n'est PAS un stakeholder.
+  Le champ "stakeholders" ne doit JAMAIS être vide si des entités interagissent activement.
+- RÈGLE P5 — FORMAT STAKEHOLDERS : Utilise le format objet avec type et rôle :
+  {"name": "...", "role": "...", "type": "human"|"system"|"organization"}
+- EXIGENCES = CONTRAINTES MESURABLES UNIQUEMENT (P2) : Ne génère des requirements QUE pour
+  des contraintes explicitement chiffrées. Un comportement fonctionnel N'EST PAS une exigence.
+- RÈGLE P8 — DÉCOMPOSITION DES USE CASES : Si un UC est de type "Fournir X à Y" et que la
+  description mentionne PLUSIEURS destinations, décompose-le en sous-UC par destination.
+
+=== SCHÉMA JSON ATTENDU (OperationalModel) ===
+{
+  "system_name": "string",
+  "description": "string",
+  "warnings": ["string"],
+  "stakeholders": [
+    {"name": "string", "role": "string", "type": "human|system|organization"}
+  ],
+  "external_systems": ["string"],
+  "system_boundaries": "string",
+  "use_cases": [
+    {"name": "string", "actors": ["string"], "includes": ["string"]}
+  ],
+  "operational_scenarios": [
+    {"name": "string", "description": "string", "steps": ["string"]}
+  ],
+  "requirements": [
+    {"id": "REQ-OP-001", "text": "string", "satisfied_by": null}
+  ]
+}
+
+=== DESCRIPTION À ANALYSER ===
+[description fournie par l'ingénieur système]
+
+=== TON RÉSULTAT (JSON UNIQUEMENT, SANS COMMENTAIRE) ===</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Exemple BAS -->
+              <div class="accordion-item border">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#subOpExample">
+                    Exemple BAS Silvercrest : entrée → sortie JSON
+                  </button>
+                </h2>
+                <div id="subOpExample" class="accordion-collapse collapse">
+                  <div class="accordion-body">
+                    <p class="mb-1"><strong>Entrée (extrait description) :</strong></p>
+                    <pre><code class="language-plaintext">Le système réalise quatre fonctions de service :
+1. Envoyer de l'air régulé en pression et température à l'avion.
+2. Envoyer de l'air chaud à la nacelle pour le dégivrage.
+3. Déterminer l'état du système par mesures physiques et auto-diagnostic.
+4. Communiquer les consignes et statuts avec l'avionique.
+La pression de sortie doit être maintenue entre 20 et 50 PSI.
+Le temps de réponse ne doit pas dépasser 500 ms.</code></pre>
+
+                    <div class="row g-3">
+                      <div class="col-md-6">
+                        <p class="mb-1 text-danger fw-semibold">Sortie V1 (avant corrections) :</p>
+                        <pre><code class="language-json">{
+  "stakeholders": [],
+  "use_cases": [
+    {"name": "EnvoyerAirReguleAvion", ...},
+    {"name": "EnvoyerAirChaudNacelle", ...},
+    {"name": "DeterminerEtatSysteme", ...},
+    {"name": "CommuniquerConsignes", ...}
+  ],
+  "requirements": []
+}</code></pre>
+                        <small class="text-muted">stakeholders=[], 4 UC génériques, 0 exigences</small>
+                      </div>
+                      <div class="col-md-6">
+                        <p class="mb-1 text-success fw-semibold">Sortie V2 (après P5 + P8) :</p>
+                        <pre><code class="language-json">{
+  "stakeholders": [
+    {"name": "AC_Avionics", "role": "Envoie les consignes", "type": "system"},
+    {"name": "EECS", "role": "Calculateur moteur", "type": "system"},
+    {"name": "SystemePneumatiqueDeLAvion", "role": "Reçoit l'air", "type": "system"},
+    {"name": "Nacelle", "role": "Reçoit l'air chaud", "type": "system"},
+    {"name": "OperateurDeMaintenance", "role": "Diagnostique", "type": "human"}
+  ],
+  "use_cases": [
+    {"name": "PressuriserEtTempererLaCabine", "actors": ["AC_Avionics"]},
+    {"name": "DegivrerLesAiles", "actors": ["AC_Avionics"]},
+    {"name": "PressuriserLesReservoirs", "actors": ["AC_Avionics"]},
+    {"name": "DegivrerLaNacelle", "actors": ["AC_Avionics", "Nacelle"]},
+    {"name": "DiagnostiquerLEtat", "actors": ["OperateurDeMaintenance"]}
+  ],
+  "requirements": [
+    {"id": "REQ-OP-001", "text": "Pression sortie 20–50 PSI", "satisfied_by": null},
+    {"id": "REQ-OP-002", "text": "Temps réponse ≤ 500 ms", "satisfied_by": null}
+  ]
+}</code></pre>
+                        <small class="text-muted">5 stakeholders, 8 UC V2 total, 2 exigences mesurables</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div><!-- /sous-accordéon opérationnel -->
+          </div>
+        </div>
+      </div><!-- /item opérationnel -->
+
+      <!-- ── ITEM 2 : PROMPT FONCTIONNEL ── -->
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#promptFn">
+            <span class="badge-level">N2</span>
+            Prompt Fonctionnel
+          </button>
+        </h2>
+        <div id="promptFn" class="accordion-collapse collapse" data-bs-parent="#accordionPrompts">
+          <div class="accordion-body">
+            <p><strong>Objectif :</strong> décomposer les cas d'utilisation opérationnels en fonctions internes,
+            identifier les flux entre fonctions, typer chaque flux selon sa nature physique.
+            Fichier source : <code>backend/prompts/functional_prompt.py</code> —
+            fonction <code>build_functional_json_prompt()</code>.</p>
+
+            <div class="accordion accordion-flush mb-3" id="subFn">
+              <div class="accordion-item border">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#subFnRules">
+                    <span class="rule-badge">P6</span>
+                    <span class="rule-badge">P7</span>
+                    Règles de fidélité intégrées
+                  </button>
+                </h2>
+                <div id="subFnRules" class="accordion-collapse collapse">
+                  <div class="accordion-body" style="font-size:0.88rem;">
+                    <p><span class="rule-badge">P6</span> <strong>Typing des flux (obligatoire) :</strong></p>
+                    <blockquote class="blockquote border-start border-3 ps-3" style="font-size:0.85rem;">
+                      Chaque flux dans "functional_flows" DOIT avoir un champ "flow_type" avec une des valeurs :
+                      "pneumatic" (air, gaz, fluide), "information" (données, mesures, consignes, commandes logiques),
+                      "electric" (énergie électrique, signaux discrets de commande), "thermal" (chaleur, échange thermique),
+                      "mechanical" (force, couple, déplacement). Ne laisse JAMAIS "flow_type" vide ou absent.
+                    </blockquote>
+                    <p><span class="rule-badge">P7</span> <strong>Notation composant::fonction :</strong></p>
+                    <blockquote class="blockquote border-start border-3 ps-3" style="font-size:0.85rem;">
+                      Si une sous-fonction est clairement réalisée par un composant physique spécifiquement nommé
+                      dans la description, nomme-la avec le format "NomComposant::NomFonction".
+                      Exemples : "IP Port::Prélever air", "Calculateur::Réguler la vanne NAI",
+                      "Bleed Temp Sensor::Mesurer la température". Si aucun composant n'est identifiable, garde le nom simple.
+                    </blockquote>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item border">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#subFnTemplate">
+                    Template du prompt JSON complet (<code>build_functional_json_prompt</code>)
+                  </button>
+                </h2>
+                <div id="subFnTemplate" class="accordion-collapse collapse">
+                  <div class="accordion-body p-0">
+                    <pre><code class="language-plaintext">Tu es un ingénieur système expert en analyse fonctionnelle. Tu décomposes les cas d'utilisation en fonctions.
+
+=== TON RÔLE ===
+À partir du modèle OPÉRATIONNEL validé, tu identifies :
+- Les FONCTIONS que le système doit réaliser (QUE FAIT le système)
+- Les FLUX FONCTIONNELS entre ces fonctions (échanges d'informations, d'énergie, de matière)
+- Les MODES OPÉRATOIRES (configurations où certaines fonctions sont actives)
+
+=== RÈGLES DE FIDÉLITÉ ===
+- Tu ne dois RIEN inventer qui ne découle pas du niveau opérationnel
+- Chaque fonction doit être justifiable par un ou plusieurs use cases
+- RÈGLE P6 — TYPING DES FLUX (OBLIGATOIRE) : Chaque flux dans "functional_flows" DOIT avoir
+  un champ "flow_type" avec une des valeurs : "pneumatic" | "information" | "electric" |
+  "thermal" | "mechanical". Ne laisse JAMAIS "flow_type" vide ou absent.
+- RÈGLE P7 — NOTATION COMPOSANT::FONCTION (si applicable) : Si une sous-fonction est clairement
+  réalisée par un composant physique nommé, nomme-la "NomComposant::NomFonction".
+  Exemples : "IP Port::Prélever air", "Bleed Temp Sensor::Mesurer la température".
+
+=== SCHÉMA JSON ATTENDU (FunctionalModel) ===
+{
+  "system_name": "string",
+  "warnings": ["string"],
+  "functions": [
+    {
+      "name": "string",
+      "description": "string",
+      "inputs": ["string"],
+      "outputs": ["string"],
+      "sub_functions": ["NomComposant::NomFonction ou NomFonctionSimple"]
+    }
+  ],
+  "functional_flows": [
+    {
+      "from_function": "string",
+      "to_function": "string",
+      "item": "string",
+      "flow_type": "pneumatic|information|electric|thermal|mechanical",
+      "description": "string"
+    }
+  ],
+  "modes": [
+    {"name": "string", "description": "string", "active_functions": ["string"]}
+  ]
+}
+
+=== MODÈLE OPÉRATIONNEL VALIDÉ (CONTEXTE) ===
+{ ... JSON opérationnel du niveau précédent ... }
+
+=== TON RÉSULTAT (JSON UNIQUEMENT, SANS COMMENTAIRE) ===</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item border">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#subFnExample">
+                    Exemple BAS Silvercrest : extrait JSON fonctionnel V2
+                  </button>
+                </h2>
+                <div id="subFnExample" class="accordion-collapse collapse">
+                  <div class="accordion-body">
+                    <pre><code class="language-json">{
+  "functions": [
+    {
+      "name": "GérerLePrélèvement",
+      "description": "Prélève l'air chaud depuis la turbomachine via les ports IP ou HP",
+      "inputs": ["Air Haute Pression (Turbomachine)"],
+      "outputs": ["Air Chaud Brute"],
+      "sub_functions": [
+        "IP Port::Prélever Air IP",
+        "HP Port::Prélever Air HP",
+        "HPV::Contrôler Vanne HPV"
+      ]
+    },
+    {
+      "name": "RégulerPressionTempérature",
+      "description": "Conditionne l'air prélevé pour atteindre les consignes",
+      "inputs": ["Air Chaud Brute", "Consignes (Avionique)"],
+      "outputs": ["Air Régulé"],
+      "sub_functions": [
+        "PRV::Réguler Pression",
+        "Exchanger::Refroidir Air",
+        "Bleed Press. Sensor::Mesurer Pression Finale",
+        "Bleed Temp. Sensor::Mesurer Température Finale"
+      ]
+    }
+  ],
+  "functional_flows": [
+    {
+      "from_function": "GérerLePrélèvement",
+      "to_function": "RégulerPressionTempérature",
+      "item": "Air Chaud Brute",
+      "flow_type": "pneumatic",
+      "description": "Flux d'air chaud haute pression vers le conditionnement"
+    },
+    {
+      "from_function": "ContrôlerEtCommuniquer",
+      "to_function": "GérerLePrélèvement",
+      "item": "Commande HPV",
+      "flow_type": "electric",
+      "description": "Signal de commande d'ouverture/fermeture de la HPV"
+    },
+    {
+      "from_function": "RégulerPressionTempérature",
+      "to_function": "ContrôlerEtCommuniquer",
+      "item": "Mesure Pression Finale",
+      "flow_type": "information",
+      "description": "Retour mesure pour boucle de régulation"
+    }
+  ]
+}</code></pre>
+                    <small class="text-success fw-semibold">V1 pour comparaison : 0 champ flow_type renseigné, 0 notation composant::fonction.</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /item fonctionnel -->
+
+      <!-- ── ITEM 3 : PROMPT LOGIQUE ── -->
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#promptLog">
+            <span class="badge-level">N3</span>
+            Prompt Logique
+          </button>
+        </h2>
+        <div id="promptLog" class="accordion-collapse collapse" data-bs-parent="#accordionPrompts">
+          <div class="accordion-body">
+            <p><strong>Objectif :</strong> regrouper les fonctions en composants logiques cohérents, définir leurs
+            ports et interfaces, établir les connexions, allouer les exigences.
+            Fichier source : <code>backend/prompts/logical_prompt.py</code> —
+            fonction <code>build_logical_json_prompt()</code>.</p>
+
+            <div class="accordion accordion-flush mb-3" id="subLog">
+              <div class="accordion-item border">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#subLogRules">
+                    <span class="rule-badge">P3</span>
+                    <span class="rule-badge">P4</span>
+                    Règles de fidélité intégrées
+                  </button>
+                </h2>
+                <div id="subLogRules" class="accordion-collapse collapse">
+                  <div class="accordion-body" style="font-size:0.88rem;">
+                    <p><span class="rule-badge">P3</span> <strong>Cohérence des connexions (critique) :</strong></p>
+                    <blockquote class="blockquote border-start border-3 ps-3" style="font-size:0.85rem;">
+                      Toute connexion dans "connections" doit lier EXACTEMENT deux composants qui sont DÉFINIS
+                      dans la liste "parts". Une connexion vers un élément qui n'existe pas dans "parts" est
+                      STRICTEMENT INTERDITE. Si une fonction interagit avec un système externe, modélise un PORT
+                      de sortie sur le composant interne concerné, SANS créer de connexion vers l'extérieur.
+                    </blockquote>
+                    <p><span class="rule-badge">P4</span> <strong>Allocation obligatoire des exigences :</strong></p>
+                    <blockquote class="blockquote border-start border-3 ps-3" style="font-size:0.85rem;">
+                      Si des exigences de performance ont été définies aux niveaux précédents (délai, disponibilité,
+                      capacité), tu DOIS les reprendre dans le champ "requirements" et les allouer aux composants
+                      concernés via le champ "satisfied_by". Le champ "requirements" ne doit JAMAIS être vide
+                      si des exigences existent dans le contexte fonctionnel ou opérationnel.
+                    </blockquote>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item border">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#subLogTemplate">
+                    Template du prompt JSON complet (<code>build_logical_json_prompt</code>)
+                  </button>
+                </h2>
+                <div id="subLogTemplate" class="accordion-collapse collapse">
+                  <div class="accordion-body p-0">
+                    <pre><code class="language-plaintext">Tu es un ingénieur système expert en conception d'architecture logique. Tu conçois l'architecture en composants logiques.
+
+=== TON RÔLE ===
+À partir du modèle FONCTIONNEL validé, tu :
+- REGROUPES les fonctions en COMPOSANTS LOGIQUES cohérents
+- DÉFINIS les PORTS et INTERFACES de chaque composant
+- ÉTABLIS les CONNEXIONS entre composants
+- ALLOUES les EXIGENCES aux composants
+
+=== RÈGLES DE FIDÉLITÉ ===
+- Tout doit découler du niveau fonctionnel
+- COHÉRENCE DES CONNEXIONS (CRITIQUE, P3) : Toute connexion doit lier EXACTEMENT deux composants
+  qui sont DÉFINIS dans la liste "parts". Connexion vers un élément absent = STRICTEMENT INTERDITE.
+- ALLOCATION OBLIGATOIRE DES EXIGENCES (P4) : Si des exigences existent, tu DOIS les allouer
+  via "satisfied_by". Le champ "requirements" ne doit JAMAIS être vide si des exigences existent.
+
+=== SCHÉMA JSON ATTENDU (LogicalModel) ===
+{
+  "system_name": "string",
+  "warnings": ["string"],
+  "parts": [
+    {
+      "name": "string",
+      "type": "string",
+      "description": "string (fonctions allouées)",
+      "ports": [{"name": "string", "direction": "in|out|inout", "type": "string"}],
+      "children": []
+    }
+  ],
+  "connections": [
+    {
+      "from_port": "ComponentA.portOut",
+      "to_port": "ComponentB.portIn",
+      "type": "flow|connection|interface",
+      "item": "string",
+      "description": "string"
+    }
+  ],
+  "requirements": [
+    {"id": "string", "text": "string", "satisfied_by": "NomDuComposant"}
+  ]
+}
+
+=== MODÈLE FONCTIONNEL VALIDÉ (CONTEXTE) ===
+{ ... JSON fonctionnel du niveau précédent ... }
+
+=== TON RÉSULTAT (JSON UNIQUEMENT, SANS COMMENTAIRE) ===</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item border">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#subLogExample">
+                    Exemple BAS Silvercrest : extrait JSON logique
+                  </button>
+                </h2>
+                <div id="subLogExample" class="accordion-collapse collapse">
+                  <div class="accordion-body">
+                    <pre><code class="language-json">{
+  "parts": [
+    {
+      "name": "SousSystemePrelevement",
+      "description": "Réalise les fonctions : GérerLePrélèvement. Composants : IP Port, HP Port, HPV, IPCV",
+      "ports": [
+        {"name": "airHP_in",    "direction": "in",  "type": "AirHautePression"},
+        {"name": "airChaud_out","direction": "out", "type": "AirChaud"},
+        {"name": "cmdHPV_in",   "direction": "in",  "type": "SignalCommande"}
+      ]
+    },
+    {
+      "name": "ControleCommande",
+      "description": "Réalise les fonctions : ContrôlerEtCommuniquer. Composant : Electronic BAS Control",
+      "ports": [
+        {"name": "consignes_in","direction": "in",  "type": "ConsignesAvionique"},
+        {"name": "cmdHPV_out",  "direction": "out", "type": "SignalCommande"},
+        {"name": "statuts_out", "direction": "out", "type": "StatutsSysteme"}
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from_port": "ControleCommande.cmdHPV_out",
+      "to_port":   "SousSystemePrelevement.cmdHPV_in",
+      "type": "flow", "item": "Commande HPV",
+      "description": "Flux electric : ContrôlerEtCommuniquer → GérerLePrélèvement"
+    }
+  ],
+  "requirements": [
+    {"id": "REQ-OP-001", "text": "Pression sortie 20–50 PSI", "satisfied_by": "SousSystemeConditionnement"},
+    {"id": "REQ-OP-002", "text": "Temps réponse ≤ 500 ms",    "satisfied_by": "ControleCommande"}
+  ]
+}</code></pre>
+                    <small class="text-danger fw-semibold">V1 : connexions vers Turbomachine/A_C_Avionics (non dans parts) + requirements vides.</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /item logique -->
+
+      <!-- ── ITEM 4 : PROMPT TECHNIQUE ── -->
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#promptTech">
+            <span class="badge-level">N4</span>
+            Prompt Technique
+          </button>
+        </h2>
+        <div id="promptTech" class="accordion-collapse collapse" data-bs-parent="#accordionPrompts">
+          <div class="accordion-body">
+            <p><strong>Objectif :</strong> instancier l'architecture logique avec des composants physiques nommés,
+            des connexions physiques et des choix technologiques documentés.
+            Fichier source : <code>backend/prompts/technical_prompt.py</code> —
+            fonction <code>build_technical_json_prompt()</code>.</p>
+
+            <div class="accordion accordion-flush mb-3" id="subTech">
+              <div class="accordion-item border">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#subTechRules">
+                    Règles de fidélité intégrées
+                  </button>
+                </h2>
+                <div id="subTechRules" class="accordion-collapse collapse">
+                  <div class="accordion-body" style="font-size:0.88rem;">
+                    <ul>
+                      <li>L'IA ne <strong>PROPOSE JAMAIS</strong> de marque, modèle ou technologie spécifique non mentionnée par l'utilisateur. Si non spécifié, utilise des noms génériques (ex : <code>ComposantPhysique1</code>) et la justification "À spécifier par l'architecte".</li>
+                      <li>Chaque <strong>composant logique</strong> doit être réalisé par au moins un composant technique. Pas de composants techniques sans composant logique correspondant.</li>
+                      <li>Les <strong>connexions physiques</strong> implémentent les connexions logiques du niveau précédent.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item border">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#subTechTemplate">
+                    Template du prompt JSON complet (<code>build_technical_json_prompt</code>)
+                  </button>
+                </h2>
+                <div id="subTechTemplate" class="accordion-collapse collapse">
+                  <div class="accordion-body p-0">
+                    <pre><code class="language-plaintext">Tu es un ingénieur système expert en modélisation SysML v2. Tu traduis les choix techniques en modèle structuré.
+
+=== TON RÔLE ===
+À partir du modèle LOGIQUE validé et des instructions de l'utilisateur, tu :
+- TRADUIS les choix techniques DÉCRITS par l'utilisateur en modèle JSON structuré
+- Si l'utilisateur ne mentionne pas de technologie, utilise des noms GÉNÉRIQUES sans proposer de marque
+- DÉFINIS les connexions physiques (câbles, bus, réseaux) tels que décrits
+- TRACES chaque composant logique vers son équivalent physique
+
+=== RÈGLES DE FIDÉLITÉ ===
+- Tu ne PROPOSES JAMAIS de marque, modèle ou technologie non mentionnée par l'utilisateur
+- Tu RETRANSCRIS uniquement les justifications FOURNIES ; si absentes, utilise "À spécifier par l'architecte"
+- Tout doit découler du niveau logique — pas de composant sans composant logique correspondant
+
+=== SCHÉMA JSON ATTENDU (TechnicalModel) ===
+{
+  "system_name": "string",
+  "warnings": ["string"],
+  "technical_parts": [
+    {
+      "name": "string",
+      "type": "string",
+      "description": "string (composant logique réalisé)",
+      "ports": [{"name": "string", "direction": "in|out|inout", "type": "string"}],
+      "children": []
+    }
+  ],
+  "physical_connections": [
+    {
+      "from_port": "CompA.portOut", "to_port": "CompB.portIn",
+      "type": "connection", "item": "protocole/bus/câble", "description": "string"
+    }
+  ],
+  "technology_choices": [
+    {"component": "NomLogique", "technology": "NomTechnique", "justification": "string"}
+  ]
+}
+
+=== MODÈLE LOGIQUE VALIDÉ (CONTEXTE) ===
+{ ... JSON logique du niveau précédent ... }
+
+=== TON RÉSULTAT (JSON UNIQUEMENT, SANS COMMENTAIRE) ===</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item border">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#subTechSysml">
+                    Exemple — Code SysML v2 généré au niveau technique (BAS V1)
+                  </button>
+                </h2>
+                <div id="subTechSysml" class="accordion-collapse collapse">
+                  <div class="accordion-body p-0">
+                    <pre><code class="language-plaintext">package 'Bleed Air System (BAS) - Technical' {
+
+    part def IP_Port {
+        doc /* Prélèvement primaire d'air chaud — Intermédiaire Pressure port */
+        port airHP_out : AirFlux [out];
+    }
+
+    part def HPV {
+        doc /* High Pressure Valve — Vanne de contrôle HP. Réalise : GestionnairePrelevement.contrôleHP */
+        port cmd_in   : ElectricalSignal [in];
+        port air_out  : AirFlux [out];
+    }
+
+    part def PRV {
+        doc /* Pressure Regulating Valve — Réalise : RégulationPression.régulerPression */
+        port air_in   : AirFlux [in];
+        port air_out  : AirFlux [out];
+        port cmd_in   : ElectricalSignal [in];
+    }
+
+    part def ElectronicBASControl {
+        doc /* Calculateur embarqué dans l'EEC — Réalise : ControleCommande */
+        port consignes_in : AvionicsData [in];
+        port cmdHPV_out   : ElectricalSignal [out];
+        port cmdPRV_out   : ElectricalSignal [out];
+        port cmdFAV_out   : ElectricalSignal [out];
+        port mesures_in   : SensorData [in];
+        port statuts_out  : AvionicsData [out];
+    }
+
+    part BAS_Physical {
+        part ipPort  : IP_Port;
+        part hpv     : HPV;
+        part prv     : PRV;
+        part control : ElectronicBASControl;
+
+        connect control.cmdHPV_out to hpv.cmd_in;
+        connect control.cmdPRV_out to prv.cmd_in;
+        connect ipPort.airHP_out   to prv.air_in;
+    }
+
+    allocation ControleCommande  to ElectronicBASControl;
+    allocation GestionnairePrelevement to IP_Port;
+}</code></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /item technique -->
+
+    </div><!-- /accordionPrompts -->
+
+    <!-- ─── TABLEAU P1-P8 (toujours visible) ─────────────────────────────── -->
+    <h4 class="fw-bold mb-3" style="color:var(--safran-blue);">
+      Tableau récapitulatif des corrections P1–P8
+    </h4>
+    <div class="table-responsive">
+      <table class="table table-bordered table-safran align-middle" style="font-size:0.84rem;">
+        <thead>
+          <tr>
+            <th style="width:50px;">ID</th>
+            <th style="width:110px;">Niveau</th>
+            <th>Problème observé en V1</th>
+            <th>Correction appliquée</th>
+            <th>Impact mesuré</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="rule-badge">P1</span></td>
+            <td>Opérationnel</td>
+            <td>Les stakeholders étaient toujours vides — toutes les entités allaient dans <code>external_systems</code></td>
+            <td>Règle explicite : un équipement qui <strong>initie des interactions</strong> est un stakeholder de type <code>system</code>. Le champ <code>stakeholders</code> ne doit jamais être vide si des entités interagissent.</td>
+            <td>Stakeholders correctement classifiés dès V2</td>
+          </tr>
+          <tr>
+            <td><span class="rule-badge">P2</span></td>
+            <td>Opérationnel</td>
+            <td>L'IA générait des exigences pour chaque comportement décrit (ex : "la vanne s'ouvre" → REQ-xxx), jusqu'à 8 fausses exigences</td>
+            <td>Règle : les exigences sont <strong>uniquement des contraintes mesurables</strong> (valeurs numériques, SLA, plages). Les comportements fonctionnels vont dans les use cases.</td>
+            <td>Exigences limitées aux 4 valeurs chiffrées réelles</td>
+          </tr>
+          <tr>
+            <td><span class="rule-badge">P3</span></td>
+            <td>Logique</td>
+            <td>Des connexions référençaient des composants non définis dans la liste des <code>parts</code> (ex : Turbomachine, A/C Avionics)</td>
+            <td>Règle : toute connexion doit lier deux composants <strong>explicitement définis</strong> dans <code>parts</code>. Connexion vers un élément absent = interdite.</td>
+            <td>0 connexion invalide en V2</td>
+          </tr>
+          <tr>
+            <td><span class="rule-badge">P4</span></td>
+            <td>Logique</td>
+            <td>Les exigences identifiées au niveau opérationnel n'étaient jamais allouées aux composants logiques (<code>requirements: []</code>)</td>
+            <td>Règle : si des exigences existent dans les niveaux précédents, elles <strong>doivent</strong> être allouées via <code>satisfied_by</code> à au moins un composant logique.</td>
+            <td>4 exigences allouées aux composants en V2</td>
+          </tr>
+          <tr>
+            <td><span class="rule-badge">P5</span></td>
+            <td>Opérationnel</td>
+            <td>La distinction acteur/système externe était ambiguë pour les systèmes techniques — EECS absent, OperateurMaintenance absent</td>
+            <td>Clarification avec exemples : EECS (calculateur moteur qui envoie des consignes) = stakeholder. SOV (vanne physique passive) = external_system. Format objet avec champ <code>type: "system"/"human"</code>.</td>
+            <td>V2 : 5 acteurs vs 3 en V1 (EECS + OperateurMaintenance ajoutés)</td>
+          </tr>
+          <tr>
+            <td><span class="rule-badge">P6</span></td>
+            <td>Fonctionnel</td>
+            <td>Les flux fonctionnels n'étaient pas typés — 0 champ <code>flow_type</code> sur 18 flux générés</td>
+            <td>Règle obligatoire : chaque flux doit avoir un champ <code>flow_type</code> parmi <code>pneumatic</code>, <code>information</code>, <code>electric</code>, <code>thermal</code>, <code>mechanical</code>.</td>
+            <td>Flux typés présents en V2 dans les commentaires et docs</td>
+          </tr>
+          <tr>
+            <td><span class="rule-badge">P7</span></td>
+            <td>Fonctionnel</td>
+            <td>Les sous-fonctions n'étaient pas liées aux composants physiques — notation générique sans attribution</td>
+            <td>Règle : si une sous-fonction est réalisée par un composant nommé, utiliser <code>NomComposant::NomFonction</code> (ex. : <code>BleedPressSensor::MesurerPressionFinale</code>).</td>
+            <td>3 notations composant::fonction en V2</td>
+          </tr>
+          <tr>
+            <td><span class="rule-badge">P8</span></td>
+            <td>Opérationnel</td>
+            <td>Un seul use case générique "Fournir air à l'avion" au lieu de 3 use cases distincts par destination</td>
+            <td>Règle de décomposition : si la description mentionne <strong>plusieurs destinations</strong> pour une même fonction, décomposer en autant de use cases séparés.</td>
+            <td>V2 : 8 UC vs 4 en V1 (+4 UC maintenance, +3 UC avion décomposés)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  SECTION 4 — VISUALISATION DES DIAGRAMMES                               -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="visualization" class="section-block bg-white py-5">
+  <div class="container-xl">
+
+    <h2 class="section-title mb-4">Catégorie 2 — Visualisation des diagrammes</h2>
+
+    <!-- 4.1 Eclipse SysON -->
+    <h3 class="fw-semibold mb-3" style="color:var(--safran-blue);">4.1 — Eclipse SysON</h3>
+    <p class="mb-4">
+      Eclipse SysON est un <strong>éditeur web open-source pour SysML v2</strong> développé conjointement par
+      <strong>Obeo</strong> (éditeur spécialisé en modélisation Eclipse) et le <strong>CEA</strong>
+      (Commissariat à l'Énergie Atomique), sous licence <strong>Eclipse Public License 2.0</strong>.
+      Il repose sur la plateforme <strong>Sirius Web</strong>, successeur cloud-native de Sirius Desktop.
+      SysON est la solution recommandée par Safran pour la visualisation, car elle embarque le vrai parseur
+      officiel OMG SysML v2 — garantissant la conformité au standard et la détection précise des erreurs syntaxiques.
+    </p>
+
+    <!-- Tableau comparatif SysON vs autres -->
+    <h5 class="fw-semibold mb-2">Comparatif SysON vs autres approches</h5>
+    <div class="table-responsive mb-4">
+      <table class="table table-safran table-bordered align-middle">
+        <thead>
+          <tr>
+            <th>Critère</th>
+            <th>SysON</th>
+            <th>Autres approches (PlantUML…)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Conformité SysML v2</td>
+            <td>✅ Parseur officiel OMG</td>
+            <td>⚠️ Représentations approximatives</td>
+          </tr>
+          <tr>
+            <td>Édition graphique</td>
+            <td>✅ Bidirectionnelle diagramme ↔ code</td>
+            <td>❌ Lecture seule</td>
+          </tr>
+          <tr>
+            <td>Validation intégrée</td>
+            <td>✅ Détecte toutes les erreurs syntaxiques</td>
+            <td>❌ Aucune validation SysML v2</td>
+          </tr>
+          <tr>
+            <td>Open source</td>
+            <td>✅ EPL 2.0 — usage commercial libre</td>
+            <td>Variable</td>
+          </tr>
+          <tr>
+            <td>Intégration API</td>
+            <td>✅ GraphQL sur <code>/api/graphql</code></td>
+            <td>Variable / absente</td>
+          </tr>
+          <tr>
+            <td>Types de diagrammes</td>
+            <td>✅ Tous les types SysML v2 officiels</td>
+            <td>⚠️ Simulation partielle</td>
+          </tr>
+          <tr>
+            <td>Déploiement</td>
+            <td>✅ Docker Compose, 5 minutes</td>
+            <td>✅ Docker, 2 minutes</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Accordéon flux automatisé -->
+    <div class="accordion mb-5" id="acc-syson-flux">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#syson-flux-body">
+            🔗 Comment ça marche — Flux automatisé en 5 étapes
+          </button>
+        </h2>
+        <div id="syson-flux-body" class="accordion-collapse collapse show">
+          <div class="accordion-body">
+            <div class="d-flex flex-wrap gap-3 align-items-center justify-content-start">
+
+              <div class="pipeline-step step-io text-center" style="min-width:160px;">
+                <div class="fw-bold fs-5 mb-1" style="color:var(--safran-orange);">①</div>
+                <div class="fw-semibold small">L'ingénieur décrit</div>
+                <div class="text-muted" style="font-size:.78rem;">son système en langage naturel dans Streamlit</div>
+              </div>
+              <div class="fs-4 text-muted d-none d-md-block">→</div>
+
+              <div class="pipeline-step step-llm text-center" style="min-width:160px;">
+                <div class="fw-bold fs-5 mb-1" style="color:var(--safran-orange);">②</div>
+                <div class="fw-semibold small">Pipeline LLM + RAG</div>
+                <div class="text-muted" style="font-size:.78rem;">génère le code SysML v2 (4 niveaux MBSE, JSON validé)</div>
+              </div>
+              <div class="fs-4 text-muted d-none d-md-block">→</div>
+
+              <div class="pipeline-step step-data text-center" style="min-width:160px;">
+                <div class="fw-bold fs-5 mb-1" style="color:var(--safran-orange);">③</div>
+                <div class="fw-semibold small">Envoi à SysON</div>
+                <div class="text-muted" style="font-size:.78rem;">via API GraphQL (<code>insertTextualSysMLv2</code>)</div>
+              </div>
+              <div class="fs-4 text-muted d-none d-md-block">→</div>
+
+              <div class="pipeline-step step-io text-center" style="min-width:160px;">
+                <div class="fw-bold fs-5 mb-1" style="color:var(--safran-orange);">④</div>
+                <div class="fw-semibold small">SysON parse</div>
+                <div class="text-muted" style="font-size:.78rem;">crée le modèle avec le parseur officiel OMG</div>
+              </div>
+              <div class="fs-4 text-muted d-none d-md-block">→</div>
+
+              <div class="pipeline-step step-llm text-center" style="min-width:160px;">
+                <div class="fw-bold fs-5 mb-1" style="color:var(--safran-orange);">⑤</div>
+                <div class="fw-semibold small">Visualisation</div>
+                <div class="text-muted" style="font-size:.78rem;">l'ingénieur clique "Ouvrir dans SysON" → édition graphique</div>
+              </div>
+
+            </div>
+            <p class="mt-3 text-muted" style="font-size:.9rem;">
+              <strong>Double rôle de SysON :</strong> visualisateur pour la vérification du contenu et validateur syntaxique
+              (le parseur officiel OMG détecte toutes les erreurs que notre validateur interne pourrait manquer).
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4.2 Prompts d'élicitation -->
+    <h3 class="fw-semibold mb-3" style="color:var(--safran-blue);">4.2 — Prompts d'élicitation</h3>
+    <p class="mb-3">
+      Le diagnostic qualité montre que <strong>70 % des écarts entre le modèle généré et les diagrammes de
+      référence proviennent d'informations absentes de la description initiale</strong> — non de défauts de
+      l'IA ou des prompts. L'amélioration principale ne passe donc pas par des corrections de prompts de
+      génération, mais par une <strong>meilleure élicitation des informations</strong> auprès de l'utilisateur
+      avant ou pendant la génération. Cinq questions ciblées, formulées en langage métier, permettent de
+      récupérer l'essentiel des éléments manquants.
+    </p>
+
+    <div class="row g-3 mb-3">
+
+      <div class="col-md-6">
+        <div class="card h-100" style="border-left:4px solid var(--safran-orange); background:#f8f9fa;">
+          <div class="card-body">
+            <h6 class="fw-bold mb-2">🔄 Flux physiques</h6>
+            <p class="text-muted mb-0" style="font-size:.9rem;">
+              "Quels types de flux circulent entre vos composants ?
+              <em>(pneumatique, électrique, information, thermique, mécanique…)</em>"
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card h-100" style="border-left:4px solid var(--safran-orange); background:#f8f9fa;">
+          <div class="card-body">
+            <h6 class="fw-bold mb-2">👤 Acteurs humains</h6>
+            <p class="text-muted mb-0" style="font-size:.9rem;">
+              "Y a-t-il des opérateurs humains qui interagissent avec le système ?
+              Si oui, quelles sont leurs actions typiques ?"
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card h-100" style="border-left:4px solid var(--safran-orange); background:#f8f9fa;">
+          <div class="card-body">
+            <h6 class="fw-bold mb-2">🔧 Maintenance</h6>
+            <p class="text-muted mb-0" style="font-size:.9rem;">
+              "Le système nécessite-t-il de la maintenance ? Si oui, quels acteurs interviennent
+              et quelles opérations réalisent-ils ?"
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card h-100" style="border-left:4px solid var(--safran-orange); background:#f8f9fa;">
+          <div class="card-body">
+            <h6 class="fw-bold mb-2">📅 Cycle de vie</h6>
+            <p class="text-muted mb-0" style="font-size:.9rem;">
+              "Le système a-t-il des phases de cycle de vie spécifiques
+              <em>(développement, production, maintenance, recyclage)</em> ?"
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card h-100" style="border-left:4px solid var(--safran-orange); background:#f8f9fa;">
+          <div class="card-body">
+            <h6 class="fw-bold mb-2">🎯 Décomposition</h6>
+            <p class="text-muted mb-0" style="font-size:.9rem;">
+              "Pour chaque fonction de service, y a-t-il plusieurs destinations différentes ?
+              Si oui, lesquelles ?"
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="alert d-flex align-items-center gap-3" style="background:#eaf0fb; border-left:4px solid var(--safran-blue);">
+      <span class="fs-4">📈</span>
+      <div>
+        <strong>Impact estimé :</strong> couverture de <strong>42 %</strong> → <strong>~94 %</strong>
+        si les 5 questions d'élicitation sont posées avant la génération
+        <span class="ms-2 badge text-white" style="background:var(--safran-blue);">+52 points</span>
+      </div>
+    </div>
+
+    <!-- Tableau gains par prompt -->
+    <div class="table-responsive mt-3">
+      <table class="table table-safran table-sm table-bordered align-middle">
+        <thead>
+          <tr><th>Prompt d'élicitation</th><th>Éléments récupérables</th><th>Gain estimé</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Acteurs de maintenance</td><td>Maintenance operator, Maintenance facility, 3 UC</td><td><span class="badge text-white" style="background:#28a745;">+15 %</span></td></tr>
+          <tr><td>Cycle de vie</td><td>12 éléments du Lifecycle Diagram</td><td><span class="badge text-white" style="background:#28a745;">+26 %</span></td></tr>
+          <tr><td>Types de flux</td><td>Typing pneumatic / information / electric</td><td><span class="badge text-white" style="background:#28a745;">+5 %</span></td></tr>
+          <tr><td>Composant::fonction</td><td>Notation granulaire dans le FBD</td><td><span class="badge text-white" style="background:#28a745;">+4 %</span></td></tr>
+          <tr><td>Exigences maintenabilité</td><td>REQ maintenabilité LRU</td><td><span class="badge text-white" style="background:#28a745;">+2 %</span></td></tr>
+          <tr class="table-primary fw-bold"><td>Total</td><td>~32 éléments récupérés</td><td>+52 % (42 % → ~94 %)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  SECTION 5 — EXPÉRIMENTATION BAS SILVERCREST                            -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="experiments" class="section-block bg-light py-5">
+  <div class="container-xl">
+
+    <h2 class="section-title mb-4">Expérimentation — BAS Silvercrest</h2>
+
+    <!-- Tableau de présentation du système -->
+    <h3 class="fw-semibold mb-3" style="color:var(--safran-blue);">5.1 — Présentation du système testé</h3>
+    <p class="mb-3">
+      Le <strong>BAS (Bleed Air System)</strong> est un sous-système essentiel du moteur turbofan <strong>Silvercrest</strong>
+      de Safran Aircraft Engines. Son rôle est de prélever l'air chaud à haute pression sur les étages de compression,
+      de le réguler, puis de le distribuer à l'avion pour la pressurisation, le conditionnement d'air et le dégivrage.
+    </p>
+    <div class="table-responsive mb-4">
+      <table class="table table-safran table-bordered align-middle">
+        <thead><tr><th>Dimension</th><th>Éléments</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Entités externes</strong></td><td>A/C Avionics, Turbomachine, Fan by-pass duct, Nacelle, A/C Pneumatic System, SOV</td></tr>
+          <tr><td><strong>Fonctions de service</strong></td><td>Fourniture d'air régulé · Dégivrage nacelle · Auto-diagnostic · Communication avionique</td></tr>
+          <tr><td><strong>Modes</strong></td><td>OFF · Stand-by · Running</td></tr>
+          <tr><td><strong>Sous-systèmes</strong></td><td>Prélèvement (IP Port, HP Port, HPV, IPCV) · Dégivrage (NAIV, NAI press. sensor) · Conditionnement (PRV, ACAC, FAV, Filter) · Mesure · Contrôle-Commande (EEC)</td></tr>
+          <tr><td><strong>Composants physiques</strong></td><td>~15 équipements nommés</td></tr>
+          <tr><td><strong>Exigences chiffrées</strong></td><td>−40 °C à +85 °C · ≤ 500 ms (réponse) · 20–50 PSI · 150–230 °C</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Onglets V1 / V2 / Comparaison -->
+    <ul class="nav nav-tabs mb-4" id="bas-tabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-v1-btn" data-bs-toggle="tab" data-bs-target="#tab-v1" type="button" role="tab">
+          📄 V1 — Description initiale
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-v2-btn" data-bs-toggle="tab" data-bs-target="#tab-v2" type="button" role="tab">
+          🔧 V2 — Description enrichie + P5–P8
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-cmp-btn" data-bs-toggle="tab" data-bs-target="#tab-cmp" type="button" role="tab">
+          📊 Comparaison V1 vs V2
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content" id="bas-tabs-content">
+
+      <!-- ─── ONGLET V1 ────────────────────────────────────────────────── -->
+      <div class="tab-pane fade show active" id="tab-v1" role="tabpanel">
+
+        <!-- Description V1 -->
+        <div class="accordion mb-3" id="acc-v1-desc">
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#v1-desc-body">
+                📄 Description V1 — <code>style_formel.txt</code> (56 lignes)
+              </button>
+            </h2>
+            <div id="v1-desc-body" class="accordion-collapse collapse">
+              <div class="accordion-body p-0">
+                <pre style="margin:0; max-height:400px; overflow-y:auto; font-size:.78rem;"><code class="language-plaintext">Le système BAS (Bleed Air System) est un système de prélèvement et de conditionnement d'air intégré au moteur Silvercrest. Il est intercalé entre la turbomachine et l'avion.
+
+Le système interagit avec les entités externes suivantes :
+- L'avionique de l'avion (A/C Avionics), qui fournit l'énergie électrique, envoie les consignes de pression et température, envoie les commandes de dégivrage, et reçoit les données d'état du système.
+- La turbomachine (cœur du moteur), qui est la source d'air chaud à haute pression.
+- Le conduit de soufflante (Fan by-pass duct), qui est la source d'air froid ambiant.
+- La nacelle, qui reçoit l'air chaud pour le dégivrage et évacue l'air de refroidissement.
+- Le système pneumatique de l'avion (A/C Pneumatic System), qui reçoit l'air conditionné et régulé en pression et température.
+- La vanne d'isolement de l'avion (SOV - Shut-Off Valve), qui est la frontière physique en sortie du BAS.
+
+Le système réalise quatre fonctions de service :
+1. Envoyer de l'air régulé en pression et température à l'avion.
+2. Envoyer de l'air chaud à la nacelle pour le dégivrage.
+3. Déterminer l'état du système par mesures physiques et auto-diagnostic.
+4. Communiquer les consignes et statuts avec l'avionique.
+
+Le système possède trois modes de fonctionnement :
+- OFF : Le système n'est pas alimenté, aucune vanne n'est active.
+- Stand-by : Le système est alimenté et communique son état, mais les commandes de flux d'air ne sont pas activées.
+- Running : Le système régule activement la pression et la température.
+
+Sous-système de Prélèvement d'air :
+- IP Port (Intermediate Pressure) : prélèvement primaire d'air chaud depuis la turbomachine.
+- HP Port (High Pressure) : prélèvement secondaire d'air chaud depuis la turbomachine.
+- HPV (High Pressure Valve) : vanne qui contrôle l'ouverture du port HP.
+- IPCV (Intermediate Pressure Check Valve) : clapet anti-retour.
+
+Sous-système de Dégivrage Nacelle :
+- NAIV (Nacelle Anti-Ice Valve) : vanne d'arrêt.
+- NAI press. sensor : capteur de pression.
+- Nacelle anti-ice port : interface de sortie.
+
+Sous-système de Conditionnement :
+- PRV (Pressure Regulating Valve), Exchanger ACAC, FAV (Fan Air Valve), Filter.
+
+Sous-système de Mesure : Bleed press. sensor, Bleed temp. sensor.
+
+Sous-système Contrôle-Commande :
+- Electronic BAS Control (EEC) : calculateur envoyant commandes aux vannes HPV, PRV, FAV, NAIV.
+
+Exigences : −40 °C/+85 °C · ≤ 500 ms · 20–50 PSI · 150–230 °C</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tableau résumé V1 -->
+        <h5 class="fw-semibold mb-2">Résultats de la génération V1</h5>
+        <div class="table-responsive mb-3">
+          <table class="table table-safran table-sm table-bordered align-middle">
+            <thead><tr><th>Niveau MBSE</th><th>Volume SysML v2</th><th>Éléments clés générés</th></tr></thead>
+            <tbody>
+              <tr><td>Opérationnel</td><td><span class="badge" style="background:var(--safran-blue);">3 166 chars</span></td><td>3 acteurs · 4 use cases génériques · 2 scénarios · <code>stakeholders=[]</code></td></tr>
+              <tr><td>Fonctionnel</td><td><span class="badge" style="background:var(--safran-blue);">4 200 chars</span></td><td>5 fonctions · 18 flux · 3 modes · 0 flux typé</td></tr>
+              <tr><td>Logique</td><td><span class="badge" style="background:var(--safran-blue);">1 059 chars</span></td><td>Composants logiques · connexions · 0 exigence allouée</td></tr>
+              <tr><td>Technique</td><td><span class="badge" style="background:var(--safran-blue);">12 290 chars</span></td><td>~15 composants physiques détaillés · ports · choix technologiques</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Accordéons niveaux V1 -->
+        <div class="accordion mb-2" id="acc-v1-levels">
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#v1-op">
+                🟦 Niveau Opérationnel V1 <span class="ms-2 badge text-white" style="background:var(--safran-blue);">3 166 chars</span>
+              </button>
+            </h2>
+            <div id="v1-op" class="accordion-collapse collapse">
+              <div class="accordion-body p-0">
+                <pre style="margin:0; max-height:420px; overflow-y:auto; font-size:.78rem;"><code class="language-plaintext">package 'BAS (Bleed Air System) - Operational' {
+    use case def EnvoyerAirReguleAvion {
+        doc /* Envoyer de l'air régulé en pression et température à l'avion */
+        actor 'L\'avionique de l\'avion (A/C Avionics)';
+        actor 'Le système pneumatique de l\'avion (A/C Pneumatic System)';
+    }
+    use case def EnvoyerAirChaudNacelleDegivrage {
+        doc /* Envoyer de l'air chaud à la nacelle pour le dégivrage */
+        actor 'L\'avionique de l\'avion (A/C Avionics)';
+        actor 'La nacelle';
+    }
+    use case def DeterminerEtatSysteme {
+        doc /* Déterminer l'état du système par mesures physiques et auto-diagnostic */
+        actor 'L\'avionique de l\'avion (A/C Avionics)';
+    }
+    use case def CommuniquerConsignesStatutsAvionique {
+        doc /* Communiquer les consignes et statuts avec l'avionique */
+        actor 'L\'avionique de l\'avion (A/C Avionics)';
+    }
+    requirement def REQ_OP_001 { doc /* -40°C à +85°C */ }
+    requirement def REQ_OP_002 { doc /* Temps réponse ≤ 500 ms */ }
+    requirement def REQ_OP_003 { doc /* Pression 20–50 PSI */ }
+    requirement def REQ_OP_004 { doc /* Température 150–230°C */ }
+    action def FournitureAirNominal {
+        doc /* Régulation en boucle fermée pression + température */
+        /* 1. Consignes pression/température reçues de l'avionique */
+        /* 2. Prélèvement IP Port */
+        /* 3. Régulation PRV → pression cible */
+        /* 4. Régulation FAV + échangeur → température cible */
+        /* 5. Mesures capteurs → ajustement boucle fermée */
+        /* 6. Air régulé → A/C Pneumatic System */
+    }
+    action def DegivrageNacelle {
+        doc /* Ouverture NAIV sur commande avionique */
+        /* 1. Commande dégivrage reçue */
+        /* 2. Ouverture NAIV */
+        /* 3. Air chaud HP → NAIV → NAI Press sensor → Nacelle */
+        /* 4. État remonté à l'avionique */
+    }
+}</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#v1-fn">
+                🟩 Niveau Fonctionnel V1 <span class="ms-2 badge text-white" style="background:var(--safran-blue);">4 200 chars</span>
+              </button>
+            </h2>
+            <div id="v1-fn" class="accordion-collapse collapse">
+              <div class="accordion-body p-0">
+                <pre style="margin:0; max-height:420px; overflow-y:auto; font-size:.78rem;"><code class="language-plaintext">package 'BAS (Bleed Air System) - Functional' {
+    // 5 fonctions principales + sous-fonctions
+    // 18 flux fonctionnels (non typés)
+    // 3 modes de fonctionnement
+    action def GérerLePrelevement {
+        doc /* Prélever l'air depuis IP Port ou HP Port selon la pression */
+        // Sous-fonctions :
+        action PréléverAirIP; action PréléverAirHP;
+        action ControlerVanneHPV; action EmpecherRefoulement;
+    }
+    action def GérerLeDegivrage {
+        doc /* Contrôler la vanne NAIV pour le dégivrage nacelle */
+        action ControlerVanneNAIV; action MesurerPressionNAI;
+    }
+    action def ConditionnerAir {
+        doc /* Réguler pression (PRV) et température (ACAC/FAV) de l'air */
+        action RégulerPression; action RefroidirAir; action RégulerDebitAirFroid;
+        action FiltrerAir;
+    }
+    action def MesurerSorties {
+        doc /* Capteurs de pression et température finales */
+        action MesurerPressionSortie; action MesurerTemperatureSortie;
+    }
+    action def ControlerEtCommuniquer {
+        doc /* Calculateur EEC : acquiert mesures, envoie commandes, communique état */
+        action AcquerirMesures; action PiloterVannes; action CommuniquerAvionique;
+    }
+    // Note : 0 flux typé en V1 (pneumatique/électrique/information non précisés)
+}</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#v1-lo">
+                🟨 Niveau Logique V1 <span class="ms-2 badge text-white" style="background:var(--safran-blue);">1 059 chars</span>
+              </button>
+            </h2>
+            <div id="v1-lo" class="accordion-collapse collapse">
+              <div class="accordion-body p-0">
+                <pre style="margin:0; max-height:420px; overflow-y:auto; font-size:.78rem;"><code class="language-plaintext">package 'BAS (Bleed Air System) - Logical' {
+    part def SousSystemePrelevement { /* IP Port, HP Port, HPV, IPCV */ }
+    part def SousSystemeDegivrage   { /* NAIV, NAI press. sensor */ }
+    part def SousSystemeConditionnement { /* PRV, ACAC, FAV, Filter */ }
+    part def SousSystemeMesure      { /* Bleed press/temp sensor */ }
+    part def ControleCommande       { /* Electronic BAS Control (EEC) */ }
+
+    part BAS_Logical {
+        part prelevement    : SousSystemePrelevement;
+        part degivrage      : SousSystemeDegivrage;
+        part conditionnement: SousSystemeConditionnement;
+        part mesure         : SousSystemeMesure;
+        part controle       : ControleCommande;
+        // connexions internes entre sous-systèmes
+        // Note V1 : certaines connexions référencent des entités externes
+        // non définies dans parts (Turbomachine, A/C Avionics) — corrigé en P3
+    }
+}</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#v1-te">
+                🟥 Niveau Technique V1 <span class="ms-2 badge text-white" style="background:var(--safran-blue);">12 290 chars</span>
+              </button>
+            </h2>
+            <div id="v1-te" class="accordion-collapse collapse">
+              <div class="accordion-body p-0">
+                <pre style="margin:0; max-height:420px; overflow-y:auto; font-size:.78rem;"><code class="language-plaintext">package 'BAS (Bleed Air System) - Technical' {
+    // ~15 composants physiques détaillés avec ports
+    part def HPV {
+        doc /* Vanne haute pression — réalise SousSystemePrelevement */
+        port airHP_in    : CânalisationAirHP [in];
+        port airOut      : CânalisationAir   [out];
+        port cmdElec_in  : SignalCommandeElec [in];
+    }
+    part def PRV {
+        doc /* Vanne de régulation de pression */
+        port airIn       : CânalisationAir   [in];
+        port airRégulé_out: CânalisationAir  [out];
+        port cmdPRV_in   : SignalCommandeElec [in];
+    }
+    part def ElectronicBASControl {
+        doc /* Calculateur EEC — Contrôle-Commande */
+        port consignes_in  : BusAvionique     [in];
+        port cmdHPV_out    : SignalCommandeElec [out];
+        port cmdPRV_out    : SignalCommandeElec [out];
+        port cmdFAV_out    : SignalCommandeElec [out];
+        port cmdNAIV_out   : SignalCommandeElec [out];
+        port statuts_out   : BusAvionique     [out];
+    }
+    part BAS_Physical {
+        part hpv         : HPV;
+        part prv         : PRV;
+        part calculateur : ElectronicBASControl;
+        connect calculateur.cmdHPV_out  to hpv.cmdElec_in;
+        connect calculateur.cmdPRV_out  to prv.cmdPRV_in;
+    }
+    // Choix technologiques
+    allocation SousSystemePrelevement to HPV;
+    allocation ControleCommande       to ElectronicBASControl;
+}</code></pre>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /acc-v1-levels -->
+      </div><!-- /tab-v1 -->
+
+      <!-- ─── ONGLET V2 ────────────────────────────────────────────────── -->
+      <div class="tab-pane fade" id="tab-v2" role="tabpanel">
+
+        <!-- Description V2 -->
+        <div class="accordion mb-3" id="acc-v2-desc">
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#v2-desc-body">
+                📄 Description V2 — <code>style_formel_v2.txt</code> (155 lignes)
+              </button>
+            </h2>
+            <div id="v2-desc-body" class="accordion-collapse collapse">
+              <div class="accordion-body p-0">
+                <pre style="margin:0; max-height:400px; overflow-y:auto; font-size:.78rem;"><code class="language-plaintext">=== ACTEURS ET SYSTÈMES EXTERNES ===
+- A/C Avionics : consignes pression/température, commandes dégivrage, état système
+- EECS (Electronic Engine Control System) : coordination commandes BAS selon poussée
+- Turbomachine : source air chaud HP
+- Fan by-pass duct : source air froid
+- Nacelle : récepteur dégivrage
+- A/C Pneumatic System : récepteur air régulé
+- SOV : frontière physique sortie
+- Opérateur de maintenance : diagnostic, réparations sous l'aile
+- Atelier de maintenance (Maintenance facility) : réparation composants déposés
+
+=== FONCTIONS DE SERVICE (8 use cases) ===
+1. PressuriserLesReservoirsDeLAvion
+2. DegivrerLesAiles
+3. PressuriserEtTempererLaCabine
+4. DegivrerLaNacelle
+5. EtreInformeDeLEtatDuSysteme (opérateur maintenance)
+6. DiagnostiquerLEtat (opérateur maintenance)
+7. ReparerSousLAile (opérateur maintenance)
+8. MaintenirEnConditionsOperationnelles «include» 6 + 7
+
+=== CYCLE DE VIE (8 phases) ===
+1. Concept évaluation  2. Développement (CR/QR S8)  3. Production
+4. Livraison moteur  5. Montage final  6. Exploitation
+7. Maintenance  8. Recyclage
+Transitions : Dev→Prod · Prod→Livraison · Livraison→Montage · Montage→Exploitation
+             Exploitation↔Maintenance · Exploitation→Recyclage
+
+=== ARCHITECTURE FONCTIONNELLE (notation composant::fonction) ===
+IP Port :: Prélever air (pneumatique)
+HP Port :: Prélever air (pneumatique)
+HPV :: Contrôler prélèvement HP (info + pneumatique)
+NAIV :: Laisser passer l'air (pneumatique + info)
+ACAC :: Réguler température nacelle (pneumatique)
+PRV :: Réguler pression air (pneumatique + info)
+Bleed press. sensor :: Mesurer pression finale (info)
+Bleed temp. sensor :: Mesurer température finale (info)
+Electronic BAS Control :: Contrôler et Communiquer (info + électrique)
+
+Types de flux : pneumatique · information · électrique
+
+=== EXIGENCES ===
+REQ-OP-001 : −40°C / +85°C
+REQ-OP-002 : ≤ 500 ms
+REQ-OP-003 : 20–50 PSI
+REQ-OP-004 : 150–230°C
+REQ-OP-005 : remplacement LRU < 2 h
+REQ-OP-006 : diagnostic embarqué sans démontage</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alerte nouveautés V2 -->
+        <div class="alert alert-info mb-3">
+          <strong>Enrichissements V2 :</strong> cycle de vie (8 phases), opérateur de maintenance comme acteur,
+          4 use cases de maintenance, EECS comme acteur distinct, décomposition des UC avion par destination
+          (réservoirs / ailes / cabine), rôle de l'ACAC dans le circuit nacelle, types de flux explicites,
+          notation composant::fonction, 2 exigences de maintenabilité.
+        </div>
+
+        <!-- Tableau résumé V2 -->
+        <h5 class="fw-semibold mb-2">Résultats de la génération V2</h5>
+        <div class="table-responsive mb-3">
+          <table class="table table-safran table-sm table-bordered align-middle">
+            <thead><tr><th>Niveau MBSE</th><th>Volume SysML v2</th><th>Éléments clés générés</th><th>Évolution vs V1</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Opérationnel</td>
+                <td><span class="badge" style="background:var(--safran-blue);">4 456 chars</span></td>
+                <td>5 acteurs · 8 use cases · 6 exigences · scénarios enrichis</td>
+                <td><span class="badge bg-success">✅ +41 %</span></td>
+              </tr>
+              <tr>
+                <td>Fonctionnel</td>
+                <td><span class="badge bg-warning text-dark">1 241 chars</span></td>
+                <td>Flux typés, notation composant::fonction (3 occurrences)</td>
+                <td><span class="badge bg-warning text-dark">⚠️ −70 % condensé</span></td>
+              </tr>
+              <tr>
+                <td>Logique</td>
+                <td><span class="badge" style="background:var(--safran-blue);">1 204 chars</span></td>
+                <td>Composants logiques · connexions corrigées</td>
+                <td><span class="badge bg-secondary">↔️ +14 %</span></td>
+              </tr>
+              <tr>
+                <td>Technique</td>
+                <td><span class="badge bg-warning text-dark">1 032 chars</span></td>
+                <td>Composants physiques (version minimale)</td>
+                <td><span class="badge bg-warning text-dark">⚠️ −92 % condensé</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Accordéons niveaux V2 -->
+        <div class="accordion mb-2" id="acc-v2-levels">
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#v2-op">
+                🟦 Niveau Opérationnel V2 <span class="ms-2 badge text-white" style="background:var(--safran-blue);">4 456 chars</span>
+              </button>
+            </h2>
+            <div id="v2-op" class="accordion-collapse collapse">
+              <div class="accordion-body p-0">
+                <pre style="margin:0; max-height:420px; overflow-y:auto; font-size:.78rem;"><code class="language-plaintext">package 'Bleed Air System (BAS) - Operational' {
+    use case def PressuriserLesReservoirsDeLAvion {
+        doc /* Pressuriser les réservoirs de l'avion */
+        actor AC_Avionics; actor EECS; actor SystemePneumatiqueDeLAvion;
+    }
+    use case def DegivrerLesAiles {
+        doc /* Dégivrer les ailes */
+        actor AC_Avionics; actor EECS; actor SystemePneumatiqueDeLAvion;
+    }
+    use case def PressuriserEtTempererLaCabine {
+        doc /* Pressuriser et tempérer la cabine */
+        actor AC_Avionics; actor EECS; actor SystemePneumatiqueDeLAvion;
+    }
+    use case def DegivrerLaNacelle {
+        doc /* Dégivrer la nacelle */
+        actor AC_Avionics; actor Nacelle;
+    }
+    use case def EtreInformeDeLEtatDuSysteme {
+        doc /* Être informé de l'état du système */
+        actor OperateurDeMaintenance; actor AC_Avionics;
+    }
+    use case def DiagnostiquerLEtat {
+        doc /* Diagnostiquer l'état */
+        actor OperateurDeMaintenance;
+    }
+    use case def ReparerSousLAile {
+        doc /* Réparer sous l'aile */
+        actor OperateurDeMaintenance;
+    }
+    use case def MaintenirEnConditionsOperationnelles {
+        doc /* Maintenir en conditions opérationnelles */
+        actor OperateurDeMaintenance;
+    }
+    requirement def REQ_OP_001 { doc /* -40°C à +85°C */ }
+    requirement def REQ_OP_002 { doc /* Temps réponse ≤ 500 ms */ }
+    requirement def REQ_OP_003 { doc /* Pression 20–50 PSI */ }
+    requirement def REQ_OP_004 { doc /* Température 150–230°C */ }
+    requirement def REQ_OP_005 { doc /* Remplacement LRU < 2 heures */ }
+    action def FournitureAirNominal {
+        doc /* Flux pneumatique : IP Port → PRV → ACAC → FAV → Filter → A/C Pneumatic
+             Flux électrique : EEC → cmdPRV, cmdFAV
+             Flux information : bleed press/temp sensor → EEC → statuts avionique */
+    }
+    action def DegivrageNacelle {
+        doc /* Flux information : AC_Avionics → EEC (commande dégivrage)
+             Flux électrique : EEC → cmdNAIV
+             Flux pneumatique : NAIV → ACAC → Nacelle port */
+    }
+}</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#v2-fn">
+                🟩 Niveau Fonctionnel V2 <span class="ms-2 badge bg-warning text-dark">1 241 chars — condensé</span>
+              </button>
+            </h2>
+            <div id="v2-fn" class="accordion-collapse collapse">
+              <div class="accordion-body p-0">
+                <pre style="margin:0; max-height:420px; overflow-y:auto; font-size:.78rem;"><code class="language-plaintext">package 'Bleed Air System (BAS) - Functional' {
+    // Version condensée — régénérer avec max_tokens=65536 pour version complète
+    action def 'Bleed press. sensor::Mesurer pression finale' {
+        doc /* Mesure la pression régulée en sortie (flux information) */
+    }
+    action def 'Bleed temp. sensor::Mesurer température finale' {
+        doc /* Mesure la température régulée en sortie (flux information) */
+    }
+    action def 'Electronic BAS Control::Réguler pression et température air avion' {
+        doc /* Calcule les consignes PRV et FAV sur la base des mesures capteurs
+             (flux électrique vers vannes, flux information depuis capteurs et avionique) */
+    }
+    // Note : 3 notations composant::fonction identifiées (P7 appliqué)
+    // Flux typés mentionnés dans doc (P6 appliqué)
+    // Condensation due au contexte long (155 lignes description V2)
+    // Recommandation : régénérer dédié avec max_tokens=65536
+}</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#v2-lo">
+                🟨 Niveau Logique V2 <span class="ms-2 badge text-white" style="background:var(--safran-blue);">1 204 chars</span>
+              </button>
+            </h2>
+            <div id="v2-lo" class="accordion-collapse collapse">
+              <div class="accordion-body p-0">
+                <pre style="margin:0; max-height:420px; overflow-y:auto; font-size:.78rem;"><code class="language-plaintext">package 'Bleed Air System (BAS) - Logical' {
+    part def SousSystemePrelevement { /* IP Port, HP Port, HPV, IPCV */ }
+    part def SousSystemeDegivrage   { /* NAIV, NAI press. sensor, Nacelle port */ }
+    part def SousSystemeConditionnement { /* PRV, ACAC, FAV, Filter */ }
+    part def SousSystemeMesure      { /* Bleed press. sensor, Bleed temp. sensor */ }
+    part def ControleCommande       { /* Electronic BAS Control — embarqué EEC */ }
+
+    part BAS_Logical {
+        part prelevement    : SousSystemePrelevement;
+        part degivrage      : SousSystemeDegivrage;
+        part conditionnement: SousSystemeConditionnement;
+        part mesure         : SousSystemeMesure;
+        part controle       : ControleCommande;
+        // P3 corrigé : toutes connexions entre composants définis dans parts
+        // P4 corrigé : exigences allouées via satisfied_by
+    }
+    requirement def REQ_LOG_001 { doc /* Temp −40/+85°C */ satisfied_by SousSystemePrelevement; }
+    requirement def REQ_LOG_002 { doc /* Réponse ≤ 500 ms */ satisfied_by ControleCommande; }
+    requirement def REQ_LOG_003 { doc /* Pression 20–50 PSI */ satisfied_by SousSystemeConditionnement; }
+    requirement def REQ_LOG_004 { doc /* Temp sortie 150–230°C */ satisfied_by SousSystemeConditionnement; }
+}</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#v2-te">
+                🟥 Niveau Technique V2 <span class="ms-2 badge bg-warning text-dark">1 032 chars — condensé</span>
+              </button>
+            </h2>
+            <div id="v2-te" class="accordion-collapse collapse">
+              <div class="accordion-body p-0">
+                <pre style="margin:0; max-height:420px; overflow-y:auto; font-size:.78rem;"><code class="language-plaintext">package 'Bleed Air System (BAS) - Technical' {
+    // Version condensée — régénérer dédié avec max_tokens=65536
+    part def HPV {
+        doc /* Vanne HP — réalise SousSystemePrelevement */
+        port airHP_in   : CânalisationAirHP [in];
+        port airOut     : CânalisationAir   [out];
+        port cmdElec_in : SignalCommandeElec [in];
+    }
+    part def ElectronicBASControl {
+        doc /* Calculateur EEC — réalise ControleCommande */
+        port consignes_in : BusAvionique [in];
+        port cmdHPV_out   : SignalCommandeElec [out];
+        port cmdPRV_out   : SignalCommandeElec [out];
+        port cmdNAIV_out  : SignalCommandeElec [out];
+        port statuts_out  : BusAvionique [out];
+    }
+    // Note : condensation due au contexte long + max_tokens insuffisant
+    // V1 technique = 12 290 chars (version complète de référence)
+}</code></pre>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /acc-v2-levels -->
+      </div><!-- /tab-v2 -->
+
+      <!-- ─── ONGLET COMPARAISON ────────────────────────────────────────── -->
+      <div class="tab-pane fade" id="tab-cmp" role="tabpanel">
+
+        <!-- Tableau comparatif principal -->
+        <h5 class="fw-semibold mb-3">Métriques comparatives V1 vs V2</h5>
+        <div class="table-responsive mb-4">
+          <table class="table table-safran table-bordered align-middle">
+            <thead>
+              <tr><th>Métrique</th><th>V1</th><th>V2</th><th>Évolution</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Acteurs identifiés</td><td>3</td><td>5</td><td><span class="badge bg-success">✅ +EECS, +Opérateur maintenance</span></td></tr>
+              <tr><td>Use cases générés</td><td>4</td><td>8</td><td><span class="badge bg-success">✅ +4 UC maintenance + décomposition avion</span></td></tr>
+              <tr><td>Use cases de maintenance</td><td>0</td><td>4</td><td><span class="badge bg-success">✅ Nouvelle couverture complète</span></td></tr>
+              <tr><td>Notation composant::fonction</td><td>0</td><td>3</td><td><span class="badge bg-success">✅ P7 appliqué</span></td></tr>
+              <tr><td>SysML opérationnel</td><td>3 166 chars</td><td>4 456 chars</td><td><span class="badge bg-success">✅ +41 %</span></td></tr>
+              <tr><td>SysML fonctionnel</td><td>4 200 chars</td><td>1 241 chars</td><td><span class="badge bg-warning text-dark">⚠️ −70 % (condensation)</span></td></tr>
+              <tr><td>SysML technique</td><td>12 290 chars</td><td>1 032 chars</td><td><span class="badge bg-warning text-dark">⚠️ −92 % (condensation)</span></td></tr>
+              <tr><td>Couverture UC Services</td><td>54 %</td><td>75 %</td><td><span class="badge bg-success">✅ +21 points</span></td></tr>
+              <tr><td>Couverture UC Maintenance</td><td>0 %</td><td>43 %</td><td><span class="badge bg-success">✅ Nouvelle couverture</span></td></tr>
+              <tr><td>Couverture Functional Behavior</td><td>53 %</td><td>60 %</td><td><span class="badge bg-success">✅ +7 points</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Accordéon Diagnostic qualité -->
+        <div class="accordion mb-3" id="acc-diag">
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#diag-body">
+                📊 Diagnostic qualité détaillé — Couverture par diagramme de référence
+              </button>
+            </h2>
+            <div id="diag-body" class="accordion-collapse collapse show">
+              <div class="accordion-body">
+
+                <div class="table-responsive mb-3">
+                  <table class="table table-safran table-sm table-bordered align-middle">
+                    <thead>
+                      <tr><th>Diagramme de référence</th><th>Éléments attendus</th><th>Présents ✅</th><th>Partiels ⚠️</th><th>Absents ❌</th><th>Couverture V1</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>Lifecycle Diagram BAS</td><td>12</td><td>0</td><td>0</td><td>12</td><td><span class="badge bg-danger">0 %</span></td></tr>
+                      <tr><td>Use Cases — Fonctions de service</td><td>12</td><td>4</td><td>5</td><td>3</td><td><span class="badge bg-warning text-dark">54 %</span></td></tr>
+                      <tr><td>Use Cases — Maintenance</td><td>7</td><td>0</td><td>0</td><td>7</td><td><span class="badge bg-danger">0 %</span></td></tr>
+                      <tr><td>Functional Behavior (fonctions)</td><td>6</td><td>0</td><td>5</td><td>1</td><td><span class="badge bg-warning text-dark">42 %</span></td></tr>
+                      <tr><td>Functional Behavior (flux)</td><td>9</td><td>5</td><td>1</td><td>3</td><td><span class="badge bg-warning text-dark">61 %</span></td></tr>
+                      <tr class="table-primary fw-bold"><td>TOTAL</td><td>46</td><td>9</td><td>11</td><td>26</td><td><span class="badge" style="background:var(--safran-blue);">~42 %</span></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <h6 class="fw-semibold mb-2">Analyse des causes des écarts</h6>
+                <div class="table-responsive mb-3">
+                  <table class="table table-safran table-sm table-bordered align-middle">
+                    <thead><tr><th>Cause</th><th>%</th><th>Exemples représentatifs</th></tr></thead>
+                    <tbody>
+                      <tr>
+                        <td><span class="rule-badge">DESCRIPTION</span></td>
+                        <td><strong>70 %</strong></td>
+                        <td>Lifecycle entier (12) · Maintenance entière (7) · EECS non nommé · Dégivrage ailes · Pressurisation réservoirs · Rôle ACAC nacelle</td>
+                      </tr>
+                      <tr>
+                        <td><span class="rule-badge orange">PROMPT</span></td>
+                        <td><strong>27 %</strong></td>
+                        <td><code>stakeholders=[]</code> · 0 flux typé · notation composant::fonction absente · UC trop génériques</td>
+                      </tr>
+                      <tr>
+                        <td><span class="badge bg-success">IA</span></td>
+                        <td><strong>3 %</strong></td>
+                        <td>Entités actives classées dans <code>external_systems</code> au lieu de <code>stakeholders</code></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <h6 class="fw-semibold mb-2">Répartition visuelle des causes</h6>
+                <div class="mb-1 d-flex align-items-center gap-2">
+                  <span style="width:130px; font-size:.85rem;" class="text-end">DESCRIPTION</span>
+                  <div class="progress flex-grow-1" style="height:22px;">
+                    <div class="progress-bar bg-danger" style="width:70%;">70 %</div>
+                  </div>
+                </div>
+                <div class="mb-1 d-flex align-items-center gap-2">
+                  <span style="width:130px; font-size:.85rem;" class="text-end">PROMPT</span>
+                  <div class="progress flex-grow-1" style="height:22px;">
+                    <div class="progress-bar bg-warning text-dark" style="width:27%;">27 %</div>
+                  </div>
+                </div>
+                <div class="mb-3 d-flex align-items-center gap-2">
+                  <span style="width:130px; font-size:.85rem;" class="text-end">IA</span>
+                  <div class="progress flex-grow-1" style="height:22px;">
+                    <div class="progress-bar bg-success" style="width:3%;">3 %</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accordéon Limitations V2 -->
+        <div class="accordion mb-3" id="acc-lim">
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#lim-body">
+                ⚠️ Limitations identifiées
+              </button>
+            </h2>
+            <div id="lim-body" class="accordion-collapse collapse">
+              <div class="accordion-body">
+
+                <div class="alert alert-warning mb-3">
+                  <strong>Limitation 1 — Condensation fonctionnel/technique en V2</strong><br>
+                  Le code SysML v2 généré est <strong>−70 %</strong> plus court au niveau fonctionnel et
+                  <strong>−92 %</strong> plus court au niveau technique.
+                  <strong>Cause :</strong> la description enrichie (155 lignes) consomme plus de tokens dans le
+                  contexte, laissant moins de budget pour la génération. Le paramètre <code>max_tokens</code>
+                  insuffisant conduit le LLM à produire des versions condensées.
+                  <strong>Solution :</strong> régénérer les niveaux fonctionnel et technique en session dédiée
+                  avec <code>max_tokens=65 536</code>.
+                </div>
+
+                <div class="alert alert-info mb-3">
+                  <strong>Limitation 2 — Le diagramme de cycle de vie reste hors de portée</strong><br>
+                  Le Lifecycle Diagram passe de 0 % (V1) à 0 % (V2) malgré l'ajout de la section cycle de vie.
+                  Le pipeline génère 4 niveaux MBSE centrés sur l'architecture fonctionnelle en opération.
+                  Le cycle de vie est transverse — il nécessiterait un <strong>5ème niveau dédié</strong>
+                  dans le pipeline ou un prompt de diagramme d'état spécialisé.
+                </div>
+
+                <div class="alert alert-info mb-0">
+                  <strong>Limitation 3 — Description spontanée toujours incomplète</strong><br>
+                  <strong>70 % des écarts</strong> proviennent d'informations absentes de la description initiale.
+                  C'est une constante : un ingénieur système ne pense pas spontanément à décrire le cycle de vie,
+                  les opérateurs de maintenance ou la décomposition fine des use cases.
+                  <strong>Solution :</strong> les 5 prompts d'élicitation (section 4.2) permettent d'atteindre
+                  ~94 % de couverture en dialoguant avec l'utilisateur avant la génération.
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tab-cmp -->
+    </div><!-- /tab-content -->
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  SECTION 6 — CONCLUSIONS ET RECOMMANDATIONS                             -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="conclusions" class="section-block bg-white py-5">
+  <div class="container-xl">
+
+    <h2 class="section-title mb-5">Conclusions et recommandations</h2>
+
+    <div class="row g-4 mb-5">
+
+      <!-- Colonne gauche — Conclusions -->
+      <div class="col-md-6">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-header text-white fw-bold" style="background:var(--safran-blue);">
+            ✅ Conclusions
+          </div>
+          <div class="card-body">
+            <ul class="list-unstyled mb-0">
+              <li class="mb-3 d-flex gap-2">
+                <span class="text-success fw-bold fs-5 flex-shrink-0">✅</span>
+                <div>
+                  <strong>Les prompts structurés en 6 composants sont efficaces</strong> pour générer du code
+                  SysML v2 syntaxiquement valide sur des systèmes complexes de 15 composants et 4 niveaux MBSE.
+                </div>
+              </li>
+              <li class="mb-3 d-flex gap-2">
+                <span class="text-success fw-bold fs-5 flex-shrink-0">✅</span>
+                <div>
+                  <strong>Le pipeline NL → JSON → SysML v2 offre une traçabilité complète</strong> et un point
+                  d'inspection intermédiaire : l'ingénieur valide le JSON avant la génération du code.
+                </div>
+              </li>
+              <li class="mb-3 d-flex gap-2">
+                <span class="text-success fw-bold fs-5 flex-shrink-0">✅</span>
+                <div>
+                  <strong>L'approche itérative améliore mesurablemet les résultats.</strong>
+                  Les 8 corrections P1–P8 : UC Services +21 pts · UC Maintenance 0→43 % · Acteurs 3→5.
+                </div>
+              </li>
+              <li class="mb-0 d-flex gap-2">
+                <span class="text-success fw-bold fs-5 flex-shrink-0">✅</span>
+                <div>
+                  <strong>La répartition des causes est claire :</strong> 70 % description · 27 % prompt · 3 % IA.
+                  La description est le levier principal, pas le raffinement des prompts.
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Colonne droite — Recommandations -->
+      <div class="col-md-6">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-header text-white fw-bold" style="background:var(--safran-orange);">
+            → Recommandations opérationnelles
+          </div>
+          <div class="card-body">
+            <ol class="mb-0 ps-3">
+              <li class="mb-3">
+                <strong>Privilégier les descriptions structurées et détaillées</strong> — style formel en sections
+                (entités, fonctions, modes, architecture, exigences) · vocabulaire technique précis.
+              </li>
+              <li class="mb-3">
+                <strong>Utiliser les 5 prompts d'élicitation avant la génération</strong> — flux, acteurs humains,
+                maintenance, cycle de vie, décomposition — pour passer de ~42 % à ~94 % de couverture.
+              </li>
+              <li class="mb-3">
+                <strong>Procéder par itérations courtes</strong> — générer le niveau opérationnel → vérifier
+                les use cases dans SysON → compléter la description → passer au niveau suivant.
+              </li>
+              <li class="mb-3">
+                <strong>Envisager un niveau "Cycle de vie" dédié</strong> dans le pipeline pour les projets
+                où la maintenabilité et la certification sont contractuellement importantes.
+              </li>
+              <li class="mb-0">
+                <strong>Garder un rôle d'architecte actif</strong> — l'outil traduit, il ne conçoit pas.
+                Les choix d'architecture restent sous la responsabilité de l'ingénieur système.
+              </li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Accordéon Perspectives -->
+    <div class="accordion" id="acc-perspectives">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#perspectives-body">
+            🔭 Perspectives — 5 axes d'extension
+          </button>
+        </h2>
+        <div id="perspectives-body" class="accordion-collapse collapse">
+          <div class="accordion-body">
+            <div class="row g-3">
+
+              <div class="col-md-6">
+                <div class="card border-0" style="background:var(--safran-light); border-left:4px solid var(--safran-blue) !important; border-left-style:solid !important;">
+                  <div class="card-body py-3">
+                    <h6 class="fw-bold mb-1" style="color:var(--safran-blue);">🔄 Intégration bidirectionnelle SysON</h6>
+                    <p class="text-muted mb-0" style="font-size:.85rem;">
+                      L'architecture actuelle est unidirectionnelle (pipeline → SysON). Une intégration
+                      bidirectionnelle permettrait de récupérer les modifications graphiques de SysON
+                      et de les répercuter dans le JSON de session, créant une boucle de co-édition.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <div class="card border-0" style="background:var(--safran-light);">
+                  <div class="card-body py-3">
+                    <h6 class="fw-bold mb-1" style="color:var(--safran-blue);">🤖 Modèles de langage alternatifs</h6>
+                    <p class="text-muted mb-0" style="font-size:.85rem;">
+                      L'interface abstraite <code>LLMBase</code> et le pattern Factory sont prêts pour
+                      intégrer Claude Sonnet et GPT-4o — candidats naturels pour comparer la fidélité
+                      et la complétude sur les mêmes descriptions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <div class="card border-0" style="background:var(--safran-light);">
+                  <div class="card-body py-3">
+                    <h6 class="fw-bold mb-1" style="color:var(--safran-blue);">🏭 Extension à d'autres domaines Safran</h6>
+                    <p class="text-muted mb-0" style="font-size:.85rem;">
+                      Le pipeline est générique : le RAG peut être réindexé sur des documents spécifiques
+                      (propulsion électrique, systèmes hydrauliques, nacelles). Les prompts s'adaptent
+                      à tout système décrit en langage naturel.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <div class="card border-0" style="background:var(--safran-light);">
+                  <div class="card-body py-3">
+                    <h6 class="fw-bold mb-1" style="color:var(--safran-blue);">🔬 Automatisation du diagnostic qualité</h6>
+                    <p class="text-muted mb-0" style="font-size:.85rem;">
+                      Le processus de comparaison modèle généré / diagrammes de référence est aujourd'hui
+                      manuel. Il pourrait être semi-automatisé : extraction des éléments + comparaison fuzzy
+                      + calcul automatique du score de couverture.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <div class="card border-0" style="background:var(--safran-light);">
+                  <div class="card-body py-3">
+                    <h6 class="fw-bold mb-1" style="color:var(--safran-blue);">💬 Élicitation dans l'interface</h6>
+                    <p class="text-muted mb-0" style="font-size:.85rem;">
+                      Les 5 prompts d'élicitation pourraient être intégrés directement dans l'interface
+                      Streamlit sous forme d'un assistant de description, posant les questions avant le
+                      lancement de la génération et construisant automatiquement la description complète.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  SECTION HANA — IA généraliste & SysMLv2 (Synthèse Temps 1)             -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="hana-section">
+<div class="hana-inner">
+
+  <h2 class="section-title mb-1">Synthèse Temps 1 — Hana</h2>
+  <p class="text-muted mb-1" style="font-size:.88rem;">IA généraliste &amp; SysML v2 — Exploration structurée sur le Bleed Air System — 14 essais, 3 IA testées</p>
+
+  <!-- Stat chips -->
+  <div class="h-stats mb-5">
+    <div class="h-stat"><div class="n">14</div><div class="l">Essais</div></div>
+    <div class="h-stat"><div class="n">3</div><div class="l">IA testées</div></div>
+    <div class="h-stat"><div class="n">6</div><div class="l">Règles d'or</div></div>
+    <div class="h-stat"><div class="n">94</div><div class="l">Score max /100</div></div>
+  </div>
+
+  <!-- ── ① Ce que l'IA fait bien ────────────────────────────────────────── -->
+  <h3 class="fw-semibold mb-1" style="color:var(--safran-blue);">① Ce que l'IA fait bien</h3>
+  <p class="text-muted mb-3" style="font-size:.88rem;">
+    Sur les essais bien promptés, l'IA génère du code SysML v2 structuré et traçable — sans connaissance préalable du domaine aéronautique.
+  </p>
+  <div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="h-card teal">
+      <span class="h-icon">🏗️</span>
+      <h4>Structure complète en une passe</h4>
+      <p>Génère <code>item def</code>, <code>port def</code>, <code>connection def</code>, <code>part def</code> et <code>systemContext</code> en une seule passe. Couvre les 5 sections SysML v2 attendues.</p>
+    </div></div>
+    <div class="col-md-4"><div class="h-card teal">
+      <span class="h-icon">🔗</span>
+      <h4>Connexions typées et directionnelles</h4>
+      <p>Produit des <code>connection def</code> avec <code>end part</code> et l'opérateur <code>::&gt;</code> correctement. Connexions typées respectant les ports déclarés.</p>
+    </div></div>
+    <div class="col-md-4"><div class="h-card green">
+      <span class="h-icon">⚠️</span>
+      <h4>Signalement d'incohérences</h4>
+      <p>Détecte et signale les ports orphelins, types manquants et multiplicités invalides — quand le prompt l'impose explicitement avec une règle numérotée.</p>
+    </div></div>
+    <div class="col-md-4"><div class="h-card blue">
+      <span class="h-icon">📋</span>
+      <h4>Inventaire automatique</h4>
+      <p>Fournit un inventaire <code>PACKAGES | PARTS | PORTS | CONNECTIONS</code> après chaque génération. Facilite la traçabilité entre sessions longues.</p>
+    </div></div>
+    <div class="col-md-4"><div class="h-card blue">
+      <span class="h-icon">🔄</span>
+      <h4>Raisonnement en étapes (CoT)</h4>
+      <p>Avec le Chain of Thought (5 agents) : extraction → architecture → code → validation → traçabilité JSON. Chaque étape est vérifiable.</p>
+    </div></div>
+    <div class="col-md-4"><div class="h-card green">
+      <span class="h-icon">🎯</span>
+      <h4>Zéro invention si contraint</h4>
+      <p>Quand le prompt interdit explicitement l'ajout d'éléments non demandés, taux d'hallucination structurelle réduit à ~5%.</p>
+    </div></div>
+  </div>
+
+  <!-- Exemple code -->
+  <div class="mb-5">
+    <p class="fw-semibold mb-2" style="font-size:.84rem; color:var(--safran-blue);">Exemple de code généré — Essai 9 (Chain of Thought)</p>
+    <div class="h-code-block">
+      <button class="copy-btn" onclick="hanaCopyCode(this)">copier</button>
+<span class="cmt">// ─── Connexion Turbomachine ↔ BAS — Essai 9 ───────────────────</span>
+<span class="kw">connection def</span> <span class="type">TurbomachineBleedAirInterface</span> {
+    <span class="kw">end</span> <span class="str">bleedAirEnd</span>    : <span class="type">HighPressureAirInPort</span>;
+    <span class="kw">end</span> <span class="str">turbomachineEnd</span> : <span class="type">HighPressureAirOutPort</span>;
+}
+<span class="kw">connection</span> c3 : <span class="type">TurbomachineBleedAirInterface</span> {
+    <span class="kw">end</span> bleedAirEnd    ::&gt; bleedAir.hpAirFromTurbo;
+    <span class="kw">end</span> turbomachineEnd ::&gt; turbomachine.hpAirToBleedAir;
+}
+<span class="ok">// PACKAGES: [BAS_System]</span>
+<span class="ok">// PARTS: [BleedAirSystem, Nacelle, Avion, Turbomachine, Avionic, Exterieur]</span>
+<span class="ok">// PORTS: [PortNacelle, PortAvion, PortTurbomachine, PortAvionic, PortExterieur]</span>
+<span class="ok">// CONNECTIONS: [c1, c2, c3, c4, c5, c6, c7, c8]</span>
+<span class="ok">// INCOHÉRENCES: aucune</span>
+    </div>
+  </div>
+
+  <!-- ── ② Où elle se trompe ────────────────────────────────────────────── -->
+  <h3 class="fw-semibold mb-1" style="color:var(--safran-blue);">② Où elle se trompe — et devient dangereuse</h3>
+  <p class="text-muted mb-3" style="font-size:.88rem;">Problèmes systématiques observés sur les 3 IA. Certains sont visibles, d'autres silencieux et bien plus dangereux.</p>
+  <div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="h-card red">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <span style="font-size:1.3rem;">🔴</span><span class="badge bg-danger" style="font-size:.7rem;">CRITIQUE</span>
+      </div>
+      <h4>Régression SysMLv1</h4>
+      <p>Génère spontanément <code>block def</code>, <code>flowport</code>, <code>connect A to B</code> — héritage du training. DeepSeek résiste même à l'anti-dictionnaire explicite.</p>
+    </div></div>
+    <div class="col-md-4"><div class="h-card red">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <span style="font-size:1.3rem;">🔴</span><span class="badge bg-danger" style="font-size:.7rem;">CRITIQUE</span>
+      </div>
+      <h4>Hallucination structurelle</h4>
+      <p>Sans contrainte, l'IA invente des composants non demandés. Taux mesuré : ~15% sans protection explicite.</p>
+    </div></div>
+    <div class="col-md-4"><div class="h-card amber">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <span style="font-size:1.3rem;">🟠</span><span class="badge bg-warning text-dark" style="font-size:.7rem;">ÉLEVÉ</span>
+      </div>
+      <h4>Avis métier implicites</h4>
+      <p>L'IA infère les directions de flux depuis sa connaissance du domaine. Choix d'architecture non demandé, non justifié, souvent faux.</p>
+    </div></div>
+    <div class="col-md-4"><div class="h-card amber">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <span style="font-size:1.3rem;">🟠</span><span class="badge bg-warning text-dark" style="font-size:.7rem;">ÉLEVÉ</span>
+      </div>
+      <h4>Noms incohérents entre sections</h4>
+      <p><code>air_chaud</code>, <code>AirChaud</code>, <code>hotAir</code> pour le même flux. Rend l'intégration dans un outil SysML v2 impossible.</p>
+    </div></div>
+    <div class="col-md-4"><div class="h-card blue">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <span style="font-size:1.3rem;">🟡</span><span class="badge bg-primary" style="font-size:.7rem;">MODÉRÉ</span>
+      </div>
+      <h4>Perte de contexte inter-sessions</h4>
+      <p>L'IA oublie les éléments déjà définis et les réinvente différemment. Le modèle diverge silencieusement.</p>
+    </div></div>
+    <div class="col-md-4"><div class="h-card blue">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <span style="font-size:1.3rem;">🟡</span><span class="badge bg-primary" style="font-size:.7rem;">MODÉRÉ</span>
+      </div>
+      <h4>Format non respecté</h4>
+      <p>Sans format strict, l'IA mélange prose et code. Résultat non parseable. Gemini est particulièrement affecté.</p>
+    </div></div>
+  </div>
+  <div class="alert mb-5" style="background:#fef2f2; border-left:4px solid #dc2626; border-radius:8px; padding:1rem 1.25rem;">
+    <strong style="color:#dc2626;">⚡ Le danger principal</strong>
+    <p class="mb-0 mt-1" style="font-size:.88rem; color:#7f1d1d;">L'IA semble <em>correcte</em> mais fait des choix métier silencieux — le modèle est syntaxiquement valide mais sémantiquement faux. C'est le risque le plus difficile à détecter car aucune erreur n'est signalée.</p>
+  </div>
+
+  <!-- ── ③ Comparaison des 3 IA ──────────────────────────────────────────── -->
+  <h3 class="fw-semibold mb-1" style="color:var(--safran-blue);">③ Comparaison des 3 IA à prompt identique</h3>
+  <p class="text-muted mb-3" style="font-size:.88rem;">Mêmes règles strictes appliquées à Claude, Gemini Pro et DeepSeek. Les différences révèlent des comportements par défaut très différents.</p>
+  <div class="table-responsive mb-3">
+    <table class="table table-bordered h-compare align-middle" style="font-size:.83rem;">
+      <thead>
+        <tr>
+          <th>Critère</th>
+          <th class="th-claude">Claude</th>
+          <th class="th-gemini">Gemini Pro</th>
+          <th class="th-deep">DeepSeek</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Conformité SysML v2</td><td><span class="tick">✅</span> Excellent — v2 strict</td><td><span class="warn">⚠️</span> Bon — quelques régressions</td><td><span class="cross">❌</span> Partiel — 'block' résiduel</td></tr>
+        <tr><td>Respect anti-dict. v1</td><td><span class="tick">✅</span> Complet</td><td><span class="tick">✅</span> Bon</td><td><span class="warn">⚠️</span> Résiste (block persistant)</td></tr>
+        <tr><td>Signalement incohérences</td><td><span class="tick">✅</span> Proactif + localisé</td><td><span class="warn">⚠️</span> Partiel — hors code</td><td><span class="cross">❌</span> Absent</td></tr>
+        <tr><td>Respect "aucun avis métier"</td><td><span class="tick">✅</span> Strict si imposé</td><td><span class="warn">⚠️</span> Prose métier implicite</td><td><span class="warn">⚠️</span> Directions inférées</td></tr>
+        <tr><td>Pose des questions</td><td><span class="tick">✅</span> Sur demande seulement</td><td><span class="cross">❌</span> Spontanément</td><td><span class="tick">✅</span> Non</td></tr>
+        <tr><td>Format sortie code seul</td><td><span class="tick">✅</span> Si imposé</td><td><span class="warn">⚠️</span> Ajoute de la prose</td><td><span class="tick">✅</span> Code principalement</td></tr>
+        <tr><td>Inventaire automatique</td><td><span class="tick">✅</span> Oui</td><td><span class="cross">❌</span> Non</td><td><span class="cross">❌</span> Non</td></tr>
+        <tr><td>Rétro-vérification</td><td><span class="tick">✅</span> Oui — 5 critères</td><td><span class="warn">⚠️</span> Partielle</td><td><span class="cross">❌</span> Non</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="fw-semibold mb-2" style="font-size:.85rem; color:var(--safran-blue);">Scores observés sur les essais</p>
+  <div id="hana-scores" class="mb-2"></div>
+  <div class="alert alert-light border mb-5" style="font-size:.84rem;">
+    <strong>→ Recommandation :</strong> Utiliser <strong>Claude</strong> comme IA principale pour SysML v2. Gemini et DeepSeek sont utilisables mais nécessitent des contraintes supplémentaires spécifiques à chaque IA.
+  </div>
+
+  <!-- ── ④ 6 Règles d'or ─────────────────────────────────────────────────── -->
+  <h3 class="fw-semibold mb-1" style="color:var(--safran-blue);">④ 6 règles d'or — Bonnes pratiques</h3>
+  <p class="text-muted mb-3" style="font-size:.88rem;">Déduites des 14 essais. Chaque règle est accompagnée du correctif exact à ajouter dans le prompt.</p>
+  <div id="hana-rules" class="mb-3"></div>
+
+  <p class="fw-semibold mt-4 mb-2" style="font-size:.85rem; color:var(--safran-blue);">Architecture de prompt recommandée</p>
+  <div id="hana-steps" class="mb-3"></div>
+
+  <p class="fw-semibold mt-4 mb-2" style="font-size:.85rem; color:var(--safran-blue);">Guide de dépannage rapide</p>
+  <div id="hana-accordion" class="mb-5"></div>
+
+  <!-- ── ⑤ Multi-agents & RAG ────────────────────────────────────────────── -->
+  <h3 class="fw-semibold mb-1" style="color:var(--safran-blue);">⑤ Multi-agents &amp; RAG</h3>
+  <p class="text-muted mb-3" style="font-size:.88rem;">Séparer les rôles améliore la qualité — mais chaque agent supplémentaire ajoute de la latence et du risque de perte de contexte.</p>
+
+  <p class="fw-semibold mb-2" style="font-size:.85rem;">Pipeline recommandé : 3 agents (optimum)</p>
+  <div id="hana-agents-3" class="agents-flow mb-4"></div>
+
+  <p class="fw-semibold mb-2" style="font-size:.85rem;">Pipeline complet : 5 agents</p>
+  <div id="hana-agents-5" class="agents-flow mb-3"></div>
+
+  <div class="alert mb-4" style="background:#fef2f2; border-left:4px solid #dc2626; border-radius:8px; padding:1rem 1.25rem; font-size:.85rem; display:flex; gap:1rem; align-items:flex-start;">
+    <span style="font-size:1.4rem; flex-shrink:0;">⛔</span>
+    <div><strong>Anti-pattern : 7+ agents</strong> — Au-delà de 5 agents, la qualité <em>diminue</em>. L'optimum mesuré pour SysML v2 : <strong>3 agents</strong> (extraction + génération + validation).</div>
+  </div>
+
+  <div class="row g-3 mb-5">
+    <div class="col-md-6"><div class="h-card" style="border-left:4px solid #94a3b8;">
+      <h4>Sans RAG (mémoire training)</h4>
+      <p>L'IA utilise sa mémoire hybride SysML v1/v2. Les constructs peuvent ne pas correspondre à la spec OMG 2024. Pas de traçabilité vers la spec.</p>
+    </div></div>
+    <div class="col-md-6"><div class="h-card green">
+      <h4>Avec RAG (spec comme contexte)</h4>
+      <p>L'IA utilise la spec réelle fournie. Elle cite la section §X.Y pour chaque construct. Conformité maximale. En production : spec OMG indexée via embeddings.</p>
+    </div></div>
+  </div>
+
+  <!-- ── ⑥ Tests de variation ───────────────────────────────────────────── -->
+  <h3 class="fw-semibold mb-1" style="color:var(--safran-blue);">⑥ Tests de variation de description</h3>
+  <p class="text-muted mb-3" style="font-size:.88rem;">On change <strong>un seul élément</strong> de la description et on observe l'impact sur le modèle généré.</p>
+  <div id="hana-variations" class="mb-2"></div>
+
+</div>
+</section>
+
+<!-- ── Hana JS ───────────────────────────────────────────────────────────── -->
+<script>
+(function() {
+  var hScores = [
+    { label:"Claude — Chain of Thought (Essai 9)",   val:94, color:"#0d9488" },
+    { label:"Claude — Cheat Sheet YAML (Essai 4)",    val:90, color:"#2563eb" },
+    { label:"Claude — Séquentiel Étape 3 (Essai 8)", val:88, color:"#2563eb" },
+    { label:"Claude — Anti-dictionnaire (Essai 3)",   val:83, color:"#0f172a" },
+    { label:"Claude — Baseline (Essai 1)",            val:72, color:"#475569" },
+    { label:"Gemini — Baseline (Essai 2)",            val:60, color:"#16a34a" },
+    { label:"DeepSeek — Few-Shot (Essai 12)",         val:69, color:"#d97706" },
+    { label:"DeepSeek — Baseline (Essai 11)",         val:52, color:"#dc2626" }
+  ];
+
+  var hRules = [
+    { n:1, color:"#dc2626", title:"Spécifier les directions de flux",
+      body:"Ne jamais écrire 'il échange X avec Y'. L'IA infère alors les directions depuis sa connaissance métier — c'est un choix d'architecture non demandé.",
+      fix:"Nacelle : flux OUT de HotAir\nAvion : flux OUT de RegulatedAir\nTurbomachine : flux IN de HighPressureHotAir" },
+    { n:2, color:"#d97706", title:"Imposer l'anti-dictionnaire SysMLv1",
+      body:"Sans interdiction explicite, l'IA génère spontanément des constructs SysMLv1. DeepSeek résiste même aux interdictions génériques.",
+      fix:"MOTS-CLÉS INTERDITS : block, block def, flowport, <<block>>\nÉquivalents v2 : block def → part def | flowport → port def" },
+    { n:3, color:"#2563eb", title:"Fournir une cheat sheet normative",
+      body:"Injecter la syntaxe SysMLv2 Beta 4 en YAML en début de session. L'IA utilise la spec fournie, pas sa mémoire hybride v1/v2.",
+      fix:"RÉFÉRENCE NORMATIVE :\n  connection_def: \"connection def <n> { end part <a>:<T>; end part <b>:<T>; }\"\n  usage: \"connection <n>:<T> { end part <a> ::> <ref>; }\"" },
+    { n:4, color:"#0d9488", title:"Décomposer en étapes séquentielles",
+      body:"Ne jamais tout demander en une fois. Séparer extraction / ports / connexions / context réduit les hallucinations de ~85% à ~5%.",
+      fix:"Étape 1/4 : Extraction d'entités SEULEMENT. Ne génère PAS de code.\nÉtape 2/4 : Ports sur [BLOC]. Ne modifie pas l'existant.\nÉtape 3/4 : Connexion entre [BLOC_A] et [BLOC_B]." },
+    { n:5, color:"#16a34a", title:"Imposer un format de sortie strict",
+      body:"Sans format imposé, l'IA mélange prose et code. Le résultat n'est pas parseable. Gemini est particulièrement affecté.",
+      fix:"FORMAT STRICT :\n[CODE SYSMLV2]\n---\n[INVENTAIRE] PACKAGES:[...] | PARTS:[...] | PORTS:[...] | CONNECTIONS:[...]\n---\n[INCOHÉRENCES] (vide si aucune)\nAucun autre texte." },
+    { n:6, color:"#7c3aed", title:"Rétro-vérification après chaque génération",
+      body:"Demander à l'IA de 'compiler' son propre code après génération. Détecte les erreurs silencieuses avant utilisation dans un outil SysML v2.",
+      fix:"Vérifie ce code contre :\n(1) Cohérence namespaces\n(2) Multiplicités valides\n(3) Zéro orphelin\n(4) Zéro SysMLv1 (block, flowport, connect A to B)\n(5) Ports déclarés avant usage" }
+  ];
+
+  var hSteps = [
+    { n:0, color:"#0f172a", title:"Niveau 0 — Prompt Système",         desc:"Injecté UNE FOIS en début de session. Cheat sheet + règles numérotées + format." },
+    { n:1, color:"#2563eb", title:"Niveau 1 — Extraction (Étape 1/4)", desc:"Texte brut → listes A-E. Aucun code généré à cette étape." },
+    { n:2, color:"#0d9488", title:"Niveau 2 — Génération (Étapes 2-4)","desc":"Ports → Connexions → SystemContext. Un prompt = un ajout." },
+    { n:3, color:"#16a34a", title:"Niveau 3 — Rétro-vérification",      desc:"5 critères SysMLv2. Correction immédiate des erreurs détectées." },
+    { n:4, color:"#d97706", title:"Niveau 4 — Snapshot final",          desc:"Inventaire PACKAGES | PARTS | PORTS | CONNECTIONS. Contexte pour la prochaine session." }
+  ];
+
+  var hFixes = [
+    { sym:"SysMLv1 dans le code (block, flowport…)",     sev:"#dc2626", title:"Régression SysMLv1",
+      fix:"Ajouter dans les Règles :\n'MOTS-CLÉS INTERDITS : block, block def, flowport, connect A to B'\nPour DeepSeek : ajouter aussi un exemple few-shot SysMLv2 correct." },
+    { sym:"Éléments inventés non demandés",              sev:"#dc2626", title:"Hallucination structurelle",
+      fix:"Ajouter :\n'Ne jamais ajouter d'élément absent de la description. Si manquant → signaler dans [INCOHÉRENCES] SANS l'ajouter au code.'" },
+    { sym:"Directions de flux inférées arbitrairement",  sev:"#d97706", title:"Inférence métier silencieuse",
+      fix:"Modifier la description :\n'il échange X avec Y' → 'Y : flux OUT/IN/INOUT de [TypeFlux]'\nL'IA ne doit jamais inférer une direction depuis sa connaissance du domaine." },
+    { sym:"Noms incohérents entre les sections",         sev:"#d97706", title:"Collision de noms",
+      fix:"Ajouter dans Contexte :\n'NOMENCLATURE IMPOSÉE :\nFlux : HotAir, RegulatedAir, HighPressureHotAir, WarmAir, AmbientAir, Data, Energy, Setpoint, Command'" },
+    { sym:"Perte de contexte entre sessions",            sev:"#2563eb", title:"Divergence du modèle",
+      fix:"Ajouter en tête :\n'SNAPSHOT ACTUEL :\nPARTS:[BAS, Nacelle, Avion, Turbomachine, Avionic, Exterieur]\nPORTS:[PortNacelle, PortAvion…]\nCONNECTIONS:[ConnBASNacelle…]'" },
+    { sym:"Format non respecté (prose + code mélangés)", sev:"#2563eb", title:"Sortie non parseable",
+      fix:"Ajouter dans Format :\n'FORMAT STRICT : [CODE] --- [INVENTAIRE] --- [INCOHÉRENCES]\nAucun texte hors de ces 3 sections. Aucune phrase explicative.'" },
+    { sym:"connect A to B utilisé (SysMLv1)",            sev:"#d97706", title:"Syntaxe connexion incorrecte",
+      fix:"INTERDICTION ABSOLUE : connect [A] to [B]\nToute connexion : connection def <n> { end part <a>:<T>; end part <b>:<T>; }\nInstanciation : connection <n>:<T> { end part <a> ::> <ref>; end part <b> ::> <ref>; }" },
+    { sym:"L'IA ne signale pas les incohérences",        sev:"#2563eb", title:"Signalement absent",
+      fix:"Ajouter dans Règles :\n'Pour chaque incohérence : générer un commentaire IN-SITU :\n// INCOHÉRENCE [R<N>] : <description> → <correction recommandée>\nSignaler MÊME si le modèle semble correct (confirme absence).'" }
+  ];
+
+  var hAgents3 = [
+    { n:"A1", role:"Extracteur",     desc:"Entités et flux uniquement. Aucun code.", bg:"#eff6ff", color:"#2563eb" },
+    { n:"A2", role:"Codeur SysMLv2", desc:"Génère depuis l'extraction. Zéro invention.", bg:"#f0fdfa", color:"#0d9488" },
+    { n:"A3", role:"Validateur",     desc:"5 critères SysMLv2. Corrige si nécessaire.", bg:"#f0fdf4", color:"#16a34a" }
+  ];
+
+  var hAgents5 = [
+    { n:"A1", role:"Analyste",       desc:"Entités, flux, boucles de contrôle",          bg:"#eff6ff", color:"#2563eb" },
+    { n:"A2", role:"Architecte SAE", desc:"Vue (Opé/Fonc/Log/Tech) + type diagramme",    bg:"#f0fdfa", color:"#0d9488" },
+    { n:"A3", role:"Codeur SysMLv2", desc:"Code strict. Zéro invention.",                bg:"#f0fdf4", color:"#16a34a" },
+    { n:"A4", role:"Validateur",     desc:"Rétro-vérification. Version corrigée.",        bg:"#fffbeb", color:"#d97706" },
+    { n:"A5", role:"Documentaliste", desc:"JSON traçabilité ID ↔ fonctions/exigences.",  bg:"#fef2f2", color:"#dc2626" }
+  ];
+
+  var hVariations = [
+    { before:"'il échange de l'air chaud avec la nacelle'\n→ Verbe ambigu, direction inférée",
+      after:"'Nacelle : flux OUT de HotAir'\n→ Direction explicite",
+      result:"✅ Ports directionnels corrects. Zéro inférence métier.", rule:"Spécifier in/out/inout dans la description." },
+    { before:"Noms vagues : 'air chaud', 'data'\n→ L'IA choisit ses noms librement",
+      after:"CamelCase imposé : 'HotAir', 'EnergyData'\n→ Noms prêts pour attribute def",
+      result:"✅ Noms identiques dans toutes les sections. Zéro collision.", rule:"Fournir les noms CamelCase directement dans la description." },
+    { before:"Texte libre en paragraphe\n→ L'IA interprète et complète",
+      after:"Structure JSON avec directions et types\n→ L'IA parse au lieu d'interpréter",
+      result:"✅ Zéro hallucination structurelle (vs ~15% avec texte libre).", rule:"JSON > texte libre pour la précision du modèle." },
+    { before:"Prompt SANS section Règles\n→ Comportement 'assistant collaboratif' par défaut",
+      after:"Prompt AVEC 5 règles explicites numérotées\n→ Comportement 'générateur strict'",
+      result:"⚠️ Sans règles : questions posées, prose ajoutée, choix métier implicites.", rule:"Minimum 4 règles explicites. Indispensable pour chaque prompt." },
+    { before:"5 interfaces décrites (scope complet)\n→ Test de respect du périmètre",
+      after:"3 interfaces seulement (scope réduit)\n→ L'IA génèrera-t-elle les 2 manquantes ?",
+      result:"✅ Exactement 3 interfaces générées. Zéro complétion automatique.", rule:"L'IA respecte le périmètre si 'aucun élément inventé' est explicite." },
+    { before:"Signalement 'toute incohérence'\n→ Mode non précisé",
+      after:"Signalement IN-SITU :\n// INCOHÉRENCE [R1] : …",
+      result:"✅ Commentaires directement dans le code à la ligne concernée. Parseable.", rule:"Imposer les commentaires // INCOHÉRENCE in-situ pour la traçabilité." }
+  ];
+
+  // ── Renderers ────────────────────────────────────────────────────────────
+  function renderScores() {
+    var c = document.getElementById('hana-scores');
+    if (!c) return;
+    hScores.forEach(function(s) {
+      var div = document.createElement('div');
+      div.className = 'score-row';
+      div.innerHTML = '<div class="score-label">' + s.label + '</div>'
+        + '<div class="score-bar-wrap"><div class="score-bar" style="background:' + s.color + '" data-val="' + s.val + '"></div></div>'
+        + '<div class="score-val">' + s.val + '/100</div>';
+      c.appendChild(div);
+    });
+  }
+
+  function renderRules() {
+    var c = document.getElementById('hana-rules');
+    if (!c) return;
+    hRules.forEach(function(r) {
+      var div = document.createElement('div');
+      div.className = 'rule-card';
+      div.innerHTML = '<div class="rule-num" style="background:' + r.color + '">' + r.n + '</div>'
+        + '<div class="rule-body"><h4>' + r.title + '</h4><p>' + r.body + '</p>'
+        + '<div class="h-fix">' + r.fix + '</div></div>';
+      c.appendChild(div);
+    });
+  }
+
+  function renderSteps() {
+    var c = document.getElementById('hana-steps');
+    if (!c) return;
+    hSteps.forEach(function(s) {
+      var div = document.createElement('div');
+      div.className = 'h-step';
+      div.innerHTML = '<div class="h-step-dot" style="background:' + s.color + '">' + s.n + '</div>'
+        + '<div><h4>' + s.title + '</h4><p>' + s.desc + '</p></div>';
+      c.appendChild(div);
+    });
+  }
+
+  function renderAccordion() {
+    var c = document.getElementById('hana-accordion');
+    if (!c) return;
+    hFixes.forEach(function(f, i) {
+      var div = document.createElement('div');
+      div.className = 'h-acc';
+      div.id = 'hacc' + i;
+      div.innerHTML = '<div class="h-acc-header" onclick="hanaToggleAcc(' + i + ')">'
+        + '<div><h4>' + f.title + '</h4><div class="h-sub">' + f.sym + '</div></div>'
+        + '<span class="h-acc-chevron" style="color:' + f.sev + '">▼</span></div>'
+        + '<div class="h-acc-body"><div class="h-fix">' + f.fix + '</div></div>';
+      c.appendChild(div);
+    });
+  }
+
+  function renderAgents(id, agents) {
+    var c = document.getElementById(id);
+    if (!c) return;
+    agents.forEach(function(a, i) {
+      var box = document.createElement('div');
+      box.className = 'agent-box';
+      box.style.cssText = 'background:' + a.bg + '; border-color:' + a.color + ';';
+      box.innerHTML = '<div class="a-num" style="color:' + a.color + '">' + a.n + '</div>'
+        + '<div class="a-role">' + a.role + '</div><div class="a-desc">' + a.desc + '</div>';
+      c.appendChild(box);
+      if (i < agents.length - 1) {
+        var arr = document.createElement('div');
+        arr.className = 'agent-arrow'; arr.textContent = '→';
+        c.appendChild(arr);
+      }
+    });
+  }
+
+  function renderVariations() {
+    var c = document.getElementById('hana-variations');
+    if (!c) return;
+    hVariations.forEach(function(v) {
+      var div = document.createElement('div');
+      div.className = 'var-row';
+      div.innerHTML = '<div class="var-before"><strong>Avant</strong><br>' + v.before + '</div>'
+        + '<div class="var-arrow">→</div>'
+        + '<div class="var-after"><strong>Après</strong><br>' + v.after + '</div>'
+        + '<div class="var-result">' + v.result + '<br><br><strong style="color:#0d9488">Règle :</strong> ' + v.rule + '</div>';
+      c.appendChild(div);
+    });
+  }
+
+  // ── Global helpers ────────────────────────────────────────────────────────
+  window.hanaToggleAcc = function(i) {
+    var el = document.getElementById('hacc' + i);
+    if (el) el.classList.toggle('open');
+  };
+
+  window.hanaCopyCode = function(btn) {
+    var block = btn.parentElement;
+    var text = block.innerText.replace(/^copier|^copié\s?!/g, '').trim();
+    navigator.clipboard.writeText(text).then(function() {
+      btn.textContent = 'copié !';
+      setTimeout(function() { btn.textContent = 'copier'; }, 2000);
+    });
+  };
+
+  // ── Score-bar reveal ──────────────────────────────────────────────────────
+  var hanaObs = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.score-bar').forEach(function(bar) {
+          setTimeout(function() { bar.style.width = bar.dataset.val + '%'; }, 200);
+        });
+        hanaObs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15 });
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function() {
+    renderScores();
+    renderRules();
+    renderSteps();
+    renderAccordion();
+    renderAgents('hana-agents-3', hAgents3);
+    renderAgents('hana-agents-5', hAgents5);
+    renderVariations();
+    var sc = document.getElementById('hana-scores');
+    if (sc) hanaObs.observe(sc);
+  });
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  FOOTER                                                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<footer style="background:var(--safran-blue); color:#fff; padding:2rem 0; margin-top:0;">
+  <div class="container-xl">
+    <div class="row align-items-center gy-3">
+      <div class="col-md-4">
+        <strong class="fs-5">SysML v2 Agent</strong>
+        <div class="text-white-50 small mt-1">Rapport interactif v1.0</div>
+      </div>
+      <div class="col-md-4 text-center">
+        <div>Safran × ENSTA — 2026</div>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <a href="https://github.com/Kenfack-franck/work_sysml"
+           class="text-white text-decoration-none"
+           target="_blank"
+           rel="noopener noreferrer">
+          GitHub — work_sysml ↗
+        </a>
+        <div class="text-white-50 small mt-1">Projet Safran / ENSTA </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+<!-- Highlight.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  // Init Highlight.js
+  hljs.highlightAll();
+
+  // Navbar active link on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.navbar-safran .nav-link');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(l => l.classList.remove('active'));
+        const link = document.querySelector(`.navbar-safran .nav-link[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-60px 0px -60% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

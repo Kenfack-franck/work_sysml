@@ -120,45 +120,99 @@ except Exception as e:
 st.sidebar.markdown("---")
 
 # --- Stats RAG ---
-st.sidebar.subheader("📊 Stats RAG")
-try:
-    response = requests.get(f"{BACKEND_URL}/api/rag/stats", timeout=10)
-    if response.status_code == 200:
-        stats = response.json()
-        st.sidebar.metric("📦 Chunks indexés", stats["total_chunks"])
-        st.sidebar.metric("📄 Fichiers sources", stats["unique_files"])
-    else:
-        st.sidebar.warning("Stats RAG non disponibles")
-except Exception as e:
-    st.sidebar.warning("Stats RAG non disponibles")
+with st.sidebar.expander("📊 Stats RAG", expanded=False):
+    try:
+        response = requests.get(f"{BACKEND_URL}/api/rag/stats", timeout=10)
+        if response.status_code == 200:
+            stats = response.json()
+            st.metric("📦 Chunks indexés", stats["total_chunks"])
+            st.metric("📄 Fichiers sources", stats["unique_files"])
+        else:
+            st.warning("Stats RAG non disponibles")
+    except Exception:
+        st.warning("Stats RAG non disponibles")
 
 st.sidebar.markdown("---")
 
-# --- Sessions précédentes ---
-st.sidebar.subheader("🗂️ Sessions")
+# --- Gestion des sessions ---
+st.sidebar.markdown("### 📁 Sessions")
 try:
-    response = requests.get(f"{BACKEND_URL}/api/sessions", timeout=10)
-    if response.status_code == 200:
-        sessions_data = response.json()
-        sessions = sessions_data.get("sessions", [])
-        
-        if sessions:
-            for session in sessions[:5]:  # Limite à 5 dernières sessions
-                session_name = session.get("system_name") or "Sans nom"
-                session_date = format_timestamp(session.get("updated_at", ""))
-                
-                if st.sidebar.button(
-                    f"📋 {session_name}",
-                    key=f"load_{session['id']}",
-                    help=f"Modifié: {session_date}"
-                ):
-                    st.session_state.session_id = session["id"]
-                    load_level_status()
-                    st.rerun()
-        else:
-            st.sidebar.info("Aucune session")
+    _sess_resp = requests.get(f"{BACKEND_URL}/api/sessions", timeout=5)
+    _sessions_list = _sess_resp.json().get("sessions", []) if _sess_resp.status_code == 200 else []
 except Exception:
-    st.sidebar.warning("Sessions non disponibles")
+    _sessions_list = []
+
+_session_options = ["➕ Nouvelle session"] + [
+    s.get("name") or s.get("system_name") or f"Session {(s.get('id') or '')[:8]}"
+    for s in _sessions_list
+]
+_session_ids = ["new"] + [s.get("id", "") for s in _sessions_list]
+
+_selected_index = st.sidebar.selectbox(
+    "Session active",
+    range(len(_session_options)),
+    format_func=lambda i: _session_options[i],
+    key="session_selector"
+)
+
+if _selected_index == 0:
+    # Option "Nouvelle session"
+    if st.session_state.get("session_id"):
+        if st.sidebar.button("➕ Démarrer un nouveau projet", key="new_proj_btn"):
+            st.session_state.session_id = None
+            st.session_state.current_level = "operational"
+            st.session_state.levels_data = {}
+            st.session_state.system_description = ""
+            st.session_state.level_status = {}
+            st.rerun()
+    else:
+        st.sidebar.caption("Remplissez le formulaire ci-dessous pour démarrer.")
+else:
+    _selected_id = _session_ids[_selected_index]
+    _current_session = _sessions_list[_selected_index - 1]
+
+    # Charger la session si elle a changé
+    if st.session_state.get("session_id") != _selected_id:
+        st.session_state.session_id = _selected_id
+        load_level_status()
+        st.rerun()
+
+    _current_name = _current_session.get("name") or _current_session.get("system_name") or ""
+
+    # Renommer
+    with st.sidebar.expander("✏️ Renommer", expanded=False):
+        _rename_val = st.text_input("Nouveau nom", value=_current_name, key=f"rename_{_selected_id}")
+        if st.button("💾 Sauvegarder", key=f"rename_btn_{_selected_id}"):
+            if _rename_val.strip():
+                try:
+                    _r = requests.put(
+                        f"{BACKEND_URL}/api/v2/session/{_selected_id}/name",
+                        json={"name": _rename_val.strip()}, timeout=5
+                    )
+                    if _r.status_code == 200:
+                        st.success("✅ Renommé")
+                        st.rerun()
+                    else:
+                        st.error("❌ Erreur")
+                except Exception as _e:
+                    st.error(f"❌ {_e}")
+
+    # Supprimer
+    with st.sidebar.expander("🗑️ Supprimer", expanded=False):
+        st.warning(f"Supprimer '{_current_name or 'cette session'}' ?")
+        if st.button("🗑️ Confirmer la suppression", key=f"del_btn_{_selected_id}", type="primary"):
+            try:
+                _dr = requests.delete(f"{BACKEND_URL}/api/session/{_selected_id}", timeout=5)
+                _dr_data = _dr.json()
+                if _dr_data.get("success"):
+                    st.success("✅ Session supprimée")
+                    st.session_state.session_id = None
+                    st.session_state.level_status = {}
+                    st.rerun()
+                else:
+                    st.error(f"❌ {_dr_data.get('message', 'Erreur')}")
+            except Exception as _e:
+                st.error(f"❌ {_e}")
 
 st.sidebar.markdown("---")
 
@@ -204,45 +258,18 @@ if st.session_state.session_id:
     
     st.sidebar.markdown("---")
     
-    # --- Nom de session ---
-    st.sidebar.subheader("📝 Nom du projet")
+    # --- Statut SysON ---
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🔧 Outils")
     try:
-        # Charger les données de session pour obtenir le nom
-        session_resp = requests.get(f"{BACKEND_URL}/api/session/{st.session_state.session_id}", timeout=10)
-        if session_resp.status_code == 200:
-            session_data = session_resp.json()
-            current_name = session_data.get("session_name", "")
-            
-            # Champ pour modifier le nom
-            new_name = st.sidebar.text_input(
-                "Renommer",
-                value=current_name,
-                key="session_name_input",
-                placeholder="Ex: Surveillance Bâtiment",
-                label_visibility="collapsed"
-            )
-            
-            # Si le nom a changé, mettre à jour
-            if new_name != current_name and st.sidebar.button("💾 Sauvegarder", key="save_name"):
-                try:
-                    rename_resp = requests.put(
-                        f"{BACKEND_URL}/api/v2/session/{st.session_state.session_id}/name",
-                        json={"name": new_name},
-                        timeout=10
-                    )
-                    if rename_resp.status_code == 200:
-                        st.sidebar.success("✅ Nom sauvegardé")
-                        st.rerun()
-                    else:
-                        st.sidebar.error("❌ Erreur de sauvegarde")
-                except:
-                    st.sidebar.error("❌ Erreur de sauvegarde")
+        syson_status = requests.get(f"{BACKEND_URL}/api/syson/status", timeout=2)
+        if syson_status.json().get("available"):
+            st.sidebar.success("🟢 SysON connecté")
+            st.sidebar.markdown("[Ouvrir SysON ↗](http://localhost:8085)")
+        else:
+            st.sidebar.warning("🟡 SysON indisponible")
     except:
-        pass
-
-
-# ============================================================================
-# CONTENU PRINCIPAL
+        st.sidebar.info("⚪ SysON non configuré")
 # ============================================================================
 
 # Si aucune session active, afficher le formulaire de démarrage
@@ -591,6 +618,89 @@ else:
                 if sysml_code:
                     # Afficher le code
                     st.code(sysml_code, language="text", line_numbers=True)
+
+                    # --- Bouton SysON ---
+                    st.markdown("---")
+
+                    # Push automatique silencieux si SysON disponible
+                    if not st.session_state.get(f"syson_project_id_{current_level}"):
+                        try:
+                            _status = requests.get(f"{BACKEND_URL}/api/syson/status", timeout=2)
+                            if _status.json().get("available"):
+                                _auto = requests.post(
+                                    f"{BACKEND_URL}/api/syson/push",
+                                    json={
+                                        "session_id": st.session_state.get("session_id", ""),
+                                        "level": current_level,
+                                        "project_name": f"{st.session_state.get('session_name', 'SysML Agent')} - {current_level}"
+                                    },
+                                    timeout=30
+                                )
+                                _auto_result = _auto.json()
+                                if _auto_result.get("success"):
+                                    st.session_state[f"syson_project_id_{current_level}"] = _auto_result.get("project_id", "")
+                                    st.caption(f"🔗 [Voir dans SysON]({_auto_result.get('syson_url', 'http://localhost:8085')})")
+                        except Exception:
+                            pass  # SysON non disponible, on continue sans erreur
+
+                    syson_col1, syson_col2, syson_col3 = st.columns(3)
+                    with syson_col1:
+                        if st.button("🔗 Ouvrir dans SysON", key=f"syson_{current_level}"):
+                            try:
+                                response_status = requests.get(f"{BACKEND_URL}/api/syson/status", timeout=5)
+                                if response_status.json().get("available"):
+                                    push_response = requests.post(
+                                        f"{BACKEND_URL}/api/syson/push",
+                                        json={
+                                            "session_id": st.session_state.get("session_id", ""),
+                                            "level": current_level,
+                                            "project_name": f"SysML Agent - {current_level}"
+                                        },
+                                        timeout=60
+                                    )
+                                    result_syson = push_response.json()
+                                    if result_syson.get("success"):
+                                        st.session_state[f"syson_project_id_{current_level}"] = result_syson.get("project_id", "")
+                                        st.success("✅ Code envoyé à SysON !")
+                                        syson_url = result_syson.get("syson_url", "http://localhost:8085")
+                                        st.markdown(f"[🔗 Ouvrir le diagramme dans SysON]({syson_url})")
+                                    else:
+                                        st.error(f"❌ Erreur : {result_syson.get('error', 'Erreur inconnue')}")
+                                else:
+                                    st.warning("⚠️ SysON n'est pas disponible. Vérifiez que le conteneur est démarré.")
+                            except Exception as e:
+                                st.warning(f"⚠️ SysON non accessible : {e}")
+                    with syson_col2:
+                        st.markdown("[📖 Ouvrir SysON](http://localhost:8085)", unsafe_allow_html=True)
+                    with syson_col3:
+                        if st.button("🔄 Récupérer depuis SysON", key=f"syson_pull_{current_level}"):
+                            project_id = st.session_state.get(f"syson_project_id_{current_level}", "")
+                            if project_id:
+                                try:
+                                    pull_response = requests.post(
+                                        f"{BACKEND_URL}/api/syson/pull",
+                                        json={"project_id": project_id,
+                                              "session_id": st.session_state.get("session_id", "")},
+                                        timeout=30
+                                    )
+                                    pull_result = pull_response.json()
+                                    if pull_result.get("success"):
+                                        docs = pull_result.get("documents", [])
+                                        st.success(f"✅ {len(docs)} document(s) récupéré(s) depuis SysON")
+                                        st.info("ℹ️ Format : EMF JSON (format interne SysON). "
+                                                "L'export textuel SysML v2 n'est pas disponible via l'API SysON v2026.")
+                                        dl_url = pull_result.get("download_url", "")
+                                        if dl_url:
+                                            st.markdown(f"[⬇️ Télécharger le projet SysON (ZIP)]({dl_url})")
+                                        for doc in docs:
+                                            with st.expander(f"📄 {doc.get('name', 'document')} (EMF JSON)"):
+                                                st.json(doc.get("content", {}))
+                                    else:
+                                        st.error(f"❌ Erreur : {pull_result.get('error', 'Erreur inconnue')}")
+                                except Exception as e:
+                                    st.error(f"❌ Erreur de connexion : {e}")
+                            else:
+                                st.warning("⚠️ Aucun projet SysON lié. Cliquez d'abord sur 'Ouvrir dans SysON'.")
                     
                     st.markdown("---")
                     

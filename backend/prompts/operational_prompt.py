@@ -33,9 +33,11 @@ def build_operational_json_prompt(description: str, rag_examples: list[str] = No
 - Utilise le vocabulaire exact de l'utilisateur pour les noms
 - Si un élément n'est pas clair, marque-le avec un warning
 - L'exemple ci-dessous montre uniquement la STRUCTURE attendue. En production, chaque valeur doit provenir EXCLUSIVEMENT de la description fournie par l'utilisateur. Si un élément n'est pas mentionné, il ne doit PAS apparaître dans ton résultat.
-- DISTINCTION STAKEHOLDER / SYSTÈME EXTERNE : Un stakeholder est TOUJOURS une PERSONNE ou une ORGANISATION (jamais un dispositif, un équipement ou un logiciel). Si la description mentionne un équipement comme destinataire (ex: "poste de sécurité", "station sol"), c'est un SYSTÈME EXTERNE, pas un stakeholder. Ne confonds jamais les deux.
+- DISTINCTION STAKEHOLDER / SYSTÈME EXTERNE (P4+P5) : Un stakeholder est soit une PERSONNE/ORGANISATION, soit un SYSTÈME TECHNIQUE qui est ACTEUR dans un cas d'utilisation (c'est-à-dire qui initie des interactions, envoie des commandes, ou reçoit activement des services). Exemples : un calculateur moteur (EECS) qui envoie des consignes EST un stakeholder de type "system". Un système pneumatique qui reçoit l'air produit par le système EST un stakeholder de type "system". En revanche, une vanne d'isolement physique (frontière passive) ou un simple connecteur ne sont PAS des stakeholders, mais des external_systems. Règle résumée : si une entité est nommée comme acteur dans un use case, elle va dans "stakeholders". Si c'est une frontière physique passive, elle va dans "external_systems". Le champ "stakeholders" ne doit JAMAIS être vide si la description mentionne des entités qui interagissent activement avec le système.
+- RÈGLE P5 — FORMAT STAKEHOLDERS : Les stakeholders peuvent être des chaînes ou des objets {"name": "...", "role": "...", "type": "human"|"system"|"organization"}. Utilise le format objet si tu veux préciser le type et le rôle.
 - PÉRIMÈTRE DU SYSTÈME : Un composant interrogé via réseau ou protocole est un système externe. Un composant physique installé sur site et contrôlé directement par le système est un composant INTERNE. Si la description ne précise pas, classe-le comme interne et ajoute un warning.
 - EXIGENCES = CONTRAINTES MESURABLES UNIQUEMENT : Ne génère des requirements QUE pour des contraintes explicitement chiffrées ou mesurables dans la description (temps de réponse, disponibilité, capacité, température, etc.). Un comportement fonctionnel décrit (ex: "la porte se déverrouille", "le système vérifie l'autorisation") N'EST PAS une exigence. C'est un comportement normal du système qui sera capturé dans les use cases ou les scénarios.
+- RÈGLE P8 — DÉCOMPOSITION DES USE CASES : Si un cas d'utilisation est de type "Fournir/Envoyer X à Y" et que la description mentionne PLUSIEURS destinations distinctes pour cette même fonction, décompose-le en sous-use cases séparés par destination. Exemple : "Le système fournit de l'air régulé à l'avion pour pressuriser la cabine, dégivrer les ailes et pressuriser les réservoirs" → génère 3 use cases distincts ("Pressuriser et tempérer la cabine", "Dégivrer les ailes", "Pressuriser les réservoirs") et NON un seul use case générique. Si la description ne précise qu'une seule destination ou une seule finalité, garde un seul use case.
 
 === MÉTHODOLOGIE (OBLIGATOIRE) ===
 1. IDENTIFICATION : Liste tous les acteurs, systèmes externes et cas d'utilisation mentionnés
@@ -49,7 +51,9 @@ def build_operational_json_prompt(description: str, rag_examples: list[str] = No
   "system_name": "string",
   "description": "string",
   "warnings": ["string"],  // Ambiguïtés ou incohérences
-  "stakeholders": ["string"],  // Parties prenantes (utilisateurs, clients, organismes, etc.)
+  "stakeholders": [
+    {"name": "string", "role": "string", "type": "human|system|organization"}
+  ],  // Acteurs humains ET systèmes techniques qui interagissent activement (ne jamais laisser vide si des entités sont mentionnées)
   "external_systems": ["string"],  // Systèmes externes avec lesquels le système interagit
   "system_boundaries": "string",  // Description textuelle du périmètre et des limites
   "use_cases": [

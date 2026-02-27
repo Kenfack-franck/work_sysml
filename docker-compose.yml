@@ -20,6 +20,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - LLM_MODEL=${LLM_MODEL}
       - GEMINI_MODEL=${GEMINI_MODEL}
+      - SYSON_URL=http://syson:8080
     depends_on:
       - plantuml
     restart: unless-stopped
@@ -44,5 +45,32 @@ services:
       - "8080:8080"
     restart: unless-stopped
 
+  syson-db:
+    image: postgres:15
+    container_name: sysml_syson_db
+    environment:
+      POSTGRES_DB: syson
+      POSTGRES_USER: syson
+      POSTGRES_PASSWORD: syson
+    volumes:
+      - syson_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  syson:
+    image: eclipsesyson/syson:v2026.1.0
+    container_name: sysml_syson
+    ports:
+      - "8085:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://syson-db/syson
+      SPRING_DATASOURCE_USERNAME: syson
+      SPRING_DATASOURCE_PASSWORD: syson
+      SIRIUS_COMPONENTS_CORS_ALLOWEDORIGINPATTERNS: "*"
+      SERVER_PORT: 8080
+    depends_on:
+      - syson-db
+    restart: unless-stopped
+
 volumes:
   backend_data:
+  syson_db_data:

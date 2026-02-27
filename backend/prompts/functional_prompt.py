@@ -41,6 +41,8 @@ def build_functional_json_prompt(description: str, operational_model: dict, rag_
 - Chaque fonction doit être justifiable par un ou plusieurs use cases
 - Si quelque chose est ambigu, ajoute un warning
 - L'exemple ci-dessous montre uniquement la STRUCTURE attendue. En production, chaque valeur doit provenir EXCLUSIVEMENT du niveau opérationnel fourni en contexte. Si un élément n'est pas mentionné, il ne doit PAS apparaître dans ton résultat.
+- RÈGLE P6 — TYPING DES FLUX (OBLIGATOIRE) : Chaque flux dans "functional_flows" DOIT avoir un champ "flow_type" avec une des valeurs : "pneumatic" (air, gaz, fluide), "information" (données, mesures, consignes, commandes logiques), "electric" (énergie électrique, signaux discrets de commande), "thermal" (chaleur, échange thermique), "mechanical" (force, couple, déplacement). Ne laisse JAMAIS "flow_type" vide ou absent.
+- RÈGLE P7 — NOTATION COMPOSANT::FONCTION (si applicable) : Si une sous-fonction est clairement réalisée par un composant physique spécifiquement nommé dans la description, nomme-la avec le format "NomComposant::NomFonction". Exemples : "IP Port::Prélever air", "Calculateur::Réguler la vanne NAI", "Bleed Temp Sensor::Mesurer la température". Si aucun composant n'est identifiable pour une sous-fonction, garde le nom simple sans préfixe.
 
 === MÉTHODOLOGIE ===
 1. ANALYSE : Pour chaque use case, identifie les fonctions nécessaires
@@ -67,6 +69,7 @@ def build_functional_json_prompt(description: str, operational_model: dict, rag_
       "from_function": "string",
       "to_function": "string",
       "item": "string",  // Ce qui est échangé
+      "flow_type": "string",  // OBLIGATOIRE : "pneumatic"|"information"|"electric"|"thermal"|"mechanical"
       "description": "string"
     }
   ],
@@ -104,6 +107,7 @@ def build_functional_json_prompt(description: str, operational_model: dict, rag_
       "from_function": "Nom de la première fonction",
       "to_function": "Nom de la deuxième fonction",
       "item": "Élément échangé tel que décrit ou déduit du contexte opérationnel",
+      "flow_type": "information",
       "description": "Pourquoi cet échange existe (traçabilité avec le use case)"
     }
   ],

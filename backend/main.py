@@ -17,6 +17,7 @@ from services.diagram_service import DiagramService
 from services.level_service import LevelService
 from services.fidelity_checker import FidelityChecker
 from services.sysml_validator import SysMLv2Validator
+from services.syson_service import SysONService
 from models.schemas import (
     GenerateRequest, GenerateResponse, PatchRequest, PatchResponse,
     GenerateLevelRequest, PatchLevelRequest, ValidateLevelRequest,
@@ -53,12 +54,13 @@ level_service: LevelService = None
 sysml_validator: SysMLv2Validator = None
 state_service: StateService = None
 llm: LLMBase = None  # Référence globale pour accès au statut
+syson_service: SysONService = None
 
 
 @app.on_event("startup")
 async def startup_event():
     """Initialise tous les services au démarrage de l'application."""
-    global rag_service, sysml_service, diagram_service, level_service, sysml_validator, state_service, llm
+    global rag_service, sysml_service, diagram_service, level_service, sysml_validator, state_service, llm, syson_service
     
     # 1. Initialisation du service RAG
     logger.info("Initialisation du service RAG...")
@@ -139,7 +141,12 @@ async def startup_event():
     logger.info("Initialisation du validateur SysML v2...")
     sysml_validator = SysMLv2Validator()
     logger.info("✓ Validateur SysML v2 prêt")
-    
+
+    # 9. Initialisation du service SysON
+    logger.info("Initialisation du service SysON...")
+    syson_service = SysONService()
+    logger.info(f"✓ Service SysON prêt : {syson_service.syson_url}")
+
     logger.info("Backend prêt !")
 
 
@@ -570,6 +577,31 @@ async def rename_session(session_id: str, request: RenameSessionRequest):
         raise HTTPException(status_code=500, detail=f"Erreur lors du renommage : {str(e)}")
 
 
+@app.delete("/api/session/{session_id}")
+async def delete_session(session_id: str):
+    """
+    Supprime une session et toutes ses données.
+
+    Args:
+        session_id: ID de la session
+
+    Returns:
+        {"success": bool, "message": str}
+    """
+    if state_service is None:
+        raise HTTPException(status_code=503, detail="Service d'état non initialisé")
+
+    try:
+        deleted = state_service.delete_session(session_id)
+        if deleted:
+            return {"success": True, "message": f"Session {session_id} supprimée"}
+        else:
+            return {"success": False, "message": f"Session {session_id} introuvable"}
+    except Exception as e:
+        logger.error(f"Erreur lors de la suppression de la session : {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la suppression : {str(e)}")
+
+
 @app.get("/api/v2/coherence/{session_id}/{level}")
 async def check_level_coherence(session_id: str, level: str):
     """
@@ -949,6 +981,145 @@ async def export_session(session_id: str):
     except Exception as e:
         logger.error(f"Erreur lors de l'export : {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# ENDPOINTS SYSON
+# ============================================================================
+
+@app.get("/api/syson/status")
+async def syson_status():
+    """
+    Vérifie si SysON est disponible.
+
+    Returns:
+        {"available": bool, "url": str}
+    """
+    available = syson_service.is_available() if syson_service else False
+    return {
+        "available": available,
+        "url": syson_service.syson_url if syson_service else ""
+    }
+
+
+@app.post("/api/syson/push")
+async def syson_push(request: dict):
+    """
+    Envoie le code SysML v2 d'une session vers SysON.
+
+    Body:
+        session_id (str): Identifiant de la session
+        level (str, optionnel): Niveau MBSE à envoyer (operational/functional/logical/technical)
+        project_name (str, optionnel): Nom du projet dans SysON
+
+    Returns:
+        {"success": bool, "project_id": str, "syson_url": str, "error": str}
+    """
+    if syson_service is None or state_service is None or level_service is None:
+        raise HTTPException(status_code=503, detail="Services non initialisés")
+
+    session_id = request.get("session_id", "")
+    level = request.get("level", None)
+    project_name = request.get("project_name", "SysML Agent Import")
+
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id requis")
+
+    try:
+        # Récupérer le code SysML de la session
+        if level:
+            # Un seul niveau demandé
+            exchanges = state_service.get_exchanges(session_id, level=level)
+            sysml_codes = [
+                e.get("sysml_code", "")
+                for e in exchanges
+                if e.get("sysml_code") and e.get("operation") == "generate_sysml"
+            ]
+            sysml_code = sysml_codes[-1] if sysml_codes else ""
+            if not sysml_code:
+                # Fallback : chercher dans les données de session
+                session_data = state_service.load_session(session_id)
+                level_data = session_data.get("levels", {}).get(level, {})
+                sysml_code = level_data.get("sysml_code", "")
+        else:
+            # Tous les niveaux : utilise get_full_sysml du level_service
+            sysml_code = level_service.get_full_sysml(session_id)
+
+        if not sysml_code:
+            return {
+                "success": False,
+                "project_id": None,
+                "syson_url": None,
+                "error": "Aucun code SysML v2 trouvé pour cette session/niveau"
+            }
+
+        result = syson_service.push_sysml_to_syson(sysml_code, project_name)
+        return result
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Erreur lors du push SysON : {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/syson/project-url/{project_id}")
+async def syson_project_url(project_id: str):
+    """
+    Retourne le lien direct vers un projet dans SysON.
+
+    Args:
+        project_id: Identifiant du projet SysON
+
+    Returns:
+        {"url": str}
+    """
+    if syson_service is None:
+        raise HTTPException(status_code=503, detail="Service SysON non initialisé")
+
+    return {"url": syson_service.get_project_url(project_id)}
+
+
+@app.get("/api/syson/projects")
+async def syson_list_projects():
+    """
+    Liste tous les projets disponibles dans SysON.
+
+    Returns:
+        {"projects": [{"id": str, "name": str}]}
+    """
+    if syson_service is None:
+        raise HTTPException(status_code=503, detail="Service SysON non initialisé")
+
+    projects = syson_service.list_projects()
+    return {"projects": projects}
+
+
+@app.post("/api/syson/pull")
+async def syson_pull(request: dict):
+    """
+    Récupère le contenu d'un projet SysON (format EMF JSON natif).
+
+    Note : SysON v2026.1.0 ne fournit pas d'export SysML v2 textuel via API.
+    Le contenu retourné est le modèle interne EMF JSON de SysON.
+
+    Body:
+        project_id (str): Identifiant du projet SysON
+        session_id (str, optionnel): Session à associer au résultat
+
+    Returns:
+        {"success": bool, "project_id": str, "documents": list,
+         "format": str, "download_url": str, "error": str}
+    """
+    if syson_service is None:
+        raise HTTPException(status_code=503, detail="Service SysON non initialisé")
+
+    project_id = request.get("project_id", "")
+    if not project_id:
+        raise HTTPException(status_code=400, detail="project_id requis")
+
+    result = syson_service.export_sysml_from_syson(project_id)
+    return result
 
 
 if __name__ == "__main__":

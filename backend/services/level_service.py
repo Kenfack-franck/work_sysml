@@ -289,17 +289,13 @@ class LevelService:
             "error_message": ""
         }
         try:
-            response = self.llm.generate(prompt, temperature=0.05, max_tokens=8192, response_mime_type="application/json")
+            response = self.llm.generate(prompt, temperature=0.05, max_tokens=65536, response_mime_type="application/json")
             exchange["llm_response_raw"] = response
         except Exception as e:
             exchange["success"] = False
             exchange["error_message"] = str(e)
             if session_id:
                 self.state.save_exchange(session_id, exchange)
-            raise
-        
-        if session_id:
-            self.state.save_exchange(session_id, exchange)
         
         # Nettoyage et parsing
         response = response.strip()
@@ -465,7 +461,7 @@ Retourne le JSON complet du modèle modifié (sans commentaire, juste le JSON).
             "error_message": ""
         }
         try:
-            response = self.llm.generate(prompt, temperature=0.05, max_tokens=8192, response_mime_type="application/json")
+            response = self.llm.generate(prompt, temperature=0.05, max_tokens=65536, response_mime_type="application/json")
             patch_exchange["llm_response_raw"] = response
         except Exception as e:
             patch_exchange["success"] = False

@@ -122,9 +122,10 @@ class StateService:
                 
                 sessions.append({
                     "id": data.get("session_id"),
+                    "name": data.get("session_name") or ((data.get("system_model") or {}).get("system_name")),
                     "created_at": data.get("created_at"),
                     "updated_at": data.get("updated_at"),
-                    "system_name": data.get("system_model", {}).get("system_name") if data.get("system_model") else None,
+                    "system_name": (data.get("system_model") or {}).get("system_name"),
                 })
             except Exception as e:
                 logger.warning(f"Erreur lors de la lecture de {session_file.name} : {e}")
@@ -337,6 +338,23 @@ class StateService:
             json.dump(session_data, f, indent=2, ensure_ascii=False)
         
         logger.info(f"Session {session_id} renommée : {name}")
+
+    def delete_session(self, session_id: str) -> bool:
+        """
+        Supprime une session et toutes ses données.
+
+        Args:
+            session_id: ID de la session
+
+        Returns:
+            True si supprimée, False si introuvable
+        """
+        session_file = self.state_dir / f"{session_id}.json"
+        if session_file.exists():
+            session_file.unlink()
+            logger.info(f"Session {session_id} supprimée")
+            return True
+        return False
 
     def get_previous_level_data(self, session_id: str, level: str) -> Optional[Dict]:
         """
