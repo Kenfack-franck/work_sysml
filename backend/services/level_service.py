@@ -1,21 +1,23 @@
 """
 Service de génération par niveaux MBSE.
 Orchestre la génération progressive : Operational → Functional → Logical → Technical.
+
+Pipeline par niveau :
+  1. Sections utilisateur → prompt JSON → LLM → JSON model
+  2. JSON model → prompt SysML v2 → LLM → code SysML v2
+  3. Validation syntaxique + résumé + sauvegarde
 """
 
 import json
 import logging
 import re
-import time
 import uuid
 from datetime import datetime
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 from services.llm_base import LLMBase
 from services.rag_service import RAGService
 from services.state_service import StateService
-from services.fidelity_checker import FidelityChecker
-from services.diagram_service import DiagramService
 from services.sysml_validator import SysMLv2Validator
 
 from prompts.operational_prompt import build_operational_json_prompt, build_operational_sysml_prompt
@@ -28,80 +30,65 @@ logger = logging.getLogger(__name__)
 
 class LevelService:
     """Service de génération progressive par niveaux MBSE."""
-    
-    # Ordre des niveaux
+
     NIVEAUX_ORDER = ["operational", "functional", "logical", "technical"]
-    
-    # Diagrammes disponibles par niveau
-    DIAGRAMMES_PAR_NIVEAU = {
-        "operational": ["context", "use_cases", "actors_diagram", "operational_sequence"],
-        "functional": ["functional_breakdown", "functional_behavior", "modes_diagram"],
-        "logical": ["bdd", "ibd"],
-        "technical": ["technical_architecture"]
-    }
 
     def __init__(
         self,
         llm: LLMBase,
         rag: RAGService,
         state: StateService,
-        fidelity_checker: FidelityChecker,
-        diagram_service: DiagramService,
-        validator: Optional[SysMLv2Validator] = None
+        validator: Optional[SysMLv2Validator] = None,
     ):
-        """
-        Initialise le service de génération par niveaux.
-        
-        Args:
-            llm: Service LLM
-            rag: Service RAG
-            state: Service de gestion d'état
-            fidelity_checker: Vérificateur de fidélité
-            diagram_service: Service de génération de diagrammes
-            validator: Validateur syntaxique SysML v2 (optionnel)
-        """
         self.llm = llm
         self.rag = rag
         self.state = state
-        self.fidelity_checker = fidelity_checker
-        self.diagram_service = diagram_service
         self.validator = validator if validator is not None else SysMLv2Validator()
         logger.info("LevelService initialisé")
 
+    # ------------------------------------------------------------------
+    # Méthode principale — generate_level
+    # ------------------------------------------------------------------
+
     def generate_level(
         self,
-        description: str,
         level: str,
+        sections: Optional[List[dict]] = None,
         session_id: Optional[str] = None,
         session_name: str = "",
-        use_rag: bool = True
+        description: str = "",
+        use_rag: bool = True,
     ) -> Dict:
         """
         Génère un niveau spécifique du modèle MBSE.
-        
+
         Args:
-            description: Description initiale ou instructions
             level: Niveau à générer (operational, functional, logical, technical)
+            sections: Liste de {"section_id": str, "content": str}
             session_id: ID de session (None = nouvelle session)
-            session_name: Nom de la session (utilisé uniquement lors de la création)
+            session_name: Nom de la session
+            description: Description globale (rétrocompatibilité, utilisée pour RAG)
             use_rag: Utiliser le RAG pour des exemples
-        
+
         Returns:
-            Résultat avec model, sysml_code, rag_sources, warnings, available_diagrams
+            Résultat avec session_id, level, model, sysml_code, summary, warnings, rag_sources
         """
         logger.info(f"Génération du niveau {level} (session: {session_id})")
-        
-        # Validation du niveau
+
+        # 1. Validation du niveau
         if level not in self.NIVEAUX_ORDER:
-            raise ValueError(f"Niveau invalide : {level}. Niveaux valides : {', '.join(self.NIVEAUX_ORDER)}")
-        
-        # 1. Création de session si nécessaire
+            raise ValueError(f"Niveau invalide : {level}. Valides : {', '.join(self.NIVEAUX_ORDER)}")
+
+        # 2. Création ou chargement de la session
         if session_id is None:
             session_id = self.state.create_session()
-            self.state.init_session_with_levels(session_id, description, session_name=session_name)
+            self.state.init_session_with_levels(
+                session_id, description=description,
+                system_name="", session_name=session_name,
+            )
             logger.info(f"Nouvelle session créée : {session_id}")
-        
-        # 2. Vérification des prérequis (niveau précédent validé)
+
+        # 3. Vérification des prérequis (niveau précédent validé)
         if level != "operational":
             prev_level = self._get_previous_level(level)
             try:
@@ -111,222 +98,405 @@ class LevelService:
                         f"Le niveau {prev_level} doit être validé avant de générer le niveau {level}"
                     )
             except ValueError:
-                raise ValueError(
-                    f"Le niveau {prev_level} doit être généré et validé avant le niveau {level}"
-                )
-        
-        # 3. Récupération du contexte du niveau précédent
+                raise
+
+        # 4. Sauvegarde des entrées utilisateur
+        user_sections = sections or []
+        if user_sections:
+            self.state.save_user_inputs(session_id, level, user_sections)
+
+        # 5. Contexte du niveau précédent
         previous_data = self.state.get_previous_level_data(session_id, level)
-        
-        # 4. Récupération d'exemples RAG
+        previous_model = None
+        if previous_data:
+            previous_model = previous_data.get("model", {})
+
+        # 6. Récupération d'exemples RAG
         rag_examples = []
         rag_sources = []
         if use_rag:
-            try:
-                results = self.rag.search(description, top_k=8)
-                rag_examples = [r["content"] for r in results]
-                rag_sources = [r["file"] for r in results]
-                logger.info(f"RAG: {len(rag_examples)} exemples récupérés")
-            except Exception as e:
-                logger.warning(f"Erreur RAG : {e}")
-        
-        # 5. ÉTAPE 1 — Génération du JSON
+            rag_query = description or self._sections_to_rag_query(user_sections)
+            if rag_query:
+                try:
+                    results = self.rag.search(rag_query, top_k=8)
+                    rag_examples = [r["content"] for r in results]
+                    rag_sources = [r["source_file"] for r in results]
+                    logger.info(f"RAG: {len(rag_examples)} exemples récupérés")
+                except Exception as e:
+                    logger.warning(f"Erreur RAG : {e}")
+
+        # 7. ÉTAPE 1 — Génération du modèle JSON
         logger.info(f"Étape 1/2 : Génération du modèle JSON ({level})")
-        json_model = self._generate_json_for_level(
-            level, description, previous_data, rag_examples,
-            session_id=session_id, orig_description=description
+        json_model, json_exchange = self._generate_json(
+            level=level,
+            user_sections=user_sections,
+            previous_model=previous_model,
+            rag_examples=rag_examples,
         )
-        
-        # 6. Vérification de fidélité (UNIQUEMENT pour logical et technical, pas operational/functional)
-        if level in ["logical", "technical"]:
-            fidelity_result = self.fidelity_checker.check(description, json_model)
-            if not fidelity_result["is_faithful"]:
-                logger.warning(f"Fidélité non respectée : {fidelity_result}")
-                # Retry avec feedback
-                feedback = f"Composants manquants : {fidelity_result['missing_components']}. "
-                feedback += f"Composants en trop : {fidelity_result['extra_components']}."
-                
-                logger.info("Retry avec correction de fidélité")
-                json_model = self._generate_json_for_level(
-                    level, description, previous_data, rag_examples, feedback,
-                    session_id=session_id, orig_description=description
-                )
-                
-                # Re-vérification
-                fidelity_result = self.fidelity_checker.check(description, json_model)
-                if not fidelity_result["is_faithful"]:
-                    # Ajouter les warnings au modèle
-                    if "warnings" not in json_model:
-                        json_model["warnings"] = []
-                    json_model["warnings"].extend([
-                        f"Composant manquant : {comp}" for comp in fidelity_result['missing_components']
-                    ])
-                    json_model["warnings"].extend([
-                        f"Composant non décrit : {comp}" for comp in fidelity_result['extra_components']
-                    ])
-        
-        # 7. ÉTAPE 2 — Génération du code SysML v2
+        # Sauvegarde de l'échange JSON
+        self.state.save_exchange(session_id, {**json_exchange, "session_id": session_id, "level": level})
+
+        # 8. ÉTAPE 2 — Génération du code SysML v2
         logger.info(f"Étape 2/2 : Génération du code SysML v2 ({level})")
-        sysml_code = self._generate_sysml_for_level(
-            level, json_model, rag_examples,
-            session_id=session_id, orig_description=description
+        sysml_code, sysml_exchange = self._generate_sysml(
+            level=level,
+            json_model=json_model,
+            rag_examples=rag_examples,
         )
-        
-        # 7.5. Validation syntaxique du code SysML v2 généré
-        validation_result = None
-        if self.validator:
-            logger.info(f"Validation syntaxique du code SysML v2 ({level})")
-            validation_result = self.validator.validate(sysml_code)
-            
-            # NE PAS ajouter de warning dans le modèle JSON
-            # Le résultat de validation est stocké séparément
-            if not validation_result["valid"]:
-                error_count = validation_result["summary"]["errors_count"]
-                logger.warning(f"Code SysML v2 invalide : {error_count} erreurs détectées")
-            else:
-                logger.info(f"Code SysML v2 validé avec succès (score: {validation_result['score']}/100)")
-        
-        # 7.6. Filtrer les warnings dupliqués des niveaux précédents
-        # Les warnings du LLM sont dans json_model["warnings"]
-        llm_warnings = []
-        if previous_data:
-            prev_model = previous_data.get("model", {})
-            prev_warnings = set(prev_model.get("warnings", []))
-            current_warnings = json_model.get("warnings", [])
-            
-            # Ne garder que les nouveaux warnings
-            new_warnings = [w for w in current_warnings if w not in prev_warnings]
-            llm_warnings = new_warnings
-            
-            if len(current_warnings) > len(new_warnings):
-                logger.info(f"Filtrage de {len(current_warnings) - len(new_warnings)} warnings dupliqués")
-        else:
-            llm_warnings = json_model.get("warnings", [])
-        
-        # Filtrer les warnings qui parlent de validation syntaxique (ajoutés par erreur dans les anciennes versions)
-        llm_warnings = [w for w in llm_warnings if "erreur(s) syntaxique(s)" not in w and "syntaxique" not in w.lower()]
-        
-        # 8. Extraction du system_name
+        # Sauvegarde de l'échange SysML
+        self.state.save_exchange(session_id, {**sysml_exchange, "session_id": session_id, "level": level})
+
+        # 9. Validation syntaxique
+        validation_result = self._validate_sysml(sysml_code)
+
+        # 10. Extraction du system_name au niveau opérationnel
         system_name = json_model.get("system_name", "")
         if level == "operational" and system_name:
-            # Mettre à jour le system_name de la session
             session_data = self.state.load_session(session_id)
             session_data["system_name"] = system_name
             self.state.save_session(session_id, session_data)
-        
-        # 9. Sauvegarde du niveau
+
+        # 11. Construction du résumé
+        summary = self._build_summary(level, json_model)
+
+        # 12. Extraction des warnings
+        warnings = json_model.get("warnings", [])
+
+        # 13. Sauvegarde du niveau
         level_data = {
             "level": level,
+            "user_inputs": user_sections,
             "model": json_model,
             "sysml_code": sysml_code,
-            "llm_warnings": llm_warnings,  # Warnings du LLM séparés
-            "validation_result": validation_result if validation_result else {"valid": True, "errors": [], "warnings": [], "score": 100},  # Résultat de validation
-            "diagrams": [],
+            "summary": summary,
+            "warnings": warnings,
+            "validation_result": validation_result,
             "validated": False,
             "history": [{
                 "action": "generate",
-                "description": description[:100],
-                "timestamp": None  # sera ajouté par save_level
-            }]
+                "timestamp": datetime.now().isoformat(),
+            }],
         }
         self.state.save_level(session_id, level, level_data)
-        logger.info(f"Niveau {level} sauvegardé")
-        
-        # 10. Retour
+
+        # 14. Sauvegarde du code SysML sur disque
+        self.state.file_logger.save_sysml_output(session_id, level, sysml_code)
+
+        logger.info(f"Niveau {level} généré et sauvegardé")
+
+        # 15. Retour
         return {
             "session_id": session_id,
             "level": level,
             "model": json_model,
             "sysml_code": sysml_code,
-            "llm_warnings": llm_warnings,  # Warnings LLM séparés
-            "validation_result": validation_result if validation_result else {"valid": True, "errors": [], "warnings": [], "score": 100},
+            "summary": summary,
+            "warnings": warnings,
+            "validation_result": validation_result,
             "rag_sources": rag_sources,
-            "warnings": llm_warnings,  # Pour compatibilité avec ancien code
-            "available_diagrams": self.DIAGRAMMES_PAR_NIVEAU.get(level, [])
         }
 
-    def _generate_json_for_level(
+    # ------------------------------------------------------------------
+    # patch_level — Régénération avec nouvelles sections
+    # ------------------------------------------------------------------
+
+    def patch_level(
+        self,
+        session_id: str,
+        level: str,
+        sections: Optional[List[dict]] = None,
+        instruction: str = "",
+        use_rag: bool = True,
+    ) -> Dict:
+        """
+        Régénère un niveau avec de nouvelles sections.
+
+        Args:
+            session_id: ID de session
+            level: Niveau à modifier
+            sections: Nouvelles sections utilisateur
+            instruction: Instruction de modification (rétrocompatibilité)
+            use_rag: Utiliser le RAG
+
+        Returns:
+            Résultat avec session_id, level, model, sysml_code, changes_summary
+        """
+        logger.info(f"Patch du niveau {level} (session: {session_id})")
+
+        # 1. Vérifier que le niveau existe
+        try:
+            existing_data = self.state.get_level(session_id, level)
+        except ValueError:
+            raise ValueError(f"Le niveau {level} n'existe pas pour cette session")
+
+        if not existing_data.get("model"):
+            raise ValueError(f"Le niveau {level} n'a pas encore été généré")
+
+        # 2. Utiliser les nouvelles sections ou les anciennes
+        user_sections = sections or existing_data.get("user_inputs", [])
+        if sections:
+            self.state.save_user_inputs(session_id, level, user_sections)
+
+        # 3. Contexte du niveau précédent
+        previous_data = self.state.get_previous_level_data(session_id, level)
+        previous_model = None
+        if previous_data:
+            previous_model = previous_data.get("model", {})
+
+        # 4. RAG
+        rag_examples = []
+        if use_rag:
+            rag_query = instruction or self._sections_to_rag_query(user_sections)
+            if rag_query:
+                try:
+                    results = self.rag.search(rag_query, top_k=5)
+                    rag_examples = [r["content"] for r in results]
+                except Exception as e:
+                    logger.warning(f"Erreur RAG : {e}")
+
+        # 5. Régénération JSON
+        json_model, json_exchange = self._generate_json(
+            level=level,
+            user_sections=user_sections,
+            previous_model=previous_model,
+            rag_examples=rag_examples,
+        )
+        self.state.save_exchange(session_id, {**json_exchange, "session_id": session_id, "level": level})
+
+        # 6. Régénération SysML
+        sysml_code, sysml_exchange = self._generate_sysml(
+            level=level,
+            json_model=json_model,
+            rag_examples=rag_examples,
+        )
+        self.state.save_exchange(session_id, {**sysml_exchange, "session_id": session_id, "level": level})
+
+        # 7. Validation
+        validation_result = self._validate_sysml(sysml_code)
+
+        # 8. Résumé
+        summary = self._build_summary(level, json_model)
+        warnings = json_model.get("warnings", [])
+
+        # 9. Sauvegarde
+        level_data = {
+            "level": level,
+            "user_inputs": user_sections,
+            "model": json_model,
+            "sysml_code": sysml_code,
+            "summary": summary,
+            "warnings": warnings,
+            "validation_result": validation_result,
+            "validated": False,
+            "history": existing_data.get("history", []) + [{
+                "action": "patch",
+                "timestamp": datetime.now().isoformat(),
+            }],
+        }
+        self.state.save_level(session_id, level, level_data)
+        self.state.file_logger.save_sysml_output(session_id, level, sysml_code)
+
+        changes_summary = f"Niveau {level} régénéré avec les sections mises à jour."
+
+        return {
+            "session_id": session_id,
+            "level": level,
+            "model": json_model,
+            "sysml_code": sysml_code,
+            "changes_summary": changes_summary,
+        }
+
+    # ------------------------------------------------------------------
+    # validate_level
+    # ------------------------------------------------------------------
+
+    def validate_level(self, session_id: str, level: str) -> Dict:
+        """
+        Valide un niveau pour permettre de passer au suivant.
+
+        Returns:
+            {"session_id", "level", "validated", "next_level"}
+        """
+        logger.info(f"Validation du niveau {level} (session: {session_id})")
+
+        try:
+            level_data = self.state.get_level(session_id, level)
+        except ValueError:
+            raise ValueError(f"Le niveau {level} n'existe pas")
+
+        if not level_data.get("model"):
+            raise ValueError(f"Le niveau {level} n'a pas encore été généré")
+
+        self.state.validate_level(session_id, level)
+
+        try:
+            idx = self.NIVEAUX_ORDER.index(level)
+            next_level = self.NIVEAUX_ORDER[idx + 1] if idx < len(self.NIVEAUX_ORDER) - 1 else None
+        except ValueError:
+            next_level = None
+
+        return {
+            "session_id": session_id,
+            "level": level,
+            "validated": True,
+            "next_level": next_level,
+        }
+
+    # ------------------------------------------------------------------
+    # get_level_status
+    # ------------------------------------------------------------------
+
+    def get_level_status(self, session_id: str) -> Dict:
+        """Retourne le statut de tous les niveaux."""
+        status = {}
+        for level in self.NIVEAUX_ORDER:
+            try:
+                level_data = self.state.get_level(session_id, level)
+                status[level] = {
+                    "generated": bool(level_data and level_data.get("model")),
+                    "validated": bool(level_data and level_data.get("validated")),
+                    "has_warnings": bool(level_data and level_data.get("warnings")),
+                    "warning_count": len(level_data.get("warnings", [])) if level_data else 0,
+                    "history_count": len(level_data.get("history", [])) if level_data else 0,
+                }
+            except ValueError:
+                status[level] = {
+                    "generated": False,
+                    "validated": False,
+                    "has_warnings": False,
+                    "warning_count": 0,
+                    "history_count": 0,
+                }
+        return status
+
+    # ------------------------------------------------------------------
+    # get_full_sysml
+    # ------------------------------------------------------------------
+
+    def get_full_sysml(self, session_id: str) -> str:
+        """Concatène le code SysML v2 de tous les niveaux validés."""
+        code_parts = []
+        for level in self.NIVEAUX_ORDER:
+            try:
+                level_data = self.state.get_level(session_id, level)
+                sysml_code = level_data.get("sysml_code", "")
+                if sysml_code:
+                    code_parts.append(f"// ===== NIVEAU {level.upper()} =====\n\n{sysml_code}")
+            except ValueError:
+                continue
+        if not code_parts:
+            return "// Aucun niveau généré"
+        return "\n\n".join(code_parts)
+
+    # ------------------------------------------------------------------
+    # check_coherence (rétrocompatibilité avec main.py)
+    # ------------------------------------------------------------------
+
+    def check_coherence(self, session_id: str, level: str) -> Dict:
+        """Vérifie la cohérence entre un niveau et ses niveaux adjacents."""
+        issues = []
+        try:
+            current_data = self.state.get_level(session_id, level)
+            current_model = current_data.get("model", {})
+        except ValueError:
+            return {"coherent": True, "issues": []}
+
+        if level == "functional":
+            issues.extend(self._check_functional_coherence(session_id, current_model))
+        elif level == "logical":
+            issues.extend(self._check_logical_coherence(session_id, current_model))
+        elif level == "technical":
+            issues.extend(self._check_technical_coherence(session_id, current_model))
+
+        return {"coherent": len(issues) == 0, "issues": issues}
+
+    # ==================================================================
+    # Méthodes internes
+    # ==================================================================
+
+    # ------------------------------------------------------------------
+    # _generate_json — Sections → JSON model via LLM
+    # ------------------------------------------------------------------
+
+    def _generate_json(
         self,
         level: str,
-        description: str,
-        previous_data: Optional[Dict],
+        user_sections: List[dict],
+        previous_model: Optional[dict],
         rag_examples: List[str],
         correction_feedback: Optional[str] = None,
-        session_id: Optional[str] = None,
-        orig_description: str = ""
-    ) -> Dict:
-        """Génère le modèle JSON pour un niveau donné."""
-        
+    ) -> tuple:
+        """
+        Génère le modèle JSON pour un niveau donné.
+
+        Returns:
+            (json_model: dict, exchange: dict)
+        """
         # Construire le prompt selon le niveau
         if level == "operational":
-            prompt = build_operational_json_prompt(description, rag_examples, correction_feedback)
+            prompt = build_operational_json_prompt(user_sections, rag_examples, correction_feedback)
         elif level == "functional":
-            prev_model = previous_data["model"] if previous_data else {}
-            prompt = build_functional_json_prompt(description, prev_model, rag_examples, correction_feedback)
+            prompt = build_functional_json_prompt(user_sections, previous_model or {}, rag_examples, correction_feedback)
         elif level == "logical":
-            prev_model = previous_data["model"] if previous_data else {}
-            prompt = build_logical_json_prompt(description, prev_model, rag_examples, correction_feedback)
+            prompt = build_logical_json_prompt(user_sections, previous_model or {}, rag_examples, correction_feedback)
         elif level == "technical":
-            prev_model = previous_data["model"] if previous_data else {}
-            prompt = build_technical_json_prompt(description, prev_model, rag_examples, correction_feedback)
+            prompt = build_technical_json_prompt(user_sections, previous_model or {}, rag_examples, correction_feedback)
         else:
             raise ValueError(f"Niveau non supporté : {level}")
-        
-        # Appel au LLM (avec traçabilité si session_id fourni)
-        exchange_id = str(uuid.uuid4())
+
+        # Préparer l'échange
         exchange = {
-            "id": exchange_id,
+            "id": str(uuid.uuid4()),
             "timestamp": datetime.now().isoformat(),
-            "session_id": session_id or "",
-            "level": level,
             "operation": "generate_json",
-            "description_input": orig_description or description,
             "prompt_sent": prompt,
             "llm_response_raw": "",
             "llm_model": self.llm.get_model_name(),
-            "sysml_code": "",
             "success": True,
-            "error_message": ""
+            "error_message": "",
         }
+
+        # Appel LLM
         try:
-            response = self.llm.generate(prompt, temperature=0.05, max_tokens=65536, response_mime_type="application/json")
+            response = self.llm.generate(
+                prompt, temperature=0.05, max_tokens=65536,
+                response_mime_type="application/json",
+            )
             exchange["llm_response_raw"] = response
         except Exception as e:
             exchange["success"] = False
             exchange["error_message"] = str(e)
-            if session_id:
-                self.state.save_exchange(session_id, exchange)
-        
+            raise
+
         # Nettoyage et parsing
-        response = response.strip()
-        # Enlever les blocs markdown
-        response = re.sub(r'^```json\s*', '', response, flags=re.MULTILINE)
-        response = re.sub(r'^```\s*$', '', response, flags=re.MULTILINE)
-        response = response.strip()
-        
-        # Parser le JSON
+        cleaned = self._clean_json_response(response)
         try:
-            json_model = json.loads(response)
-            return json_model
+            json_model = json.loads(cleaned)
         except json.JSONDecodeError as e:
-            logger.error(f"Erreur de parsing JSON : {e}")
-            logger.error(f"Réponse : {response[:500]}")
+            logger.error(f"Erreur parsing JSON : {e}")
+            logger.error(f"Réponse (500 premiers chars) : {cleaned[:500]}")
             raise ValueError(f"Le LLM n'a pas retourné un JSON valide : {e}")
 
-    def _generate_sysml_for_level(
+        return json_model, exchange
+
+    # ------------------------------------------------------------------
+    # _generate_sysml — JSON model → SysML v2 code via LLM
+    # ------------------------------------------------------------------
+
+    def _generate_sysml(
         self,
         level: str,
-        json_model: Dict,
+        json_model: dict,
         rag_examples: List[str],
-        session_id: Optional[str] = None,
-        orig_description: str = ""
-    ) -> str:
-        """Génère le code SysML v2 pour un niveau donné."""
-        
-        # Sérialiser le JSON
+    ) -> tuple:
+        """
+        Génère le code SysML v2 pour un niveau donné.
+
+        Returns:
+            (sysml_code: str, exchange: dict)
+        """
         json_str = json.dumps(json_model, indent=2, ensure_ascii=False)
-        
-        # Construire le prompt selon le niveau
+
         if level == "operational":
             prompt = build_operational_sysml_prompt(json_str, rag_examples)
         elif level == "functional":
@@ -337,411 +507,271 @@ class LevelService:
             prompt = build_technical_sysml_prompt(json_str, rag_examples)
         else:
             raise ValueError(f"Niveau non supporté : {level}")
-        
-        # Appel au LLM (avec traçabilité si session_id fourni)
-        exchange_id = str(uuid.uuid4())
+
         exchange = {
-            "id": exchange_id,
+            "id": str(uuid.uuid4()),
             "timestamp": datetime.now().isoformat(),
-            "session_id": session_id or "",
-            "level": level,
             "operation": "generate_sysml",
-            "description_input": orig_description,
             "prompt_sent": prompt,
             "llm_response_raw": "",
             "llm_model": self.llm.get_model_name(),
             "sysml_code": "",
             "success": True,
-            "error_message": ""
+            "error_message": "",
         }
+
         try:
             response = self.llm.generate(prompt, temperature=0.05, max_tokens=8192)
             exchange["llm_response_raw"] = response
         except Exception as e:
             exchange["success"] = False
             exchange["error_message"] = str(e)
-            if session_id:
-                self.state.save_exchange(session_id, exchange)
             raise
-        
-        # Nettoyage
-        response = response.strip()
-        response = re.sub(r'^```sysml\s*', '', response, flags=re.MULTILINE)
-        response = re.sub(r'^```\s*$', '', response, flags=re.MULTILINE)
-        response = response.strip()
-        
-        exchange["sysml_code"] = response
-        if session_id:
-            self.state.save_exchange(session_id, exchange)
-        
-        return response
 
-    def patch_level(
-        self,
-        session_id: str,
-        level: str,
-        instruction: str,
-        use_rag: bool = True
-    ) -> Dict:
-        """
-        Modifie un niveau existant.
-        
-        Args:
-            session_id: ID de session
-            level: Niveau à modifier
-            instruction: Instruction de modification
-            use_rag: Utiliser le RAG
-        
-        Returns:
-            Résultat avec model, sysml_code, changes_summary
-        """
-        logger.info(f"Patch du niveau {level} (session: {session_id})")
-        
-        # 1. Charger les données actuelles
+        sysml_code = self._clean_sysml_code(response)
+        exchange["sysml_code"] = sysml_code
+
+        return sysml_code, exchange
+
+    # ------------------------------------------------------------------
+    # _validate_sysml
+    # ------------------------------------------------------------------
+
+    def _validate_sysml(self, sysml_code: str) -> dict:
+        """Valide le code SysML v2 et retourne le résultat."""
+        if not self.validator or not sysml_code:
+            return {"valid": True, "errors": [], "warnings": [], "score": 100}
+
         try:
-            level_data = self.state.get_level(session_id, level)
-        except ValueError:
-            raise ValueError(f"Le niveau {level} n'existe pas pour cette session")
-        
-        if not level_data.get("model"):
-            raise ValueError(f"Le niveau {level} n'a pas encore été généré")
-        
-        current_model = level_data["model"]
-        
-        # 2. Récupérer des exemples RAG
-        rag_examples = []
-        if use_rag:
-            try:
-                results = self.rag.search(instruction, top_k=5)
-                rag_examples = [r["content"] for r in results]
-            except Exception as e:
-                logger.warning(f"Erreur RAG : {e}")
-        
-        # 3. Construire le prompt de patch
-        current_json = json.dumps(current_model, indent=2, ensure_ascii=False)
-        
-        prompt = f"""Tu es un expert en modification de modèles SysML. Tu modifies le modèle JSON du niveau {level}.
-
-=== MODÈLE ACTUEL ===
-{current_json}
-
-=== INSTRUCTION DE MODIFICATION ===
-{instruction}
-
-=== RÈGLES STRICTES ===
-1. Applique UNIQUEMENT la modification demandée
-2. Ne supprime RIEN qui n'est pas explicitement demandé
-3. Ne modifie RIEN qui n'est pas concerné par l'instruction
-4. Conserve TOUTES les autres données inchangées
-5. Retourne le JSON COMPLET modifié (pas seulement ce qui a changé)
-
-=== FORMAT DE RÉPONSE ===
-Retourne le JSON complet du modèle modifié (sans commentaire, juste le JSON).
-"""
-        
-        if rag_examples:
-            prompt += "\n\n=== EXEMPLES DE SYNTAXE ===\n"
-            for i, ex in enumerate(rag_examples[:3], 1):
-                prompt += f"Exemple {i}:\n```\n{ex}\n```\n\n"
-        
-        # 4. Appel au LLM (avec traçabilité)
-        patch_exchange_id = str(uuid.uuid4())
-        patch_exchange = {
-            "id": patch_exchange_id,
-            "timestamp": datetime.now().isoformat(),
-            "session_id": session_id,
-            "level": level,
-            "operation": "patch_json",
-            "description_input": instruction,
-            "prompt_sent": prompt,
-            "llm_response_raw": "",
-            "llm_model": self.llm.get_model_name(),
-            "sysml_code": "",
-            "success": True,
-            "error_message": ""
-        }
-        try:
-            response = self.llm.generate(prompt, temperature=0.05, max_tokens=65536, response_mime_type="application/json")
-            patch_exchange["llm_response_raw"] = response
+            result = self.validator.validate(sysml_code)
+            if result.get("valid"):
+                logger.info(f"Code SysML v2 valide (score: {result.get('score', '?')}/100)")
+            else:
+                err_count = result.get("summary", {}).get("errors_count", 0)
+                logger.warning(f"Code SysML v2 invalide : {err_count} erreurs")
+            return result
         except Exception as e:
-            patch_exchange["success"] = False
-            patch_exchange["error_message"] = str(e)
-            self.state.save_exchange(session_id, patch_exchange)
-            raise
-        self.state.save_exchange(session_id, patch_exchange)
-        
-        response = response.strip()
-        response = re.sub(r'^```json\s*', '', response, flags=re.MULTILINE)
-        response = re.sub(r'^```\s*$', '', response, flags=re.MULTILINE)
-        response = response.strip()
-        
-        # 5. Parser le JSON modifié
-        try:
-            modified_model = json.loads(response)
-        except json.JSONDecodeError as e:
-            logger.error(f"Erreur de parsing : {e}")
-            raise ValueError(f"Le LLM n'a pas retourné un JSON valide : {e}")
-        
-        # 6. Régénérer le code SysML v2
-        logger.info("Régénération du code SysML v2")
-        sysml_code = self._generate_sysml_for_level(
-            level, modified_model, rag_examples,
-            session_id=session_id, orig_description=instruction
-        )
-        
-        # 7. Vérifier la cohérence
-        coherence = self.check_coherence(session_id, level)
-        warnings = []
-        if not coherence["coherent"]:
-            warnings = [f"{issue['severity'].upper()}: {issue['description']}" for issue in coherence["issues"]]
-        
-        # 8. Sauvegarder
-        level_data["model"] = modified_model
-        level_data["sysml_code"] = sysml_code
-        if "history" not in level_data:
-            level_data["history"] = []
-        level_data["history"].append({
-            "action": "patch",
-            "instruction": instruction,
-            "timestamp": None  # sera ajouté par save_level
-        })
-        self.state.save_level(session_id, level, level_data)
-        
-        # 9. Résumé des changements
-        changes_summary = f"Modification appliquée au niveau {level} : {instruction}"
-        
-        return {
-            "session_id": session_id,
-            "level": level,
-            "model": modified_model,
-            "sysml_code": sysml_code,
-            "changes_summary": changes_summary,
-            "coherence_warnings": warnings
-        }
+            logger.warning(f"Erreur lors de la validation : {e}")
+            return {"valid": True, "errors": [], "warnings": [], "score": 100}
 
-    def validate_level(self, session_id: str, level: str) -> Dict:
-        """
-        Valide un niveau pour permettre de passer au suivant.
-        
-        Args:
-            session_id: ID de session
-            level: Niveau à valider
-        
-        Returns:
-            Résultat avec session_id, level, validated, next_level
-        """
-        logger.info(f"Validation du niveau {level} (session: {session_id})")
-        
-        # Vérifier que le niveau a un modèle
-        try:
-            level_data = self.state.get_level(session_id, level)
-        except ValueError:
-            raise ValueError(f"Le niveau {level} n'existe pas")
-        
-        if not level_data.get("model"):
-            raise ValueError(f"Le niveau {level} n'a pas encore été généré")
-        
-        # Valider
-        self.state.validate_level(session_id, level)
-        
-        # Déterminer le niveau suivant
-        try:
-            current_index = self.NIVEAUX_ORDER.index(level)
-            next_level = self.NIVEAUX_ORDER[current_index + 1] if current_index < len(self.NIVEAUX_ORDER) - 1 else None
-        except ValueError:
-            next_level = None
-        
-        return {
-            "session_id": session_id,
-            "level": level,
-            "validated": True,
-            "next_level": next_level
-        }
+    # ------------------------------------------------------------------
+    # _build_summary
+    # ------------------------------------------------------------------
 
-    def check_coherence(self, session_id: str, level: str) -> Dict:
+    def _build_summary(self, level: str, json_model: dict) -> Optional[dict]:
         """
-        Vérifie la cohérence entre un niveau et ses niveaux adjacents.
-        Ne propose PAS de corrections, signale seulement les incohérences.
-        
-        Args:
-            session_id: ID de session
-            level: Niveau à vérifier
-        
+        Construit un résumé du modèle pour le frontend.
+
         Returns:
-            {"coherent": bool, "issues": [{"type": str, "description": str, "severity": str}]}
+            {"level": str, "summary_text": str, "key_elements": dict} ou None
         """
-        issues = []
-        
-        try:
-            current_data = self.state.get_level(session_id, level)
-            current_model = current_data.get("model", {})
-        except ValueError:
-            return {"coherent": True, "issues": []}
-        
-        # Vérification FUNCTIONAL → OPERATIONAL
-        if level == "functional":
-            try:
-                op_data = self.state.get_level(session_id, "operational")
-                op_model = op_data.get("model", {})
-                use_cases = op_model.get("use_cases", [])
-                functions = current_model.get("functions", [])
-                
-                # Stop words pour le matching sémantique
-                STOP_WORDS = {"le", "la", "les", "un", "une", "des", "du", "de", "d", "l", "au", "aux", 
-                              "en", "dans", "par", "pour", "sur", "avec", "sans", "a", "the", "an", "of", 
-                              "in", "to", "for", "with"}
-                
-                def extract_significant_words(text: str):
-                    """Extrait les mots significatifs (sans stop words)."""
-                    words = text.lower().replace("'", " ").split()
-                    return set(w for w in words if len(w) > 2 and w not in STOP_WORDS)
-                
-                # Collecter tous les mots des fonctions
-                all_function_words = set()
-                for func in functions:
-                    func_text = func.get("name", "") + " " + func.get("description", "")
-                    all_function_words.update(extract_significant_words(func_text))
-                
-                # Vérifier chaque use case
-                for use_case in use_cases:
-                    uc_name = use_case.get("name", "")
-                    uc_words = extract_significant_words(uc_name)
-                    
-                    if not uc_words:
-                        continue
-                    
-                    # Matching : au moins 30% des mots du use case doivent apparaître dans les fonctions
-                    matching_words = uc_words.intersection(all_function_words)
-                    coverage = len(matching_words) / len(uc_words) if uc_words else 0
-                    
-                    if coverage < 0.3:
-                        issues.append({
-                            "type": "missing_function_for_usecase",
-                            "description": f"Le use case '{uc_name}' pourrait ne pas être entièrement couvert par les fonctions actuelles. Vérifiez la couverture.",
-                            "severity": "warning"
-                        })
-            except ValueError:
-                pass  # Pas de niveau opérationnel
-        
-        # Vérification LOGICAL → FUNCTIONAL
+        if not json_model:
+            return None
+
+        system_name = json_model.get("system_name", "Système")
+        key_elements = {}
+
+        if level == "operational":
+            stakeholders = [s.get("name", "") for s in json_model.get("stakeholders", [])]
+            use_cases = [u.get("name", "") for u in json_model.get("use_cases", [])]
+            ext_systems = [e.get("system_name", "") for e in json_model.get("external_interfaces", [])]
+            modes = [m.get("name", "") for m in json_model.get("operating_modes", [])]
+            key_elements = {
+                "stakeholders": stakeholders,
+                "use_cases": use_cases,
+                "external_systems": ext_systems,
+                "operating_modes": modes,
+            }
+            summary_text = (
+                f"Niveau opérationnel de {system_name} : "
+                f"{len(stakeholders)} acteurs, {len(use_cases)} cas d'utilisation, "
+                f"{len(ext_systems)} systèmes externes, {len(modes)} modes."
+            )
+
+        elif level == "functional":
+            functions = [f.get("name", "") for f in json_model.get("functions", [])]
+            chains = [c.get("name", "") for c in json_model.get("functional_chains", [])]
+            flows_count = len(json_model.get("functional_flows", []))
+            key_elements = {
+                "functions": functions,
+                "functional_chains": chains,
+            }
+            summary_text = (
+                f"Niveau fonctionnel de {system_name} : "
+                f"{len(functions)} fonctions, {flows_count} flux, {len(chains)} chaînes."
+            )
+
         elif level == "logical":
-            try:
-                func_data = self.state.get_level(session_id, "functional")
-                func_model = func_data.get("model", {})
-                functions = func_model.get("functions", [])
-                parts = current_model.get("parts", [])
-                
-                # Chaque fonction doit être mentionnée dans la description d'un composant
-                function_names = [f.get("name", "") for f in functions]
-                part_descriptions = [p.get("description", "") for p in parts]
-                
-                for func_name in function_names:
-                    if not any(func_name.lower() in desc.lower() for desc in part_descriptions):
-                        issues.append({
-                            "type": "unallocated_function",
-                            "description": f"La fonction '{func_name}' n'est allouée à aucun composant logique",
-                            "severity": "warning"
-                        })
-                
-                # Vérifier les flux fonctionnels vs connexions
-                functional_flows = func_model.get("functional_flows", [])
-                connections = current_model.get("connections", [])
-                
-                if len(functional_flows) > len(connections):
-                    issues.append({
-                        "type": "missing_connections",
-                        "description": f"{len(functional_flows)} flux fonctionnels mais seulement {len(connections)} connexions logiques",
-                        "severity": "warning"
-                    })
-            except ValueError:
-                pass  # Pas de niveau fonctionnel
-        
-        # Vérification TECHNICAL → LOGICAL
+            components = [c.get("name", "") for c in json_model.get("components", [])]
+            connections_count = len(json_model.get("connections", []))
+            key_elements = {
+                "components": components,
+            }
+            summary_text = (
+                f"Niveau logique de {system_name} : "
+                f"{len(components)} composants, {connections_count} connexions."
+            )
+
         elif level == "technical":
-            try:
-                log_data = self.state.get_level(session_id, "logical")
-                log_model = log_data.get("model", {})
-                logical_parts = log_model.get("parts", [])
-                technical_parts = current_model.get("technical_parts", [])
-                
-                # Chaque composant logique doit avoir un composant technique correspondant
-                logical_names = [p.get("name", "") for p in logical_parts]
-                tech_descriptions = [p.get("description", "") for p in technical_parts]
-                
-                for log_name in logical_names:
-                    if not any(log_name.lower() in desc.lower() for desc in tech_descriptions):
-                        issues.append({
-                            "type": "missing_technical_component",
-                            "description": f"Le composant logique '{log_name}' n'a pas de composant technique correspondant",
-                            "severity": "warning"
-                        })
-            except ValueError:
-                pass  # Pas de niveau logique
-        
-        coherent = len(issues) == 0
-        return {"coherent": coherent, "issues": issues}
+            tech_components = [c.get("name", "") for c in json_model.get("technical_components", [])]
+            phys_connections = len(json_model.get("physical_connections", []))
+            tech_choices = len(json_model.get("technology_choices", []))
+            key_elements = {
+                "technical_components": tech_components,
+            }
+            summary_text = (
+                f"Niveau technique de {system_name} : "
+                f"{len(tech_components)} composants, {phys_connections} connexions, "
+                f"{tech_choices} choix technologiques."
+            )
+        else:
+            return None
 
-    def get_full_sysml(self, session_id: str) -> str:
-        """
-        Retourne le code SysML v2 complet en concaténant tous les niveaux validés.
-        
-        Args:
-            session_id: ID de session
-        
-        Returns:
-            Code SysML v2 complet
-        """
-        code_parts = []
-        
-        for level in self.NIVEAUX_ORDER:
-            try:
-                level_data = self.state.get_level(session_id, level)
-                sysml_code = level_data.get("sysml_code", "")
-                if sysml_code:
-                    code_parts.append(f"// ===== NIVEAU {level.upper()} =====\n\n{sysml_code}")
-            except ValueError:
-                continue  # Niveau pas encore généré
-        
-        if not code_parts:
-            return "// Aucun niveau généré"
-        
-        return "\n\n".join(code_parts)
+        return {
+            "level": level,
+            "summary_text": summary_text,
+            "key_elements": key_elements,
+        }
 
-    def get_level_status(self, session_id: str) -> Dict:
-        """
-        Retourne le statut de tous les niveaux.
-        
-        Args:
-            session_id: ID de session
-        
-        Returns:
-            Dictionnaire avec le statut de chaque niveau
-        """
-        status = {}
-        
-        for level in self.NIVEAUX_ORDER:
-            try:
-                level_data = self.state.get_level(session_id, level)
-                status[level] = {
-                    "generated": bool(level_data and level_data.get("model")),
-                    "validated": bool(level_data and level_data.get("validated")),
-                    "has_diagrams": bool(level_data and level_data.get("diagrams")),
-                    "history_count": len(level_data.get("history", [])) if level_data else 0
-                }
-            except ValueError:
-                status[level] = {
-                    "generated": False,
-                    "validated": False,
-                    "has_diagrams": False,
-                    "history_count": 0
-                }
-        
-        return status
+    # ------------------------------------------------------------------
+    # Nettoyage des réponses LLM
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _clean_json_response(response: str) -> str:
+        """Nettoie la réponse JSON du LLM (enlève markdown, espaces)."""
+        text = response.strip()
+        text = re.sub(r'^```json\s*', '', text, flags=re.MULTILINE)
+        text = re.sub(r'^```\s*$', '', text, flags=re.MULTILINE)
+        return text.strip()
+
+    @staticmethod
+    def _clean_sysml_code(response: str) -> str:
+        """Nettoie le code SysML v2 du LLM (enlève blocs markdown)."""
+        text = response.strip()
+        text = re.sub(r'^```sysml\s*', '', text, flags=re.MULTILINE)
+        text = re.sub(r'^```\s*$', '', text, flags=re.MULTILINE)
+        return text.strip()
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
     def _get_previous_level(self, level: str) -> Optional[str]:
         """Retourne le niveau précédent."""
         try:
-            index = self.NIVEAUX_ORDER.index(level)
-            return self.NIVEAUX_ORDER[index - 1] if index > 0 else None
+            idx = self.NIVEAUX_ORDER.index(level)
+            return self.NIVEAUX_ORDER[idx - 1] if idx > 0 else None
         except ValueError:
             return None
+
+    @staticmethod
+    def _sections_to_rag_query(sections: List[dict]) -> str:
+        """Construit une requête RAG à partir des sections utilisateur."""
+        parts = []
+        for s in sections:
+            content = s.get("content", "").strip()
+            if content:
+                parts.append(content[:200])
+        return " ".join(parts)[:500]
+
+    # ------------------------------------------------------------------
+    # Vérifications de cohérence inter-niveaux
+    # ------------------------------------------------------------------
+
+    def _check_functional_coherence(self, session_id: str, current_model: dict) -> List[dict]:
+        """Vérifie la cohérence FUNCTIONAL → OPERATIONAL."""
+        issues = []
+        try:
+            op_data = self.state.get_level(session_id, "operational")
+            op_model = op_data.get("model", {})
+            use_cases = op_model.get("use_cases", [])
+            functions = current_model.get("functions", [])
+
+            all_function_words = set()
+            for func in functions:
+                func_text = func.get("name", "") + " " + (func.get("description", "") or "")
+                all_function_words.update(self._extract_significant_words(func_text))
+
+            for uc in use_cases:
+                uc_name = uc.get("name", "")
+                uc_words = self._extract_significant_words(uc_name)
+                if not uc_words:
+                    continue
+                matching = uc_words.intersection(all_function_words)
+                coverage = len(matching) / len(uc_words)
+                if coverage < 0.3:
+                    issues.append({
+                        "type": "missing_function_for_usecase",
+                        "description": f"Le use case '{uc_name}' pourrait ne pas être couvert par les fonctions.",
+                        "severity": "warning",
+                    })
+        except ValueError:
+            pass
+        return issues
+
+    def _check_logical_coherence(self, session_id: str, current_model: dict) -> List[dict]:
+        """Vérifie la cohérence LOGICAL → FUNCTIONAL."""
+        issues = []
+        try:
+            func_data = self.state.get_level(session_id, "functional")
+            func_model = func_data.get("model", {})
+            functions = func_model.get("functions", [])
+            components = current_model.get("components", [])
+
+            comp_descriptions = []
+            for c in components:
+                comp_descriptions.append((c.get("description", "") or "").lower())
+                for f in c.get("allocated_functions", []):
+                    comp_descriptions.append(f.lower())
+
+            for func in functions:
+                func_name = func.get("name", "")
+                if not any(func_name.lower() in desc for desc in comp_descriptions):
+                    issues.append({
+                        "type": "unallocated_function",
+                        "description": f"La fonction '{func_name}' n'est allouée à aucun composant logique.",
+                        "severity": "warning",
+                    })
+        except ValueError:
+            pass
+        return issues
+
+    def _check_technical_coherence(self, session_id: str, current_model: dict) -> List[dict]:
+        """Vérifie la cohérence TECHNICAL → LOGICAL."""
+        issues = []
+        try:
+            log_data = self.state.get_level(session_id, "logical")
+            log_model = log_data.get("model", {})
+            logical_components = log_model.get("components", [])
+            tech_components = current_model.get("technical_components", [])
+
+            tech_implements = set()
+            for tc in tech_components:
+                impl = (tc.get("implements", "") or "").lower()
+                if impl:
+                    tech_implements.add(impl)
+
+            for lc in logical_components:
+                lc_name = lc.get("name", "")
+                if lc_name.lower() not in tech_implements:
+                    issues.append({
+                        "type": "missing_technical_component",
+                        "description": f"Le composant logique '{lc_name}' n'a pas de composant technique correspondant.",
+                        "severity": "warning",
+                    })
+        except ValueError:
+            pass
+        return issues
+
+    _STOP_WORDS = frozenset({
+        "le", "la", "les", "un", "une", "des", "du", "de", "d", "l",
+        "au", "aux", "en", "dans", "par", "pour", "sur", "avec", "sans",
+        "a", "the", "an", "of", "in", "to", "for", "with",
+    })
+
+    @classmethod
+    def _extract_significant_words(cls, text: str) -> set:
+        """Extrait les mots significatifs (sans stop words)."""
+        words = text.lower().replace("'", " ").split()
+        return {w for w in words if len(w) > 2 and w not in cls._STOP_WORDS}

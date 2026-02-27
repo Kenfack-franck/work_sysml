@@ -17,7 +17,7 @@ google-genai==1.7.0
 
 # === Utilitaires ===
 python-dotenv==1.0.1
-httpx==0.28.1
+requests==2.32.3
 
 # === Tests ===
 pytest==8.3.4

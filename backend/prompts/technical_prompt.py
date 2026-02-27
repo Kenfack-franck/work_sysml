@@ -1,281 +1,313 @@
 """
 Prompts pour le niveau TECHNIQUE (Technical).
-Composants physiques, technologies, implémentation.
+
+Deux fonctions :
+  - build_technical_json_prompt  : sections utilisateur → JSON TechnicalModel
+  - build_technical_sysml_prompt : JSON TechnicalModel  → code SysML v2
 """
 
 import json
+from typing import List, Optional
 
 
-def build_technical_json_prompt(description: str, logical_model: dict, rag_examples: list[str] = None, correction_feedback: str = None) -> str:
-    """
-    Construit le prompt pour générer le modèle technique (JSON).
-    
-    Args:
-        description: Instructions ou précisions supplémentaires
-        logical_model: Le modèle logique validé (contexte)
-        rag_examples: Exemples de code SysML v2 pertinents (optionnel)
-        correction_feedback: Feedback de correction (optionnel)
-    
-    Returns:
-        Le prompt complet
-    """
-    # Sérialiser le modèle logique
-    logical_json = json.dumps(logical_model, indent=2, ensure_ascii=False)
-    
-    prompt = """Tu es un ingénieur système expert en modélisation SysML v2. Tu traduis les choix techniques en modèle structuré.
+# ============================================================================
+# Blocs de texte réutilisables
+# ============================================================================
 
-=== TON RÔLE ===
-À partir du modèle LOGIQUE validé et des instructions de l'utilisateur, tu :
-- TRADUIS les choix techniques DÉCRITS par l'utilisateur en modèle JSON structuré
-- Si l'utilisateur ne mentionne pas de technologie spécifique, utilise des noms GÉNÉRIQUES (ex: ComposantPhysique1, Module2) SANS proposer de marque ou modèle
-- DÉFINIS les connexions physiques (câbles, bus, réseaux) tels que décrits
-- TRACES chaque composant logique vers son équivalent physique
+_FIDELITY_RULES = """\
+=== EXIGENCES DE FIDÉLITÉ (CRITIQUES) ===
 
-=== RÈGLES DE TRAÇABILITÉ ===
-- Chaque COMPOSANT LOGIQUE doit être RÉALISÉ par un ou plusieurs composants techniques
-- Les connexions physiques implémentent les connexions logiques
+F1 — ZÉRO INVENTION : Tu ne génères que ce qui est EXPLICITEMENT décrit dans les réponses de l'utilisateur. Si une section est vide ou absente, tu laisses le champ correspondant comme liste vide []. Tu n'inventes JAMAIS d'éléments supplémentaires.
 
-=== RÈGLES DE CONCEPTION ===
-- Les noms de composants reflètent ce que l'utilisateur a décrit
-- Si l'utilisateur ne spécifie pas d'attributs physiques, omets-les ou mets des valeurs génériques
-- Les composants techniques ont des attributs physiques uniquement si l'utilisateur les mentionne
+F2 — SIGNALEMENT DES INCOHÉRENCES : Si tu détectes une incohérence (un acteur mentionné dans un use case mais absent de la section stakeholders, un flux référencé sans source, etc.), tu ne la corriges PAS. Tu ajoutes un warning de type "inconsistency" dans le champ "warnings" avec une description précise du problème.
 
-=== RÈGLES DE FIDÉLITÉ ===
-- Tu ne PROPOSES JAMAIS de marque, modèle ou technologie spécifique non mentionnée par l'utilisateur
-- Tu RETRANSCRIS uniquement les justifications FOURNIES par l'utilisateur ; si elles sont absentes, utilise "Décrit par l'utilisateur" ou "À spécifier par l'architecte"
-- Tu utilises UNIQUEMENT ce que l'utilisateur a décrit
-- Tout doit découler du niveau logique
-- Pas de composants techniques sans composant logique correspondant
-- Les choix doivent être cohérents avec le contexte opérationnel et fonctionnel
-- Si quelque chose est ambigu, ajoute un warning
-- L'exemple ci-dessous montre uniquement la STRUCTURE attendue. En production, chaque valeur doit provenir EXCLUSIVEMENT de la description fournie par l'utilisateur ou du niveau logique. Si un élément n'est pas mentionné, il ne doit PAS apparaître dans ton résultat.
+F3 — SIGNALEMENT DES MANQUES : Si une information normalement attendue au niveau opérationnel est absente (par exemple : aucun scénario décrit, aucun mode de fonctionnement, aucune exigence), tu ajoutes un warning de type "missing_info" sans inventer la donnée manquante.
 
-=== MÉTHODOLOGIE ===
-1. RÉALISATION : Pour chaque composant logique, identifie le composant technique décrit par l'utilisateur (ou crée un nom générique)
-2. TECHNOLOGIES : Reprend uniquement ce que l'utilisateur a spécifié
-3. INTÉGRATION : Définis les interfaces physiques et connexions
-4. ATTRIBUTS : Ajoute uniquement les caractéristiques mentionnées par l'utilisateur
-5. VÉRIFICATION : Vérifie que tous les composants logiques sont réalisés
+F4 — VOCABULAIRE EXACT : Tu utilises EXACTEMENT les noms, termes et formulations de l'utilisateur. Tu ne renommes pas les éléments, tu ne traduis pas, tu ne reformules pas les noms propres.
 
-=== SCHÉMA JSON ATTENDU (TechnicalModel) ===
+F5 — TRAÇABILITÉ : Chaque élément du JSON doit provenir d'une section identifiable des réponses utilisateur."""
+
+_BUSINESS_RULES = """\
+=== RÈGLES MÉTIER ===
+
+R1 — ALLOCATION LOGIQUE→TECHNIQUE : Chaque constituant technique doit préciser quel constituant logique il implémente via le champ "implements". Si l'allocation n'est pas précisée, ajouter un warning "missing_info".
+
+R2 — COUVERTURE : Chaque constituant logique du niveau précédent devrait être implémenté par au moins un constituant technique. Si des constituants logiques ne sont pas couverts, ajouter un warning "missing_info".
+
+R3 — CONNEXIONS PHYSIQUES : Chaque connexion doit préciser le medium physique (tuyauterie, câblage, bus de données, etc.).
+
+R4 — CHOIX TECHNOLOGIQUES : Les justifications doivent être factuelles et basées sur ce que l'utilisateur a écrit. Ne pas inventer de justifications.
+
+R5 — EXIGENCES TECHNIQUES : ID au format REQ-TECH-XXX, avec des performances mesurables si l'utilisateur les a précisées."""
+
+_JSON_SCHEMA = """\
+=== SCHÉMA JSON ATTENDU ===
+
 {
   "system_name": "string",
-  "warnings": ["string"],
-  "technical_parts": [
+  "technical_components": [
     {
-      "name": "string",
-      "type": "string",
-      "description": "string (composant logique réalisé)",
+      "name": "string — Nom réel du composant",
+      "reference": "string — Référence/part number" ou null,
+      "technology_type": "string — Type technologique",
+      "implements": "string — Nom du constituant logique implémenté",
+      "description": "string" ou null,
       "ports": [
-        {
-          "name": "string",
-          "direction": "in | out | inout",
-          "type": "string (type physique : CAN, I2C, Ethernet, etc.)"
-        }
-      ],
-      "children": []  // Sous-composants physiques
+        {"name": "string", "direction": "in | out | inout", "flow_type": "..."}
+      ]
     }
   ],
   "physical_connections": [
     {
-      "from_port": "CompA.portOut",
-      "to_port": "CompB.portIn",
-      "type": "connection",
-      "item": "string (protocole, bus, câble)",
-      "description": "string"
+      "from_component": "string",
+      "to_component": "string",
+      "medium": "string — tuyauterie | câblage | bus de données | ...",
+      "description": "string" ou null,
+      "flow_type": "pneumatic | electric | ..."
     }
   ],
   "technology_choices": [
     {
-      "component": "string (nom du composant logique)",
-      "technology": "string (nom du composant technique)",
-      "justification": "string (pourquoi ce choix)"
-    }
-  ]
-}
-
-=== EXEMPLE DE STRUCTURE (placeholders — ne pas reproduire ces valeurs) ===
-{
-  "system_name": "Nom du système (repris depuis le niveau logique)",
-  "warnings": [],
-  "technical_parts": [
-    {
-      "name": "NomComposantTechnique",
-      "type": "TypePhysique",
-      "description": "Réalise le composant logique NomComposantLogique",
-      "ports": [
-        {
-          "name": "port_entree",
-          "direction": "in",
-          "type": "ProtocoleOuBusDecritParUtilisateur"
-        },
-        {
-          "name": "port_sortie",
-          "direction": "out",
-          "type": "ProtocoleOuBusDecritParUtilisateur"
-        }
-      ],
-      "children": []
-    },
-    {
-      "name": "AutreComposantTechnique",
-      "type": "AutreTypePhysique",
-      "description": "Réalise le composant logique AutreComposantLogique",
-      "ports": [
-        {
-          "name": "port_entree",
-          "direction": "in",
-          "type": "ProtocoleOuBusDecritParUtilisateur"
-        }
-      ],
-      "children": []
+      "component": "string",
+      "technology": "string",
+      "justification": "string"
     }
   ],
-  "physical_connections": [
-    {
-      "from_port": "NomComposantTechnique.port_sortie",
-      "to_port": "AutreComposantTechnique.port_entree",
-      "type": "connection",
-      "item": "Bus ou protocole décrit par l'utilisateur",
-      "description": "Connexion physique correspondant à la connexion logique entre NomComposantLogique et AutreComposantLogique"
-    }
+  "requirements": [
+    {"id": "REQ-TECH-XXX", "text": "string", "satisfied_by": "string" ou null}
   ],
-  "technology_choices": [
-    {
-      "component": "NomComposantLogique",
-      "technology": "NomComposantTechnique",
-      "justification": "Décrit par l'utilisateur ou à spécifier par l'architecte"
-    },
-    {
-      "component": "AutreComposantLogique",
-      "technology": "AutreComposantTechnique",
-      "justification": "Décrit par l'utilisateur ou à spécifier par l'architecte"
-    }
+  "warnings": [
+    {"type": "inconsistency | missing_info | ambiguity", "message": "string", "section": "string", "suggestion": "string" ou null}
   ]
-}
-"""
+}"""
 
-    # Ajout du contexte logique
-    prompt += f"\n\n=== MODÈLE LOGIQUE VALIDÉ (CONTEXTE) ===\n{logical_json}\n"
+_SYSML_SYNTAX_RULES = """\
+=== RÈGLES DE SYNTAXE SysML v2 (OBLIGATOIRES) ===
 
-    # Ajout des exemples RAG
-    if rag_examples and len(rag_examples) > 0:
-        prompt += "\n\n=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ===\n"
-        for i, example in enumerate(rag_examples[:3], 1):
-            prompt += f"Exemple {i}:\n```\n{example}\n```\n\n"
+RÈGLE S1 — PACKAGE : Tout le code doit être dans un package nommé '{{system_name}} - Technical'.
 
-    # Ajout du feedback de correction
-    if correction_feedback:
-        prompt += f"\n\n=== CORRECTION REQUISE ===\n"
-        prompt += f"Un vérificateur automatique a détecté les problèmes suivants : {correction_feedback}\n"
-        prompt += "Corrige ces problèmes dans ta réponse.\n"
+RÈGLE S2 — ITEM DEFINITIONS : item def pour chaque type de flux physique.
 
-    # Instructions supplémentaires
-    if description and description.strip():
-        prompt += f"\n\n=== INSTRUCTIONS SUPPLÉMENTAIRES ===\n{description}\n"
+RÈGLE S3 — PORT DEFINITIONS : ports physiques des composants réels.
 
-    prompt += "\n\n=== TON RÉSULTAT (JSON UNIQUEMENT, SANS COMMENTAIRE) ==="
+RÈGLE S4 — PART DEFINITIONS (Composants techniques) :
+  part def NAIV {{
+    doc /* Nacelle Anti-Ice Valve — Vanne pneumatique papillon
+           Implémente : Vanne NAI (logique)
+           Référence : SAE-NAIV-200 */
+    port portEntreeAir : PortPneumatiqueIn;
+    port portSortieAir : PortPneumatiqueOut;
+    port portCommandeElec : PortElectriqueIn;
+  }}
 
-    return prompt
+RÈGLE S5 — ALLOCATION LOGIQUE→TECHNIQUE :
+  allocation def LogicalToTechnical {{
+    end logicalPart : LogicalComponentDef;
+    end technicalPart : TechnicalComponentDef;
+  }}
+Ou plus simplement, documenter dans le 'doc' de chaque part def technique quel constituant logique il implémente.
+
+RÈGLE S6 — ARCHITECTURE TECHNIQUE (part + connections) :
+  part basPhysique : BASPhysique {{
+    part naiv : NAIV;
+    part eec : EEC;
+
+    connect naiv.portCommandeElec to eec.portSortieCommande;
+
+    flow of ConsigneOuverture
+      from eec.portSortieCommande
+      to naiv.portCommandeElec;
+  }}
+Documenter le medium dans un commentaire ou doc sur chaque connexion.
+
+RÈGLE S7 — CHOIX TECHNOLOGIQUES :
+Documenter chaque choix avec un commentaire structuré :
+  part def NAIV {{
+    doc /* Technologie : vanne papillon
+           Justification : meilleure tenue aux hautes températures (500°C) */
+  }}
+
+RÈGLE S8 — REQUIREMENTS :
+  requirement def 'REQ-TECH-001' {{
+    doc /* La NAIV doit résister à 45 PSI et 500°C en continu */
+  }}
+  satisfy requirement 'REQ-TECH-001' by naiv;
+
+RÈGLE S9 — COMMENTAIRES DE SECTION :
+Séparer les grandes parties du code avec des commentaires :
+  // ========================================
+  // SECTION : Item Definitions
+  // ========================================
+
+RÈGLE S10 — IDENTIFIANTS :
+Les identifiants avec espaces ou caractères spéciaux doivent être entourés de guillemets simples."""
+
+_SYSML_CODE_STRUCTURE = """\
+=== STRUCTURE DU CODE SysML v2 À PRODUIRE ===
+
+Le code doit suivre cette organisation :
+
+1. package '{{system_name}} - Technical' {{
+2.   // Item definitions (flux physiques)
+3.   // Port definitions (ports physiques)
+4.   // Part definitions (composants techniques avec doc allocation + technologie)
+5.   // Part englobant (architecture technique + connections + flows)
+6.   // Requirement definitions + satisfy
+7. }}"""
+
+# Liste ordonnée des 4 sections techniques
+_TECHNICAL_SECTIONS = [
+    "technical_components",
+    "physical_connections",
+    "technology_choices",
+    "technical_requirements",
+]
 
 
-def build_technical_sysml_prompt(technical_json: str, rag_examples: list[str] = None) -> str:
+# ============================================================================
+# FONCTION 1 — Prompt JSON (sections utilisateur → TechnicalModel)
+# ============================================================================
+
+def build_technical_json_prompt(
+    user_sections: List[dict],
+    previous_level_model: dict,
+    rag_examples: Optional[List[str]] = None,
+    correction_feedback: Optional[str] = None,
+) -> str:
     """
-    Construit le prompt pour générer le code SysML v2 du niveau technique.
-    
+    Construit le prompt pour générer le modèle technique (JSON).
+
     Args:
-        technical_json: Le modèle technique en JSON
-        rag_examples: Exemples de code SysML v2 pertinents (optionnel)
-    
+        user_sections: liste de {"section_id": str, "content": str}
+        previous_level_model: LogicalModel JSON du niveau précédent validé
+        rag_examples: exemples SysML v2 du RAG (optionnel)
+        correction_feedback: feedback de correction si retry (optionnel)
+
     Returns:
-        Le prompt complet
+        Le prompt complet (string).
     """
-    prompt = """Tu es un expert SysML v2. Tu traduis un modèle technique JSON en code SysML v2 valide.
+    sections_map = {s["section_id"]: s["content"] for s in (user_sections or [])}
 
-=== TON RÔLE ===
-Génère du code SysML v2 pour le NIVEAU TECHNIQUE qui inclut :
-1. Un package pour le niveau technique
-2. Les part definitions pour chaque composant technique
-3. Les attributs techniques (specs matérielles)
-4. Les connections physiques
-5. Les allocations de composants logiques vers techniques
+    parts: list[str] = []
 
-=== RÈGLES DE SYNTAXE SysML v2 ===
-- part def NomComposantTechnique { ... }
-- attribute nomAttribut : TypeAttribut = valeur;
-- port nomPort : TypeProtocole [direction];
-- connect partA.portOut to partB.portIn;
-- allocation NomLogique to NomTechnique;
+    # --- BLOC 1 : RÔLE ---
+    parts.append(
+        "Tu es un ingénieur système expert en architecture technique et en SysML v2. "
+        "Tu analyses les réponses structurées d'un utilisateur pour extraire le modèle "
+        "d'architecture technique de son système. Tu disposes du modèle logique validé comme contexte."
+    )
 
-=== STRUCTURE ATTENDUE ===
-```sysml
-package '{SystemName} - Technical' {
-    // Composants techniques
-    part def {TechnicalComponent1} {
-        doc /* Description et composant logique réalisé */
-        
-        // Attributs techniques
-        attribute fabricant : String = "NomFabricant";
-        attribute modele : String = "Reference";
-        attribute tension : Real = 5.0 [V];
-        attribute masse : Real = 0.1 [kg];
-        
-        // Ports physiques
-        port {port1} : {ProtocolePhysique} [in];
-        port {port2} : {ProtocolePhysique} [out];
-    }
-    
-    // Architecture physique
-    part {SystemName}_Physical {
-        part {comp1} : {TechnicalComponent1};
-        part {comp2} : {TechnicalComponent2};
-        
-        // Connexions physiques
-        connect {comp1}.{port2} to {comp2}.{port1};
-    }
-    
-    // Allocations logique → technique
-    allocation {LogicalComponent} to {TechnicalComponent1};
-}
-```
+    # --- BLOC 2 : EXIGENCES DE FIDÉLITÉ ---
+    parts.append(_FIDELITY_RULES)
 
-=== EXEMPLE ===
-```sysml
-package '{SystemName} - Technical' {
-    part def {NomComposantTechnique} {
-        doc /* Réalise le composant logique {NomComposantLogique} */
-        
-        port {port_entree} : {ProtocoleDecritParUtilisateur} [in];
-        port {port_sortie} : {ProtocoleDecritParUtilisateur} [out];
-    }
-    
-    part def {AutreComposantTechnique} {
-        doc /* Réalise le composant logique {AutreComposantLogique} */
-        
-        port {port_entree} : {ProtocoleDecritParUtilisateur} [in];
-    }
-    
-    part {SystemName}_Physical {
-        part composant1 : {NomComposantTechnique};
-        part composant2 : {AutreComposantTechnique};
-        
-        connect composant1.{port_sortie} to composant2.{port_entree};
-    }
-    
-    allocation {NomComposantLogique} to {NomComposantTechnique};
-    allocation {AutreComposantLogique} to {AutreComposantTechnique};
-}
-```
-"""
+    # --- BLOC 3 : CONTEXTE DU NIVEAU PRÉCÉDENT ---
+    prev_json = json.dumps(previous_level_model, indent=2, ensure_ascii=False) if previous_level_model else "{}"
+    parts.append(
+        "=== MODÈLE LOGIQUE VALIDÉ (CONTEXTE) ===\n\n"
+        f"{prev_json}"
+    )
 
-    # Ajout des exemples RAG
-    if rag_examples and len(rag_examples) > 0:
-        prompt += "\n\n=== EXEMPLES DE CODE SysML v2 ===\n"
-        for i, example in enumerate(rag_examples[:3], 1):
-            prompt += f"Exemple {i}:\n```sysml\n{example}\n```\n\n"
+    # --- BLOC 4 : RÉPONSES DE L'UTILISATEUR ---
+    user_block_lines = ["=== RÉPONSES DE L'UTILISATEUR ==="]
+    for section_id in _TECHNICAL_SECTIONS:
+        content = sections_map.get(section_id, "").strip()
+        user_block_lines.append(f"\n[SECTION: {section_id}]")
+        if content:
+            user_block_lines.append(content)
+        else:
+            user_block_lines.append("(Section non renseignée par l'utilisateur)")
+    parts.append("\n".join(user_block_lines))
 
-    # Le modèle JSON à traduire
-    prompt += f"\n\n=== MODÈLE TECHNIQUE JSON ===\n{technical_json}\n\n"
-    prompt += "=== TON RÉSULTAT (CODE SysML v2 UNIQUEMENT, SANS COMMENTAIRE) ==="
+    # --- BLOC 5 : RÈGLES MÉTIER ---
+    parts.append(_BUSINESS_RULES)
 
-    return prompt
+    # --- BLOC 6 : SCHÉMA JSON ATTENDU ---
+    parts.append(_JSON_SCHEMA)
+
+    # --- BLOC 7 : EXEMPLES RAG (optionnel) ---
+    if rag_examples:
+        rag_lines = ["=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ==="]
+        for i, example in enumerate(rag_examples[:5], 1):
+            rag_lines.append(f"\nExemple {i}:\n{example}")
+        parts.append("\n".join(rag_lines))
+
+    # --- BLOC 8 : CORRECTION (optionnel) ---
+    if correction_feedback:
+        parts.append(
+            "=== CORRECTION REQUISE ===\n"
+            f"{correction_feedback}"
+        )
+
+    # --- BLOC 9 : INSTRUCTION FINALE ---
+    parts.append(
+        "=== TON RÉSULTAT ===\n"
+        "Produis UNIQUEMENT le JSON conforme au schéma ci-dessus. "
+        "Aucun commentaire, aucune explication, aucun markdown. Uniquement le JSON."
+    )
+
+    return "\n\n".join(parts)
+
+
+# ============================================================================
+# FONCTION 2 — Prompt SysML v2 (JSON TechnicalModel → code SysML v2)
+# ============================================================================
+
+def build_technical_sysml_prompt(
+    json_model: str,
+    rag_examples: Optional[List[str]] = None,
+) -> str:
+    """
+    Construit le prompt pour traduire le modèle technique JSON
+    en code SysML v2 (Technical Architecture Diagram).
+
+    Args:
+        json_model: le modèle JSON sérialisé (TechnicalModel)
+        rag_examples: exemples SysML v2 du RAG (optionnel)
+
+    Returns:
+        Le prompt complet (string).
+    """
+    parts: list[str] = []
+
+    # --- BLOC 1 : RÔLE ---
+    parts.append(
+        "Tu es un expert SysML v2 (spécification OMG, release 2026-01). "
+        "Tu traduis un modèle d'architecture technique JSON en code SysML v2 valide en notation textuelle."
+    )
+
+    # --- BLOC 2 : EXIGENCES DE FIDÉLITÉ ---
+    parts.append(
+        "=== EXIGENCES DE FIDÉLITÉ ===\n\n"
+        "- Tu traduis UNIQUEMENT ce qui est dans le JSON. Tu n'inventes aucun élément supplémentaire.\n"
+        "- Tu utilises les noms EXACTS du JSON pour tous les identifiants SysML v2.\n"
+        "- Si un champ est vide ou null dans le JSON, tu ne génères PAS de code pour cet élément.\n"
+        "- Les warnings du JSON ne doivent PAS être traduits en code SysML v2 — ils sont uniquement informatifs."
+    )
+
+    # --- BLOC 3 : RÈGLES DE SYNTAXE SysML v2 ---
+    parts.append(_SYSML_SYNTAX_RULES)
+
+    # --- BLOC 4 : MODÈLE JSON À TRADUIRE ---
+    parts.append(
+        "=== MODÈLE JSON À TRADUIRE ===\n\n"
+        f"{json_model}"
+    )
+
+    # --- BLOC 5 : EXEMPLES RAG (optionnel) ---
+    if rag_examples:
+        rag_lines = ["=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ==="]
+        for i, example in enumerate(rag_examples[:5], 1):
+            rag_lines.append(f"\nExemple {i}:\n{example}")
+        parts.append("\n".join(rag_lines))
+
+    # --- BLOC 6 : STRUCTURE ATTENDUE DU CODE ---
+    parts.append(_SYSML_CODE_STRUCTURE)
+
+    # --- BLOC 7 : INSTRUCTION FINALE ---
+    parts.append(
+        "=== TON RÉSULTAT ===\n"
+        "Produis UNIQUEMENT le code SysML v2. Pas de markdown, pas de ```, pas d'explication. "
+        "Uniquement le code SysML v2 brut commençant par 'package'."
+    )
+
+    return "\n\n".join(parts)

@@ -1,6 +1,6 @@
 """
 SysML v2 Agent — Frontend Streamlit
-Interface MBSE multi-niveaux pour la génération progressive de modèles SysML v2.
+Interface MBSE multi-niveaux avec sections guidées pour la génération progressive de modèles SysML v2.
 """
 
 import streamlit as st
@@ -8,1093 +8,781 @@ import requests
 import os
 import json
 from datetime import datetime
-import streamlit.components.v1 as components
 
+# ============================================================================
 # Configuration
+# ============================================================================
+
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000")
-API_TIMEOUT = 120  # Timeout pour les appels API (génération peut être lente)
+API_TIMEOUT = 180
 
-# Configuration de la page
-st.set_page_config(
-    page_title="SysML v2 Agent — MBSE",
-    page_icon="🧪",
-    layout="wide",
-)
-
-# Constantes pour les niveaux MBSE
-NIVEAUX_ORDER = ["operational", "functional", "logical", "technical"]
-LEVEL_NAMES = {
-    "operational": "🔍 Opérationnel — QUI utilise le système et POURQUOI",
-    "functional": "⚙️ Fonctionnel — QUE FAIT le système",
-    "logical": "🧩 Logique — COMMENT est structuré le système",
-    "technical": "🔧 Technique — AVEC QUOI est construit le système"
+LEVELS_ORDER = ["operational", "functional", "logical", "technical"]
+LEVEL_LABELS = {
+    "operational": "🎯 Niveau Opérationnel",
+    "functional": "⚙️ Niveau Fonctionnel",
+    "logical": "🔧 Niveau Logique",
+    "technical": "🏭 Niveau Technique",
 }
-LEVEL_SHORT_NAMES = {
+LEVEL_SHORT = {
     "operational": "Opérationnel",
     "functional": "Fonctionnel",
     "logical": "Logique",
-    "technical": "Technique"
+    "technical": "Technique",
 }
-DIAGRAM_LABELS = {
-    "context": "📍 Diagramme de Contexte",
-    "use_cases": "👤 Cas d'Utilisation",
-    "actors_diagram": "🎭 Diagramme d'Acteurs",
-    "operational_sequence": "🔁 Séquence Opérationnelle",
-    "functional_breakdown": "🌳 Arborescence Fonctionnelle (FBS)",
-    "functional_behavior": "🔄 Comportement Fonctionnel",
-    "modes_diagram": "🔀 Modes Opératoires",
-    "bdd": "📦 Block Definition Diagram (BDD)",
-    "ibd": "🔌 Internal Block Diagram (IBD)",
-    "technical_architecture": "🏗️ Architecture Technique"
+LEVEL_ICONS = {
+    "operational": "🎯",
+    "functional": "⚙️",
+    "logical": "🔧",
+    "technical": "🏭",
 }
 
-# Initialisation du session state
-if "session_id" not in st.session_state:
-    st.session_state.session_id = None
-if "current_level" not in st.session_state:
-    st.session_state.current_level = "operational"
-if "levels_data" not in st.session_state:
-    st.session_state.levels_data = {}
-if "system_description" not in st.session_state:
-    st.session_state.system_description = ""
-if "level_status" not in st.session_state:
-    st.session_state.level_status = {}
+st.set_page_config(
+    page_title="SysAgent — Pipeline SysML v2",
+    page_icon="🏗️",
+    layout="wide",
+)
 
 
-def format_timestamp(iso_timestamp):
-    """Formate un timestamp ISO en format lisible."""
+# ============================================================================
+# Initialisation du session_state
+# ============================================================================
+
+def _init_state():
+    """Initialise les clés du session_state si absentes."""
+    defaults = {
+        "session_id": None,
+        "session_name": "",
+        "current_level": "operational",
+        "sections_data": {},       # {level: {section_id: content}}
+        "level_results": {},       # {level: {model, sysml_code, summary, warnings, validation_result}}
+        "level_status": {},        # {level: "empty"|"generated"|"validated"}
+        "sections_definitions": None,  # chargé depuis GET /api/sections
+    }
+    for key, default in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = default
+
+_init_state()
+
+
+# ============================================================================
+# Appels API
+# ============================================================================
+
+def api_call(method: str, endpoint: str, **kwargs):
+    """
+    Wrapper pour les appels API au backend.
+
+    Returns:
+        (success: bool, data: dict | None, error: str | None)
+    """
+    url = f"{BACKEND_URL}{endpoint}"
+    timeout = kwargs.pop("timeout", API_TIMEOUT)
     try:
-        dt = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
-        return dt.strftime("%d/%m/%Y %H:%M")
-    except:
-        return iso_timestamp
+        resp = getattr(requests, method)(url, timeout=timeout, **kwargs)
+        if resp.status_code == 200:
+            return True, resp.json(), None
+        else:
+            detail = ""
+            try:
+                detail = resp.json().get("detail", resp.text)
+            except Exception:
+                detail = resp.text
+            return False, None, f"Erreur {resp.status_code}: {detail}"
+    except requests.exceptions.Timeout:
+        return False, None, "Timeout — le backend met trop de temps à répondre."
+    except requests.exceptions.ConnectionError:
+        return False, None, "Backend non accessible."
+    except Exception as e:
+        return False, None, str(e)
+
+
+def load_sections_definitions():
+    """Charge les définitions de sections depuis le backend (cache en session_state)."""
+    if st.session_state.sections_definitions is not None:
+        return st.session_state.sections_definitions
+    ok, data, err = api_call("get", "/api/sections", timeout=10)
+    if ok and data:
+        st.session_state.sections_definitions = data.get("levels", {})
+    else:
+        st.session_state.sections_definitions = {}
+    return st.session_state.sections_definitions
 
 
 def load_level_status():
-    """Charge le statut de tous les niveaux pour la session active."""
+    """Charge le statut des niveaux depuis le backend."""
     if not st.session_state.session_id:
         return
+    ok, data, _ = api_call("get", f"/api/v2/status/{st.session_state.session_id}", timeout=10)
+    if ok and data:
+        status = {}
+        for level in LEVELS_ORDER:
+            info = data.get(level, {})
+            if info.get("validated"):
+                status[level] = "validated"
+            elif info.get("generated"):
+                status[level] = "generated"
+            else:
+                status[level] = "empty"
+        st.session_state.level_status = status
+
+
+def format_timestamp(iso_ts):
+    """Formate un timestamp ISO."""
     try:
-        response = requests.get(
-            f"{BACKEND_URL}/api/v2/status/{st.session_state.session_id}",
-            timeout=10
-        )
-        if response.status_code == 200:
-            st.session_state.level_status = response.json()
+        dt = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
+        return dt.strftime("%d/%m/%Y %H:%M")
+    except Exception:
+        return iso_ts or ""
+
+
+# ============================================================================
+# Sidebar
+# ============================================================================
+
+def render_sidebar():
+    """Affiche la sidebar : statut backend, sessions, navigation."""
+    st.sidebar.title("🏗️ SysML v2 Agent")
+    st.sidebar.caption("Workflow MBSE multi-niveaux")
+    st.sidebar.markdown("---")
+
+    # --- Statut backend ---
+    _render_sidebar_status()
+    st.sidebar.markdown("---")
+
+    # --- Gestion des sessions ---
+    _render_sidebar_sessions()
+    st.sidebar.markdown("---")
+
+    # --- Navigation niveaux ---
+    if st.session_state.session_id:
+        _render_sidebar_navigation()
+        st.sidebar.markdown("---")
+        _render_sidebar_syson()
+
+
+def _render_sidebar_status():
+    """Statut du backend, LLM, RAG."""
+    st.sidebar.subheader("⚙️ Statut")
+    ok, data, _ = api_call("get", "/api/health", timeout=5)
+    if ok:
+        st.sidebar.success("🟢 Backend opérationnel")
+        with st.sidebar.expander("Détails", expanded=False):
+            st.caption(f"LLM : {data.get('llm_model', '?')}")
+            llm_status = data.get("llm_status", {})
+            if llm_status:
+                st.caption(f"Clés : {llm_status.get('available_keys', '?')}/{llm_status.get('total_keys', '?')}")
+    else:
+        st.sidebar.error("🔴 Backend non accessible")
+
+    with st.sidebar.expander("📊 Stats RAG", expanded=False):
+        ok_r, stats, _ = api_call("get", "/api/rag/stats", timeout=10)
+        if ok_r and stats:
+            st.metric("Chunks indexés", stats.get("total_chunks", 0))
+            st.metric("Fichiers sources", stats.get("unique_files", 0))
+        else:
+            st.caption("Non disponible")
+
+
+def _render_sidebar_sessions():
+    """Liste et gestion des sessions."""
+    st.sidebar.markdown("### 📁 Sessions")
+
+    ok, data, _ = api_call("get", "/api/sessions", timeout=5)
+    sessions_list = data.get("sessions", []) if ok and data else []
+
+    options = ["➕ Nouvelle session"] + [
+        s.get("name") or s.get("system_name") or f"Session {(s.get('id', ''))[:8]}"
+        for s in sessions_list
+    ]
+    ids = ["new"] + [s.get("id", "") for s in sessions_list]
+
+    selected = st.sidebar.selectbox(
+        "Session active",
+        range(len(options)),
+        format_func=lambda i: options[i],
+        key="session_selector",
+    )
+
+    if selected == 0:
+        # Nouvelle session
+        if st.session_state.session_id:
+            if st.sidebar.button("➕ Nouveau projet", key="new_proj_btn"):
+                _reset_state()
+                st.rerun()
+        else:
+            st.sidebar.caption("Remplissez les sections ci-dessous pour démarrer.")
+    else:
+        sel_id = ids[selected]
+        sel_session = sessions_list[selected - 1]
+
+        if st.session_state.session_id != sel_id:
+            _load_session(sel_id)
+            st.rerun()
+
+        current_name = sel_session.get("name") or sel_session.get("system_name") or ""
+
+        # Renommer
+        with st.sidebar.expander("✏️ Renommer", expanded=False):
+            rename_val = st.text_input("Nouveau nom", value=current_name, key=f"rename_{sel_id}")
+            if st.button("💾 Sauvegarder", key=f"rename_btn_{sel_id}"):
+                if rename_val.strip():
+                    ok_r, _, err = api_call("put", f"/api/v2/session/{sel_id}/name", json={"name": rename_val.strip()}, timeout=5)
+                    if ok_r:
+                        st.success("Renommé")
+                        st.rerun()
+                    else:
+                        st.error(err)
+
+        # Supprimer
+        with st.sidebar.expander("🗑️ Supprimer", expanded=False):
+            st.warning(f"Supprimer '{current_name or 'cette session'}' ?")
+            if st.button("🗑️ Confirmer", key=f"del_btn_{sel_id}", type="primary"):
+                ok_d, _, err = api_call("delete", f"/api/session/{sel_id}", timeout=5)
+                if ok_d:
+                    _reset_state()
+                    st.rerun()
+                else:
+                    st.error(err)
+
+
+def _render_sidebar_navigation():
+    """Navigation entre les 4 niveaux."""
+    st.sidebar.subheader("📈 Progression")
+    load_level_status()
+
+    for level in LEVELS_ORDER:
+        status = st.session_state.level_status.get(level, "empty")
+        icon = "✅" if status == "validated" else ("🔄" if status == "generated" else "⬜")
+        label = f"{icon} {LEVEL_ICONS[level]} {LEVEL_SHORT[level]}"
+        is_current = level == st.session_state.current_level
+
+        if status != "empty":
+            btn_type = "primary" if is_current else "secondary"
+            if st.sidebar.button(label, key=f"nav_{level}", use_container_width=True, type=btn_type):
+                st.session_state.current_level = level
+                st.rerun()
+        else:
+            st.sidebar.markdown(f"{'**' if is_current else ''}{label}{'**' if is_current else ''}")
+
+    st.sidebar.caption("✅ Validé | 🔄 Généré | ⬜ À faire")
+
+
+def _render_sidebar_syson():
+    """Statut SysON."""
+    try:
+        ok, data, _ = api_call("get", "/api/syson/status", timeout=2)
+        if ok and data and data.get("available"):
+            st.sidebar.success("🟢 SysON connecté")
+            st.sidebar.markdown("[Ouvrir SysON ↗](http://localhost:8085)")
+        else:
+            st.sidebar.info("⚪ SysON non disponible")
     except Exception:
         pass
 
 
-def get_level_icon(level):
-    """Retourne l'icône appropriée pour un niveau selon son statut."""
-    status = st.session_state.level_status.get(level, {})
-    if status.get("validated"):
-        return "✅"
-    elif status.get("generated"):
-        return "🔄"
-    else:
-        return "⬜"
+# ============================================================================
+# Helpers de session
+# ============================================================================
+
+def _reset_state():
+    """Remet le session_state à zéro."""
+    st.session_state.session_id = None
+    st.session_state.session_name = ""
+    st.session_state.current_level = "operational"
+    st.session_state.sections_data = {}
+    st.session_state.level_results = {}
+    st.session_state.level_status = {}
+
+
+def _load_session(session_id: str):
+    """Charge une session depuis le backend et restaure le session_state."""
+    ok, data, err = api_call("get", f"/api/session/{session_id}", timeout=10)
+    if not ok:
+        st.error(f"Impossible de charger la session : {err}")
+        return
+
+    st.session_state.session_id = session_id
+    st.session_state.session_name = data.get("session_name", "")
+    st.session_state.current_level = data.get("current_level", "operational")
+
+    levels = data.get("levels", {})
+    sections_data = {}
+    level_results = {}
+    level_status = {}
+
+    for level in LEVELS_ORDER:
+        lv_data = levels.get(level, {})
+
+        # Restaurer les sections utilisateur
+        user_inputs = lv_data.get("user_inputs", [])
+        sec_map = {}
+        for inp in user_inputs:
+            sid = inp.get("section_id", "")
+            if sid:
+                sec_map[sid] = inp.get("content", "")
+        sections_data[level] = sec_map
+
+        # Restaurer les résultats
+        model = lv_data.get("model", {})
+        if model:
+            level_results[level] = {
+                "model": model,
+                "sysml_code": lv_data.get("sysml_code", ""),
+                "summary": lv_data.get("summary"),
+                "warnings": lv_data.get("warnings", []),
+                "validation_result": lv_data.get("validation_result"),
+            }
+            level_status[level] = "validated" if lv_data.get("validated") else "generated"
+        else:
+            level_status[level] = "empty"
+
+    st.session_state.sections_data = sections_data
+    st.session_state.level_results = level_results
+    st.session_state.level_status = level_status
 
 
 # ============================================================================
-# SIDEBAR
+# Zone principale
 # ============================================================================
 
-st.sidebar.title("🧪 SysML v2 Agent")
-st.sidebar.markdown("**Workflow MBSE Multi-Niveaux**")
-st.sidebar.markdown("---")
-
-# --- Statut du backend ---
-st.sidebar.subheader("⚙️ Statut Backend")
-try:
-    response = requests.get(f"{BACKEND_URL}/api/health", timeout=5)
-    if response.status_code == 200:
-        st.sidebar.success("🟢 Backend opérationnel")
-    else:
-        st.sidebar.error(f"🔴 Erreur: {response.status_code}")
-except requests.exceptions.ConnectionError:
-    st.sidebar.error("🔴 Backend non accessible")
-except Exception as e:
-    st.sidebar.error(f"🔴 Erreur: {str(e)}")
-
-st.sidebar.markdown("---")
-
-# --- Stats RAG ---
-with st.sidebar.expander("📊 Stats RAG", expanded=False):
-    try:
-        response = requests.get(f"{BACKEND_URL}/api/rag/stats", timeout=10)
-        if response.status_code == 200:
-            stats = response.json()
-            st.metric("📦 Chunks indexés", stats["total_chunks"])
-            st.metric("📄 Fichiers sources", stats["unique_files"])
-        else:
-            st.warning("Stats RAG non disponibles")
-    except Exception:
-        st.warning("Stats RAG non disponibles")
-
-st.sidebar.markdown("---")
-
-# --- Gestion des sessions ---
-st.sidebar.markdown("### 📁 Sessions")
-try:
-    _sess_resp = requests.get(f"{BACKEND_URL}/api/sessions", timeout=5)
-    _sessions_list = _sess_resp.json().get("sessions", []) if _sess_resp.status_code == 200 else []
-except Exception:
-    _sessions_list = []
-
-_session_options = ["➕ Nouvelle session"] + [
-    s.get("name") or s.get("system_name") or f"Session {(s.get('id') or '')[:8]}"
-    for s in _sessions_list
-]
-_session_ids = ["new"] + [s.get("id", "") for s in _sessions_list]
-
-_selected_index = st.sidebar.selectbox(
-    "Session active",
-    range(len(_session_options)),
-    format_func=lambda i: _session_options[i],
-    key="session_selector"
-)
-
-if _selected_index == 0:
-    # Option "Nouvelle session"
-    if st.session_state.get("session_id"):
-        if st.sidebar.button("➕ Démarrer un nouveau projet", key="new_proj_btn"):
-            st.session_state.session_id = None
-            st.session_state.current_level = "operational"
-            st.session_state.levels_data = {}
-            st.session_state.system_description = ""
-            st.session_state.level_status = {}
-            st.rerun()
-    else:
-        st.sidebar.caption("Remplissez le formulaire ci-dessous pour démarrer.")
-else:
-    _selected_id = _session_ids[_selected_index]
-    _current_session = _sessions_list[_selected_index - 1]
-
-    # Charger la session si elle a changé
-    if st.session_state.get("session_id") != _selected_id:
-        st.session_state.session_id = _selected_id
-        load_level_status()
-        st.rerun()
-
-    _current_name = _current_session.get("name") or _current_session.get("system_name") or ""
-
-    # Renommer
-    with st.sidebar.expander("✏️ Renommer", expanded=False):
-        _rename_val = st.text_input("Nouveau nom", value=_current_name, key=f"rename_{_selected_id}")
-        if st.button("💾 Sauvegarder", key=f"rename_btn_{_selected_id}"):
-            if _rename_val.strip():
-                try:
-                    _r = requests.put(
-                        f"{BACKEND_URL}/api/v2/session/{_selected_id}/name",
-                        json={"name": _rename_val.strip()}, timeout=5
-                    )
-                    if _r.status_code == 200:
-                        st.success("✅ Renommé")
-                        st.rerun()
-                    else:
-                        st.error("❌ Erreur")
-                except Exception as _e:
-                    st.error(f"❌ {_e}")
-
-    # Supprimer
-    with st.sidebar.expander("🗑️ Supprimer", expanded=False):
-        st.warning(f"Supprimer '{_current_name or 'cette session'}' ?")
-        if st.button("🗑️ Confirmer la suppression", key=f"del_btn_{_selected_id}", type="primary"):
-            try:
-                _dr = requests.delete(f"{BACKEND_URL}/api/session/{_selected_id}", timeout=5)
-                _dr_data = _dr.json()
-                if _dr_data.get("success"):
-                    st.success("✅ Session supprimée")
-                    st.session_state.session_id = None
-                    st.session_state.level_status = {}
-                    st.rerun()
-                else:
-                    st.error(f"❌ {_dr_data.get('message', 'Erreur')}")
-            except Exception as _e:
-                st.error(f"❌ {_e}")
-
-st.sidebar.markdown("---")
-
-# --- Progression (si session active) ---
-if st.session_state.session_id:
-    st.sidebar.subheader("📈 Progression")
-    load_level_status()
-    
-    # Icônes et noms pour la navigation
-    LEVEL_ICONS = {
-        "operational": "🔍",
-        "functional": "⚙️",
-        "logical": "🧩",
-        "technical": "🔧"
-    }
-    
-    for idx, level in enumerate(NIVEAUX_ORDER, 1):
-        status = st.session_state.level_status.get(level, {})
-        generated = status.get("generated", False)
-        validated = status.get("validated", False)
-        
-        if generated:
-            # Niveau généré : bouton cliquable
-            icon = "✅" if validated else "🔄"
-            label = f"{icon} {LEVEL_ICONS[level]} {LEVEL_SHORT_NAMES[level]}"
-            
-            # Highlight si c'est le niveau actuel
-            button_type = "primary" if level == st.session_state.current_level else "secondary"
-            
-            if st.sidebar.button(
-                label, 
-                key=f"nav_{level}",
-                use_container_width=True,
-                type=button_type
-            ):
-                st.session_state.current_level = level
-                st.rerun()
-        else:
-            # Niveau pas encore généré : texte statique
-            st.sidebar.markdown(f"⬜ {LEVEL_ICONS[level]} {LEVEL_SHORT_NAMES[level]}")
-    
-    st.sidebar.caption("✅ Validé | 🔄 En cours | ⬜ À faire")
-    
-    st.sidebar.markdown("---")
-    
-    # --- Statut SysON ---
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🔧 Outils")
-    try:
-        syson_status = requests.get(f"{BACKEND_URL}/api/syson/status", timeout=2)
-        if syson_status.json().get("available"):
-            st.sidebar.success("🟢 SysON connecté")
-            st.sidebar.markdown("[Ouvrir SysON ↗](http://localhost:8085)")
-        else:
-            st.sidebar.warning("🟡 SysON indisponible")
-    except:
-        st.sidebar.info("⚪ SysON non configuré")
-# ============================================================================
-
-# Si aucune session active, afficher le formulaire de démarrage
-if not st.session_state.session_id:
+def render_welcome():
+    """Affiche la page d'accueil quand aucune session n'est active."""
     st.header("🚀 Nouveau projet MBSE")
     st.markdown("""
-    Bienvenue dans le **workflow MBSE multi-niveaux**. Vous allez générer votre modèle SysML v2 
-    de manière **progressive** en 4 étapes :
-    
-    1. **🔍 Opérationnel** : Qui utilise le système et pourquoi (acteurs, cas d'utilisation, besoins)
-    2. **⚙️ Fonctionnel** : Que fait le système (fonctions, flux, modes)
-    3. **🧩 Logique** : Comment est structuré le système (composants, interfaces, architecture)
-    4. **🔧 Technique** : Avec quoi est construit le système (technologies, implémentation)
-    
-    **Chaque niveau doit être validé avant de passer au suivant.**
-    """)
-    
+Bienvenue dans le **workflow MBSE multi-niveaux**. Vous allez générer votre modèle SysML v2
+de manière **progressive** en 4 étapes :
+
+1. **🎯 Opérationnel** — Qui utilise le système et pourquoi
+2. **⚙️ Fonctionnel** — Que fait le système
+3. **🔧 Logique** — Comment est structuré le système
+4. **🏭 Technique** — Avec quoi est construit le système
+
+**Remplissez les sections guidées du premier niveau pour commencer.**
+""")
     st.markdown("---")
-    
-    description = st.text_area(
-        "📝 Description du système",
-        height=200,
-        placeholder="Décrivez votre système en langage naturel...",
-        value="Un système de gestion de drone autonome pour la surveillance agricole. "
-              "Les agriculteurs planifient des missions de surveillance. "
-              "Le système contrôle le drone pour suivre les parcelles et détecter les anomalies. "
-              "Le drone capture des images et les transmet au système de traitement. "
-              "Le système analyse les données et génère des rapports pour l'agriculteur.",
-        help="Décrivez le contexte, les acteurs, les objectifs et le périmètre du système."
-    )
-    
-    session_name = st.text_input(
+
+    # Afficher directement les sections du niveau opérationnel
+    st.session_state.session_name = st.text_input(
         "📝 Nom du projet (optionnel)",
-        placeholder="Ex: Surveillance Bâtiment, Système de Drone, etc.",
-        help="Donnez un nom à votre projet pour le retrouver facilement"
+        value=st.session_state.session_name,
+        placeholder="Ex: Bleed Air System, Drone de surveillance...",
     )
-    
-    use_rag = st.checkbox(
-        "🔍 Utiliser le RAG (Recherche d'exemples)",
-        value=True,
-        help="Recherche des exemples pertinents dans la base SysML v2"
-    )
-    
-    if st.button("🚀 Démarrer le projet", type="primary", use_container_width=True):
-        if len(description.strip()) < 20:
-            st.error("❌ La description doit contenir au moins 20 caractères.")
+
+    defs = load_sections_definitions()
+    op_defs = defs.get("operational", {})
+    sections_list = op_defs.get("sections", [])
+
+    if not sections_list:
+        st.warning("Impossible de charger les sections depuis le backend.")
+        return
+
+    render_sections("operational", sections_list)
+
+    st.markdown("---")
+    use_rag = st.checkbox("🔍 Utiliser le RAG (exemples SysML v2)", value=True, key="rag_welcome")
+
+    if st.button("🚀 Générer le niveau opérationnel", type="primary", use_container_width=True):
+        _do_generate("operational", use_rag, is_new_session=True)
+
+
+def render_level(level: str):
+    """Affiche l'interface complète pour un niveau."""
+    idx = LEVELS_ORDER.index(level) + 1
+    st.header(f"Niveau {idx}/4 : {LEVEL_LABELS[level]}")
+    if st.session_state.session_id:
+        st.caption(f"Session : {st.session_state.session_id[:16]}...")
+
+    # Résumé du niveau précédent
+    render_previous_summary(level)
+
+    # Sections guidées
+    defs = load_sections_definitions()
+    level_defs = defs.get(level, {})
+    sections_list = level_defs.get("sections", [])
+
+    if sections_list:
+        render_sections(level, sections_list)
+    else:
+        st.warning("Sections non disponibles depuis le backend.")
+
+    st.markdown("---")
+
+    # Boutons d'action
+    status = st.session_state.level_status.get(level, "empty")
+
+    col1, col2, col3 = st.columns([2, 2, 1])
+    with col1:
+        if status == "empty":
+            use_rag = st.checkbox("🔍 RAG", value=True, key=f"rag_{level}")
+            if st.button("🚀 Générer", type="primary", use_container_width=True, key=f"gen_{level}"):
+                _do_generate(level, use_rag)
         else:
-            with st.spinner("⏳ Génération du niveau opérationnel en cours..."):
-                try:
-                    response = requests.post(
-                        f"{BACKEND_URL}/api/v2/generate",
-                        json={
-                            "description": description,
-                            "session_name": session_name,
-                            "level": "operational",
-                            "use_rag": use_rag
-                        },
-                        timeout=API_TIMEOUT
-                    )
-                    
-                    if response.status_code == 200:
-                        result = response.json()
-                        st.session_state.session_id = result["session_id"]
-                        st.session_state.current_level = "operational"
-                        st.session_state.system_description = description
-                        load_level_status()
-                        st.success(f"✅ Niveau opérationnel généré !")
-                        st.rerun()
-                    else:
-                        error = response.json().get("detail", response.text)
-                        st.error(f"❌ Erreur {response.status_code}: {error}")
-                        
-                except requests.exceptions.Timeout:
-                    st.error("❌ Timeout (> 2 min)")
-                except Exception as e:
-                    st.error(f"❌ Erreur : {str(e)}")
+            use_rag = st.checkbox("🔍 RAG", value=True, key=f"rag_patch_{level}")
+            if st.button("🔄 Modifier & Régénérer", use_container_width=True, key=f"patch_{level}"):
+                _do_patch(level, use_rag)
+    with col2:
+        if status == "generated":
+            if st.button("✅ Valider et passer au suivant", type="primary", use_container_width=True, key=f"validate_{level}"):
+                _do_validate(level)
+        elif status == "validated":
+            st.success("✅ Niveau validé")
+    with col3:
+        if status != "empty":
+            if st.button("🔍 Cohérence", key=f"coh_{level}"):
+                _do_coherence(level)
 
-# Si une session est active, afficher les onglets pour le niveau en cours
-else:
-    # Charger les données du niveau en cours
-    load_level_status()
-    current_level = st.session_state.current_level
-    level_index = NIVEAUX_ORDER.index(current_level) + 1
-    
-    # En-tête avec nom du niveau
-    st.header(f"Niveau {level_index}/4 : {LEVEL_NAMES[current_level]}")
-    st.caption(f"Session : {st.session_state.session_id[:16]}...")
-    
-    # Tabs pour le niveau en cours
-    tab1, tab2, tab3, tab4 = st.tabs(["📝 Modèle", "💻 Code SysML v2", "📊 Diagrammes", "📖 Historique"])
-    
-    # ========================================================================
-    # TAB 1 : MODÈLE
-    # ========================================================================
-    
-    with tab1:
-        # Charger le modèle du niveau actuel
-        try:
-            response = requests.get(
-                f"{BACKEND_URL}/api/session/{st.session_state.session_id}",
-                timeout=10
+    # Résultats
+    if status != "empty":
+        st.markdown("---")
+        render_results(level)
+
+
+def render_previous_summary(level: str):
+    """Affiche le résumé du niveau précédent validé."""
+    idx = LEVELS_ORDER.index(level)
+    if idx == 0:
+        return
+
+    prev_level = LEVELS_ORDER[idx - 1]
+    prev_result = st.session_state.level_results.get(prev_level)
+    if not prev_result:
+        return
+
+    summary = prev_result.get("summary")
+    if not summary:
+        return
+
+    with st.container():
+        st.markdown(f"#### 📋 Résumé du niveau {LEVEL_SHORT[prev_level]} (validé)")
+        st.info(summary.get("summary_text", ""))
+        key_elements = summary.get("key_elements", {})
+        if key_elements:
+            cols = st.columns(min(len(key_elements), 4))
+            for i, (key, values) in enumerate(key_elements.items()):
+                if values:
+                    with cols[i % len(cols)]:
+                        label = key.replace("_", " ").title()
+                        st.markdown(f"**{label}** ({len(values)})")
+                        for v in values[:8]:
+                            st.markdown(f"- {v}")
+                        if len(values) > 8:
+                            st.caption(f"... et {len(values) - 8} autres")
+        st.markdown("---")
+
+
+def render_sections(level: str, sections_list: list):
+    """Affiche les sections guidées avec question, exemples et zone de texte."""
+    if level not in st.session_state.sections_data:
+        st.session_state.sections_data[level] = {}
+
+    sec_data = st.session_state.sections_data[level]
+
+    for sec in sections_list:
+        sec_id = sec.get("section_id", "")
+        title = sec.get("title", sec_id)
+        question = sec.get("question", "")
+        examples = sec.get("examples", [])
+
+        with st.expander(f"📝 {title}", expanded=True):
+            st.markdown(f"**❓ {question}**")
+
+            if examples:
+                with st.container():
+                    st.caption("💡 **Exemples de réponses :**")
+                    for ex in examples:
+                        st.markdown(f"> _{ex}_")
+
+            current_value = sec_data.get(sec_id, "")
+            new_value = st.text_area(
+                f"Votre réponse — {title}",
+                value=current_value,
+                height=150,
+                key=f"section_{level}_{sec_id}",
+                label_visibility="collapsed",
             )
-            if response.status_code == 200:
-                session_data = response.json()
-                levels = session_data.get("levels", {})
-                current_level_data = levels.get(current_level, {})
-                model = current_level_data.get("model", {})
-                
-                if model:
-                    # Générer un résumé lisible selon le niveau
-                    st.subheader("📋 Résumé du modèle")
-                    
-                    # Résumé selon le niveau
-                    if current_level == "operational":
-                        stakeholders = len(model.get("stakeholders", []))
-                        systems = len(model.get("external_systems", []))
-                        use_cases = len(model.get("use_cases", []))
-                        requirements = len(model.get("requirements", []))
-                        st.info(f"**Parties prenantes :** {stakeholders} | **Systèmes externes :** {systems} | **Use cases :** {use_cases} | **Exigences :** {requirements}")
-                    
-                    elif current_level == "functional":
-                        functions = len(model.get("functions", []))
-                        flows = len(model.get("functional_flows", []))
-                        modes = len(model.get("operational_modes", []))
-                        st.info(f"**Fonctions :** {functions} | **Flux fonctionnels :** {flows} | **Modes opérationnels :** {modes}")
-                    
-                    elif current_level == "logical":
-                        parts = len(model.get("logical_parts", []))
-                        connections = len(model.get("logical_connections", []))
-                        allocated_req = len(model.get("allocated_requirements", []))
-                        st.info(f"**Composants logiques :** {parts} | **Connexions :** {connections} | **Exigences allouées :** {allocated_req}")
-                    
-                    elif current_level == "technical":
-                        tech_parts = len(model.get("technical_parts", []))
-                        phys_conn = len(model.get("physical_connections", []))
-                        tech_choices = len(model.get("technology_choices", []))
-                        st.info(f"**Composants techniques :** {tech_parts} | **Connexions physiques :** {phys_conn} | **Choix technologiques :** {tech_choices}")
-                    
-                    # Notes du LLM (ambiguïtés et suppositions)
-                    llm_warnings = current_level_data.get("llm_warnings", [])
-                    # Filtrer les anciens warnings de validation (rétrocompatibilité)
-                    llm_warnings = [w for w in llm_warnings if "erreur(s) syntaxique(s)" not in w and "syntaxique" not in w.lower()]
-                    
-                    if llm_warnings:
-                        with st.expander(f"💡 Notes du LLM ({len(llm_warnings)})", expanded=False):
-                            st.caption("L'IA signale des ambiguïtés ou des suppositions qu'elle a faites lors de la génération.")
-                            for w in llm_warnings:
-                                st.info(w)
-                    
-                    # JSON détaillé dans un expander fermé
-                    with st.expander("📋 Modèle JSON détaillé", expanded=False):
-                        st.json(model)
-                    
-                    st.markdown("---")
-                    
-                    # Section modification
-                    st.subheader("✏️ Modifier ce niveau")
-                    
-                    # Warning si le niveau est déjà validé
-                    status = st.session_state.level_status.get(current_level, {})
-                    if status.get("validated", False):
-                        st.warning("⚠️ Modifier un niveau déjà validé peut créer des incohérences avec les niveaux suivants.")
-                    
-                    instruction = st.text_area(
-                        "Instruction de modification",
-                        placeholder="Exemple : Ajouter un acteur 'Technicien de maintenance'",
-                        height=100,
-                        help="Décrivez la modification à apporter"
-                    )
-                    
-                    use_rag_patch = st.checkbox("🔍 Utiliser le RAG", value=True, key="rag_patch")
-                    
-                    if st.button("✏️ Appliquer la modification", type="secondary"):
-                        if len(instruction.strip()) < 5:
-                            st.error("❌ Instruction trop courte")
-                        else:
-                            with st.spinner("⏳ Modification en cours..."):
-                                try:
-                                    response = requests.post(
-                                        f"{BACKEND_URL}/api/v2/patch",
-                                        json={
-                                            "session_id": st.session_state.session_id,
-                                            "level": current_level,
-                                            "instruction": instruction,
-                                            "use_rag": use_rag_patch
-                                        },
-                                        timeout=API_TIMEOUT
-                                    )
-                                    
-                                    if response.status_code == 200:
-                                        result = response.json()
-                                        st.success(f"✅ {result.get('changes_summary', 'Modifié')}")
-                                        st.rerun()
-                                    else:
-                                        error = response.json().get("detail", response.text)
-                                        st.error(f"❌ Erreur : {error}")
-                                except Exception as e:
-                                    st.error(f"❌ Erreur : {str(e)}")
-                    
-                    st.markdown("---")
-                    
-                    # Section vérification de cohérence inter-niveaux
-                    st.subheader("🔍 Cohérence inter-niveaux")
-                    st.caption("Vérification de la cohérence entre ce niveau et les niveaux adjacents (traçabilité des exigences, couverture des fonctions, etc.)")
-                    
-                    if st.button("Vérifier la cohérence inter-niveaux"):
-                        with st.spinner("⏳ Vérification..."):
-                            try:
-                                response = requests.get(
-                                    f"{BACKEND_URL}/api/v2/coherence/{st.session_state.session_id}/{current_level}",
-                                    timeout=30
-                                )
-                                
-                                if response.status_code == 200:
-                                    result = response.json()
-                                    if result.get("coherent"):
-                                        st.success("✅ Aucune incohérence détectée entre les niveaux")
-                                    else:
-                                        issues = result.get("issues", [])
-                                        with st.expander(f"⚠️ Incohérences détectées ({len(issues)})", expanded=True):
-                                            st.caption("Ces incohérences sont signalées à titre indicatif. C'est à l'architecte de décider des actions à prendre.")
-                                            for issue in issues:
-                                                severity = issue.get("severity", "warning")
-                                                description = issue.get("description", "")
-                                                if severity == "error":
-                                                    st.error(f"🔴 {description}")
-                                                else:
-                                                    st.warning(f"⚠️ {description}")
-                                else:
-                                    st.error("❌ Erreur lors de la vérification")
-                            except Exception as e:
-                                st.error(f"❌ Erreur : {str(e)}")
-                    
-                    st.markdown("---")
-                    
-                    # Section validation
-                    st.subheader("Validation")
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        if st.button("✅ Valider et passer au niveau suivant", type="primary", use_container_width=True):
-                            with st.spinner("⏳ Validation..."):
-                                try:
-                                    # Valider le niveau actuel
-                                    response = requests.post(
-                                        f"{BACKEND_URL}/api/v2/validate",
-                                        json={
-                                            "session_id": st.session_state.session_id,
-                                            "level": current_level
-                                        },
-                                        timeout=30
-                                    )
-                                    
-                                    if response.status_code == 200:
-                                        result = response.json()
-                                        next_level = result.get("next_level")
-                                        
-                                        if next_level:
-                                            # Générer le niveau suivant
-                                            st.info(f"⏳ Génération du niveau {LEVEL_SHORT_NAMES[next_level]} en cours...")
-                                            
-                                            gen_response = requests.post(
-                                                f"{BACKEND_URL}/api/v2/generate",
-                                                json={
-                                                    "session_id": st.session_state.session_id,
-                                                    "description": st.session_state.system_description,
-                                                    "level": next_level,
-                                                    "use_rag": True
-                                                },
-                                                timeout=120  # Timeout plus long pour la génération
-                                            )
-                                            
-                                            if gen_response.status_code == 200:
-                                                st.session_state.current_level = next_level
-                                                st.success(f"✅ Niveau {LEVEL_SHORT_NAMES[next_level]} généré avec succès !")
-                                                st.rerun()
-                                            else:
-                                                error_detail = gen_response.json().get("detail", gen_response.text)
-                                                st.error(f"❌ Erreur lors de la génération du niveau {LEVEL_SHORT_NAMES[next_level]} : {error_detail}")
-                                                
-                                                # Si c'est une erreur de quota, proposer de réessayer
-                                                if "429" in str(error_detail) or "quota" in str(error_detail).lower() or "RESOURCE_EXHAUSTED" in str(error_detail):
-                                                    st.warning("🔑 Quota API atteint. Le système va tenter une rotation de clé automatique.")
-                                                    if st.button("🔄 Réessayer", key="retry_generation"):
-                                                        st.rerun()
-                                        else:
-                                            # C'était le dernier niveau
-                                            st.balloons()
-                                            st.success("🎉 Tous les niveaux sont complétés !")
-                                    else:
-                                        error_detail = response.json().get("detail", response.text)
-                                        st.error(f"❌ Erreur lors de la validation : {error_detail}")
-                                except requests.exceptions.Timeout:
-                                    st.error("⏱️ Timeout — La génération prend trop de temps. Réessayez.")
-                                except Exception as e:
-                                    st.error(f"❌ Erreur inattendue : {str(e)}")
-                    
-                    with col2:
-                        if st.button("🔄 Régénérer ce niveau", use_container_width=True):
-                            with st.spinner("⏳ Régénération..."):
-                                try:
-                                    response = requests.post(
-                                        f"{BACKEND_URL}/api/v2/generate",
-                                        json={
-                                            "session_id": st.session_state.session_id,
-                                            "description": st.session_state.system_description,
-                                            "level": current_level,
-                                            "use_rag": True
-                                        },
-                                        timeout=API_TIMEOUT
-                                    )
-                                    
-                                    if response.status_code == 200:
-                                        st.success("✅ Niveau régénéré !")
-                                        st.rerun()
-                                    else:
-                                        st.error("❌ Erreur lors de la régénération")
-                                except Exception as e:
-                                    st.error(f"❌ Erreur : {str(e)}")
-                
+            st.session_state.sections_data[level][sec_id] = new_value
+
+
+def render_results(level: str):
+    """Affiche résumé, warnings, code SysML et JSON du niveau."""
+    result = st.session_state.level_results.get(level)
+    if not result:
+        return
+
+    # --- Résumé ---
+    summary = result.get("summary")
+    if summary:
+        st.markdown("#### 📊 Ce qui a été compris")
+        st.success(summary.get("summary_text", ""))
+        key_elements = summary.get("key_elements", {})
+        if key_elements:
+            cols = st.columns(min(len(key_elements), 4))
+            for i, (key, values) in enumerate(key_elements.items()):
+                if values:
+                    with cols[i % len(cols)]:
+                        label = key.replace("_", " ").title()
+                        st.markdown(f"**{label}**")
+                        for v in values[:6]:
+                            st.markdown(f"- {v}")
+                        if len(values) > 6:
+                            st.caption(f"... +{len(values) - 6}")
+
+    # --- Warnings ---
+    warnings = result.get("warnings", [])
+    if warnings:
+        st.markdown("#### ⚠️ Warnings")
+        for w in warnings:
+            if isinstance(w, dict):
+                w_type = w.get("type", "info")
+                w_msg = w.get("message", "")
+                w_section = w.get("section", "")
+                w_suggestion = w.get("suggestion", "")
+                prefix = "⚠️" if w_type == "inconsistency" else ("ℹ️" if w_type == "missing_info" else "❓")
+                text = f"{prefix} **[{w_type}]** {w_msg}"
+                if w_section:
+                    text += f" _(section: {w_section})_"
+                if w_suggestion:
+                    text += f"\n> 💡 {w_suggestion}"
+                st.warning(text)
+            else:
+                st.warning(str(w))
+
+    # --- Code SysML v2 ---
+    sysml_code = result.get("sysml_code", "")
+    if sysml_code:
+        st.markdown("#### 📝 Code SysML v2")
+
+        validation = result.get("validation_result", {})
+        if validation:
+            score = validation.get("score", "?")
+            valid = validation.get("valid", True)
+            if valid:
+                st.caption(f"Score de validation : **{score}/100** ✅")
+            else:
+                errors = validation.get("errors", [])
+                st.caption(f"Score de validation : **{score}/100** — {len(errors)} erreur(s)")
+                with st.expander("🔍 Erreurs de syntaxe", expanded=False):
+                    for err in errors:
+                        line = err.get("line", "?")
+                        msg = err.get("message", "")
+                        st.error(f"Ligne {line} : {msg}")
+
+        st.code(sysml_code, language="text", line_numbers=True)
+
+        st.text_area(
+            "Code SysML v2 (sélectionner + copier)",
+            value=sysml_code,
+            height=100,
+            key=f"copy_sysml_{level}",
+            label_visibility="collapsed",
+        )
+
+    # --- Modèle JSON ---
+    model = result.get("model", {})
+    if model:
+        with st.expander("📋 Modèle JSON détaillé", expanded=False):
+            st.json(model)
+
+
+def render_full_sysml():
+    """Affiche le code SysML v2 complet de tous les niveaux."""
+    if not st.session_state.session_id:
+        return
+
+    st.markdown("---")
+    st.markdown("### 📦 Code SysML v2 complet")
+
+    if st.button("📥 Charger le code complet", key="full_sysml_btn"):
+        with st.spinner("Chargement..."):
+            ok, data, err = api_call("get", f"/api/v2/full-sysml/{st.session_state.session_id}")
+            if ok and data:
+                code = data.get("sysml_code", "")
+                if code and "Aucun niveau" not in code:
+                    st.code(code, language="text", line_numbers=True)
+                    st.text_area("Code complet (copier)", value=code, height=100, key="copy_full_sysml", label_visibility="collapsed")
                 else:
-                    st.info("Ce niveau n'a pas encore été généré.")
-        
-        except Exception as e:
-            st.error(f"❌ Erreur lors du chargement : {str(e)}")
-    
-    # ========================================================================
-    # TAB 2 : CODE SYSML V2
-    # ========================================================================
-    
-    with tab2:
-        st.subheader("💻 Code SysML v2")
-        
-        # Afficher le code du niveau actuel
-        try:
-            response = requests.get(
-                f"{BACKEND_URL}/api/session/{st.session_state.session_id}",
-                timeout=10
-            )
-            if response.status_code == 200:
-                session_data = response.json()
-                levels = session_data.get("levels", {})
-                current_level_data = levels.get(current_level, {})
-                sysml_code = current_level_data.get("sysml_code", "")
-                
-                if sysml_code:
-                    # Afficher le code
-                    st.code(sysml_code, language="text", line_numbers=True)
+                    st.info("Aucun niveau généré pour le moment.")
+            else:
+                st.error(err)
 
-                    # --- Bouton SysON ---
-                    st.markdown("---")
 
-                    # Push automatique silencieux si SysON disponible
-                    if not st.session_state.get(f"syson_project_id_{current_level}"):
-                        try:
-                            _status = requests.get(f"{BACKEND_URL}/api/syson/status", timeout=2)
-                            if _status.json().get("available"):
-                                _auto = requests.post(
-                                    f"{BACKEND_URL}/api/syson/push",
-                                    json={
-                                        "session_id": st.session_state.get("session_id", ""),
-                                        "level": current_level,
-                                        "project_name": f"{st.session_state.get('session_name', 'SysML Agent')} - {current_level}"
-                                    },
-                                    timeout=30
-                                )
-                                _auto_result = _auto.json()
-                                if _auto_result.get("success"):
-                                    st.session_state[f"syson_project_id_{current_level}"] = _auto_result.get("project_id", "")
-                                    st.caption(f"🔗 [Voir dans SysON]({_auto_result.get('syson_url', 'http://localhost:8085')})")
-                        except Exception:
-                            pass  # SysON non disponible, on continue sans erreur
+def render_exchanges():
+    """Affiche les échanges LLM pour debug."""
+    if not st.session_state.session_id:
+        return
 
-                    syson_col1, syson_col2, syson_col3 = st.columns(3)
-                    with syson_col1:
-                        if st.button("🔗 Ouvrir dans SysON", key=f"syson_{current_level}"):
-                            try:
-                                response_status = requests.get(f"{BACKEND_URL}/api/syson/status", timeout=5)
-                                if response_status.json().get("available"):
-                                    push_response = requests.post(
-                                        f"{BACKEND_URL}/api/syson/push",
-                                        json={
-                                            "session_id": st.session_state.get("session_id", ""),
-                                            "level": current_level,
-                                            "project_name": f"SysML Agent - {current_level}"
-                                        },
-                                        timeout=60
-                                    )
-                                    result_syson = push_response.json()
-                                    if result_syson.get("success"):
-                                        st.session_state[f"syson_project_id_{current_level}"] = result_syson.get("project_id", "")
-                                        st.success("✅ Code envoyé à SysON !")
-                                        syson_url = result_syson.get("syson_url", "http://localhost:8085")
-                                        st.markdown(f"[🔗 Ouvrir le diagramme dans SysON]({syson_url})")
-                                    else:
-                                        st.error(f"❌ Erreur : {result_syson.get('error', 'Erreur inconnue')}")
-                                else:
-                                    st.warning("⚠️ SysON n'est pas disponible. Vérifiez que le conteneur est démarré.")
-                            except Exception as e:
-                                st.warning(f"⚠️ SysON non accessible : {e}")
-                    with syson_col2:
-                        st.markdown("[📖 Ouvrir SysON](http://localhost:8085)", unsafe_allow_html=True)
-                    with syson_col3:
-                        if st.button("🔄 Récupérer depuis SysON", key=f"syson_pull_{current_level}"):
-                            project_id = st.session_state.get(f"syson_project_id_{current_level}", "")
-                            if project_id:
-                                try:
-                                    pull_response = requests.post(
-                                        f"{BACKEND_URL}/api/syson/pull",
-                                        json={"project_id": project_id,
-                                              "session_id": st.session_state.get("session_id", "")},
-                                        timeout=30
-                                    )
-                                    pull_result = pull_response.json()
-                                    if pull_result.get("success"):
-                                        docs = pull_result.get("documents", [])
-                                        st.success(f"✅ {len(docs)} document(s) récupéré(s) depuis SysON")
-                                        st.info("ℹ️ Format : EMF JSON (format interne SysON). "
-                                                "L'export textuel SysML v2 n'est pas disponible via l'API SysON v2026.")
-                                        dl_url = pull_result.get("download_url", "")
-                                        if dl_url:
-                                            st.markdown(f"[⬇️ Télécharger le projet SysON (ZIP)]({dl_url})")
-                                        for doc in docs:
-                                            with st.expander(f"📄 {doc.get('name', 'document')} (EMF JSON)"):
-                                                st.json(doc.get("content", {}))
-                                    else:
-                                        st.error(f"❌ Erreur : {pull_result.get('error', 'Erreur inconnue')}")
-                                except Exception as e:
-                                    st.error(f"❌ Erreur de connexion : {e}")
-                            else:
-                                st.warning("⚠️ Aucun projet SysON lié. Cliquez d'abord sur 'Ouvrir dans SysON'.")
-                    
-                    st.markdown("---")
-                    
-                    # Section validation syntaxique
-                    st.subheader("🔍 Validation syntaxique")
-                    
-                    # Charger le résultat de validation s'il existe
-                    validation = current_level_data.get("validation_result", {})
-                    
-                    if validation and validation.get("errors") is not None:
-                        errors = validation.get("errors", [])
-                        warnings = validation.get("warnings", [])
-                        score = validation.get("score", 0)
-                        
-                        if not errors:
-                            st.success(f"✅ Code syntaxiquement valide (score : {score}/100)")
-                        else:
-                            st.error(f"❌ {len(errors)} erreur(s) de syntaxe détectée(s)")
-                            with st.expander("🔍 Détails des erreurs de syntaxe", expanded=True):
-                                for err in errors:
-                                    line = err.get("line", "?")
-                                    msg = err.get("message", "Erreur inconnue")
-                                    st.error(f"**Ligne {line}** : {msg}")
-                        
-                        if warnings:
-                            with st.expander(f"⚠️ Bonnes pratiques ({len(warnings)})", expanded=False):
-                                st.caption("Ces avertissements ne sont pas des erreurs mais des suggestions d'amélioration.")
-                                for w in warnings:
-                                    line = w.get("line", "?")
-                                    msg = w.get("message", "")
-                                    st.warning(f"**Ligne {line}** : {msg}")
-                    else:
-                        st.info("Aucune validation syntaxique n'a encore été effectuée.")
-                        if st.button("🔍 Valider la syntaxe maintenant"):
-                            with st.spinner("⏳ Validation en cours..."):
-                                try:
-                                    val_resp = requests.post(
-                                        f"{BACKEND_URL}/api/validate-sysml",
-                                        json={"sysml_code": sysml_code},
-                                        timeout=30
-                                    )
-                                    if val_resp.status_code == 200:
-                                        validation = val_resp.json()
-                                        st.success("✅ Validation terminée")
-                                        st.rerun()
-                                    else:
-                                        st.error(f"❌ Erreur : {val_resp.json().get('detail', 'Erreur inconnue')}")
-                                except Exception as e:
-                                    st.error(f"❌ Erreur : {str(e)}")
-                    
-                    st.markdown("---")
-                    
-                    # Bouton pour voir le code complet
-                    if st.button("📄 Voir le code complet (tous les niveaux validés)"):
-                        try:
-                            full_resp = requests.get(
-                                f"{BACKEND_URL}/api/v2/full-sysml/{st.session_state.session_id}",
-                                timeout=30
-                            )
-                            if full_resp.status_code == 200:
-                                full_code = full_resp.json().get("sysml_code", "")
-                                if full_code:
-                                    st.code(full_code, language="text", line_numbers=True)
-                                else:
-                                    st.info("Aucun niveau validé")
-                            else:
-                                st.error("Erreur lors du chargement")
-                        except Exception as e:
-                            st.error(f"Erreur : {str(e)}")
-                else:
-                    st.info("Ce niveau n'a pas encore été généré")
-        
-        except Exception as e:
-            st.error(f"❌ Erreur : {str(e)}")
-    
-    # ========================================================================
-    # TAB 3 : DIAGRAMMES
-    # ========================================================================
-    
-    with tab3:
-        st.subheader(f"📊 Diagrammes — {LEVEL_SHORT_NAMES[current_level]}")
-        
-        # Fonction pour afficher un diagramme avec modal
-        def render_diagram_with_modal(svg_content: str, diagram_type: str, diagram_title: str, height: int = 500):
-            """Affiche un diagramme SVG avec modal interactif."""
-            import hashlib
-            
-            # Générer un ID unique pour ce diagramme
-            unique_id = hashlib.md5(f"{diagram_type}_{diagram_title}".encode()).hexdigest()[:8]
-            
-            html_code = f"""
-            <style>
-                .diagram-container-{unique_id} {{
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                    padding: 10px;
-                    background: white;
-                    overflow: auto;
-                    max-height: {height}px;
-                    cursor: pointer;
-                    position: relative;
-                }}
-                .diagram-container-{unique_id}:hover {{
-                    border-color: #4CAF50;
-                    box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
-                }}
-                .diagram-container-{unique_id}:hover::after {{
-                    content: '🔍 Cliquer pour agrandir';
-                    position: absolute;
-                    top: 8px;
-                    right: 8px;
-                    background: rgba(0,0,0,0.7);
-                    color: white;
-                    padding: 4px 12px;
-                    border-radius: 4px;
-                    font-size: 12px;
-                }}
-                .modal-overlay-{unique_id} {{
-                    display: none;
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100vw;
-                    height: 100vh;
-                    background: rgba(0, 0, 0, 0.85);
-                    z-index: 999999;
-                    justify-content: center;
-                    align-items: center;
-                    flex-direction: column;
-                }}
-                .modal-overlay-{unique_id}.active {{
-                    display: flex;
-                }}
-                .modal-content-{unique_id} {{
-                    background: white;
-                    border-radius: 12px;
-                    padding: 20px;
-                    max-width: 95vw;
-                    max-height: 85vh;
-                    overflow: auto;
-                    position: relative;
-                }}
-                .modal-toolbar-{unique_id} {{
-                    display: flex;
-                    gap: 8px;
-                    margin-bottom: 12px;
-                    justify-content: space-between;
-                    align-items: center;
-                }}
-                .modal-toolbar-{unique_id} button {{
-                    padding: 8px 16px;
-                    border-radius: 6px;
-                    border: 1px solid #ccc;
-                    background: #f0f0f0;
-                    cursor: pointer;
-                    font-size: 14px;
-                }}
-                .modal-toolbar-{unique_id} button:hover {{
-                    background: #e0e0e0;
-                }}
-                .modal-close-{unique_id} {{
-                    background: #ff5252 !important;
-                    color: white !important;
-                    border: none !important;
-                    font-size: 18px !important;
-                    padding: 8px 14px !important;
-                }}
-                .modal-title-{unique_id} {{
-                    font-weight: bold;
-                    font-size: 16px;
-                    color: #333;
-                }}
-                .modal-svg-{unique_id} {{
-                    transform-origin: top left;
-                    transition: transform 0.2s ease;
-                }}
-            </style>
-            
-            <div class="diagram-container-{unique_id}" onclick="document.querySelector('.modal-overlay-{unique_id}').classList.add('active')">
-                {svg_content}
-            </div>
-            
-            <div class="modal-overlay-{unique_id}" onclick="if(event.target===this) this.classList.remove('active')">
-                <div class="modal-content-{unique_id}">
-                    <div class="modal-toolbar-{unique_id}">
-                        <span class="modal-title-{unique_id}">{diagram_title}</span>
-                        <div style="display:flex;gap:6px;">
-                            <button onclick="zoomDiagram_{unique_id}(-0.25)">🔍 Zoom −</button>
-                            <button onclick="zoomDiagram_{unique_id}(0.25)">🔎 Zoom +</button>
-                            <button onclick="resetZoom_{unique_id}()">↺ Reset</button>
-                            <button class="modal-close-{unique_id}" onclick="document.querySelector('.modal-overlay-{unique_id}').classList.remove('active')">✕</button>
-                        </div>
-                    </div>
-                    <div style="overflow:auto;max-height:75vh;">
-                        <div class="modal-svg-{unique_id}" id="modal-svg-{unique_id}">
-                            {svg_content}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <script>
-                var currentZoom_{unique_id} = 1;
-                function zoomDiagram_{unique_id}(delta) {{
-                    currentZoom_{unique_id} = Math.max(0.25, Math.min(4, currentZoom_{unique_id} + delta));
-                    document.getElementById('modal-svg-{unique_id}').style.transform = 'scale(' + currentZoom_{unique_id} + ')';
-                }}
-                function resetZoom_{unique_id}() {{
-                    currentZoom_{unique_id} = 1;
-                    document.getElementById('modal-svg-{unique_id}').style.transform = 'scale(1)';
-                }}
-            </script>
-            """
-            
-            components.html(html_code, height=height + 50, scrolling=True)
-        
-        # Charger les diagrammes existants au chargement de la page
-        if "loaded_diagrams_for_level" not in st.session_state or st.session_state.get("loaded_diagrams_for_level") != current_level:
-            try:
-                response = requests.get(
-                    f"{BACKEND_URL}/api/v2/diagrams/{st.session_state.session_id}/{current_level}",
-                    timeout=30
-                )
-                if response.status_code == 200:
-                    result = response.json()
-                    diagrams = result.get("diagrams", [])
-                    if diagrams:
-                        st.session_state.current_diagrams = diagrams
-                        st.session_state.loaded_diagrams_for_level = current_level
-                    else:
-                        # Pas de diagrammes existants
-                        st.session_state.current_diagrams = None
-                        st.session_state.loaded_diagrams_for_level = current_level
-            except:
-                pass
-        
-        # Afficher bouton de génération si pas de diagrammes
-        if not st.session_state.get("current_diagrams"):
-            if st.button("🎨 Générer les diagrammes de ce niveau", type="primary", use_container_width=True):
-                with st.spinner("⏳ Génération des diagrammes..."):
-                    try:
-                        response = requests.post(
-                            f"{BACKEND_URL}/api/v2/diagrams",
-                            json={
-                                "session_id": st.session_state.session_id,
-                                "level": current_level
-                            },
-                            timeout=60
-                        )
-                        
-                        if response.status_code == 200:
-                            result = response.json()
-                            diagrams = result.get("diagrams", [])
-                            
-                            if diagrams:
-                                st.success(f"✅ {len(diagrams)} diagramme(s) généré(s) !")
-                                st.session_state.current_diagrams = diagrams
-                                st.rerun()
-                            else:
-                                st.info("Aucun diagramme disponible pour ce niveau")
-                        else:
-                            error = response.json().get("detail", response.text)
-                            st.error(f"❌ Erreur : {error}")
-                    
-                    except Exception as e:
-                        st.error(f"❌ Erreur : {str(e)}")
+    with st.expander("🔍 Échanges LLM (debug)", expanded=False):
+        ok, data, err = api_call("get", f"/api/v2/exchanges/{st.session_state.session_id}", timeout=10)
+        if ok and data:
+            exchanges = data.get("exchanges", [])
+            if not exchanges:
+                st.caption("Aucun échange enregistré.")
+                return
+            for i, ex in enumerate(reversed(exchanges)):
+                op = ex.get("operation", "?")
+                level = ex.get("level", "?")
+                ts = format_timestamp(ex.get("timestamp", ""))
+                model_name = ex.get("llm_model", "?")
+                success = ex.get("success", True)
+                status_icon = "✅" if success else "❌"
+
+                with st.expander(f"{status_icon} [{level}] {op} — {ts} ({model_name})"):
+                    prompt = ex.get("prompt_sent", "")
+                    if prompt:
+                        st.text_area("Prompt envoyé", value=prompt[:2000], height=100, key=f"ex_prompt_{i}", disabled=True)
+                    response = ex.get("llm_response_raw", "")
+                    if response:
+                        st.text_area("Réponse brute", value=response[:2000], height=100, key=f"ex_resp_{i}", disabled=True)
+                    if ex.get("error_message"):
+                        st.error(ex["error_message"])
         else:
-            # Diagrammes existants, offrir de regénérer
-            if st.button("🔄 Regénérer les diagrammes", type="secondary"):
-                with st.spinner("⏳ Regénération des diagrammes..."):
-                    try:
-                        response = requests.post(
-                            f"{BACKEND_URL}/api/v2/diagrams",
-                            json={
-                                "session_id": st.session_state.session_id,
-                                "level": current_level
-                            },
-                            timeout=60
-                        )
-                        
-                        if response.status_code == 200:
-                            result = response.json()
-                            diagrams = result.get("diagrams", [])
-                            
-                            if diagrams:
-                                st.success(f"✅ {len(diagrams)} diagramme(s) regénéré(s) !")
-                                st.session_state.current_diagrams = diagrams
-                                st.rerun()
-                        else:
-                            error = response.json().get("detail", response.text)
-                            st.error(f"❌ Erreur : {error}")
-                    except Exception as e:
-                        st.error(f"❌ Erreur : {str(e)}")
-        
-        # Afficher les diagrammes
-        if st.session_state.get("current_diagrams"):
-            st.markdown("---")
-            
-            for diagram in st.session_state.current_diagrams:
-                diagram_type = diagram.get("type", "unknown")
-                title = diagram.get("title", "Diagramme")
-                plantuml_code = diagram.get("plantuml_code", "")
-                svg_content = diagram.get("svg", "")
-                
-                label = DIAGRAM_LABELS.get(diagram_type, title)
-                st.subheader(label)
-                
-                # Afficher le SVG avec modal
-                if svg_content and svg_content.strip():
-                    try:
-                        render_diagram_with_modal(svg_content, diagram_type, label, height=500)
-                    except Exception:
-                        st.warning("⚠️ Impossible d'afficher le SVG")
-                
-                # Code PlantUML dans un expander fermé
-                with st.expander("📝 Code PlantUML", expanded=False):
-                    st.code(plantuml_code, language="text")
-                
-                st.markdown("---")
-        
-        # Diagrammes des niveaux précédents
-        previous_levels = [l for l in NIVEAUX_ORDER if NIVEAUX_ORDER.index(l) < NIVEAUX_ORDER.index(current_level)]
-        if previous_levels:
-            st.divider()
-            st.subheader("📂 Diagrammes des niveaux précédents")
-            
-            try:
-                response = requests.get(
-                    f"{BACKEND_URL}/api/session/{st.session_state.session_id}",
-                    timeout=10
-                )
-                if response.status_code == 200:
-                    session_data = response.json()
-                    levels = session_data.get("levels", {})
-                    
-                    for prev_level in previous_levels:
-                        level_data = levels.get(prev_level, {})
-                        diagrams = level_data.get("diagrams", [])
-                        
-                        if diagrams:
-                            level_icon = LEVEL_ICONS.get(prev_level, "📊")
-                            with st.expander(f"{level_icon} {LEVEL_SHORT_NAMES[prev_level]} ({len(diagrams)} diagrammes)", expanded=False):
-                                for diagram in diagrams:
-                                    diagram_type = diagram.get("type", "unknown")
-                                    title = diagram.get("title", "Diagramme")
-                                    svg_content = diagram.get("svg", "")
-                                    plantuml_code = diagram.get("plantuml_code", "")
-                                    
-                                    label = DIAGRAM_LABELS.get(diagram_type, title)
-                                    st.markdown(f"**{label}**")
-                                    
-                                    # Afficher le SVG avec modal
-                                    if svg_content and svg_content.strip():
-                                        try:
-                                            render_diagram_with_modal(svg_content, f"{prev_level}_{diagram_type}", label, height=400)
-                                        except Exception:
-                                            st.warning("⚠️ Impossible d'afficher le SVG")
-                                    
-                                    st.markdown("---")
-            except Exception:
-                pass
-    
-    # ========================================================================
-    # TAB 4 : HISTORIQUE
-    # ========================================================================
-    
-    with tab4:
-        st.subheader("📖 Historique")
-        
-        try:
-            response = requests.get(
-                f"{BACKEND_URL}/api/session/{st.session_state.session_id}",
-                timeout=10
-            )
-            if response.status_code == 200:
-                session_data = response.json()
-                levels = session_data.get("levels", {})
-                
-                # Pour chaque niveau
-                for level in NIVEAUX_ORDER:
-                    level_data = levels.get(level, {})
-                    history = level_data.get("history", [])
-                    
-                    if history:
-                        with st.expander(f"{LEVEL_SHORT_NAMES[level]}", expanded=(level == current_level)):
-                            for entry in reversed(history):
-                                action = entry.get("action", "unknown")
-                                timestamp = format_timestamp(entry.get("timestamp", ""))
-                                instruction = entry.get("instruction", entry.get("description", ""))
-                                
-                                st.markdown(f"**{action.upper()}** — {timestamp}")
-                                if instruction:
-                                    st.markdown(f"> {instruction}")
-                                st.markdown("---")
-        
-        except Exception as e:
-            st.error(f"❌ Erreur : {str(e)}")
+            st.caption(f"Erreur : {err}")
+
+
+# ============================================================================
+# Actions (boutons)
+# ============================================================================
+
+def _do_generate(level: str, use_rag: bool, is_new_session: bool = False):
+    """Génère un niveau via POST /api/v2/generate."""
+    sections = _collect_sections(level)
+    if not sections:
+        st.error("Veuillez remplir au moins une section.")
+        return
+
+    body = {
+        "session_id": None if is_new_session else st.session_state.session_id,
+        "session_name": st.session_state.session_name,
+        "level": level,
+        "sections": sections,
+        "use_rag": use_rag,
+    }
+
+    with st.spinner(f"⏳ Génération du niveau {LEVEL_SHORT[level]} en cours..."):
+        ok, data, err = api_call("post", "/api/v2/generate", json=body)
+
+    if ok and data:
+        st.session_state.session_id = data.get("session_id")
+        st.session_state.level_results[level] = {
+            "model": data.get("model", {}),
+            "sysml_code": data.get("sysml_code", ""),
+            "summary": data.get("summary"),
+            "warnings": data.get("warnings", []),
+            "validation_result": data.get("validation_result"),
+        }
+        st.session_state.level_status[level] = "generated"
+        st.success(f"✅ Niveau {LEVEL_SHORT[level]} généré !")
+        st.rerun()
+    else:
+        st.error(f"Échec de la génération : {err}")
+
+
+def _do_patch(level: str, use_rag: bool):
+    """Régénère un niveau via POST /api/v2/patch."""
+    sections = _collect_sections(level)
+    if not sections:
+        st.error("Veuillez remplir au moins une section.")
+        return
+
+    body = {
+        "session_id": st.session_state.session_id,
+        "level": level,
+        "sections": sections,
+        "use_rag": use_rag,
+    }
+
+    with st.spinner(f"⏳ Régénération du niveau {LEVEL_SHORT[level]}..."):
+        ok, data, err = api_call("post", "/api/v2/patch", json=body)
+
+    if ok and data:
+        st.session_state.level_results[level] = {
+            "model": data.get("model", {}),
+            "sysml_code": data.get("sysml_code", ""),
+            "summary": data.get("summary"),
+            "warnings": data.get("warnings", []),
+            "validation_result": data.get("validation_result"),
+        }
+        st.session_state.level_status[level] = "generated"
+        st.success(f"✅ Niveau {LEVEL_SHORT[level]} régénéré !")
+        st.rerun()
+    else:
+        st.error(f"Échec : {err}")
+
+
+def _do_validate(level: str):
+    """Valide un niveau et passe au suivant via POST /api/v2/validate."""
+    body = {
+        "session_id": st.session_state.session_id,
+        "level": level,
+    }
+
+    with st.spinner("Validation..."):
+        ok, data, err = api_call("post", "/api/v2/validate", json=body)
+
+    if ok and data:
+        st.session_state.level_status[level] = "validated"
+        next_level = data.get("next_level")
+        if next_level:
+            st.session_state.current_level = next_level
+            st.success(f"✅ Niveau {LEVEL_SHORT[level]} validé. Passage à {LEVEL_SHORT[next_level]}.")
+        else:
+            st.balloons()
+            st.success("🎉 Tous les niveaux sont complétés !")
+        st.rerun()
+    else:
+        st.error(f"Échec de la validation : {err}")
+
+
+def _do_coherence(level: str):
+    """Vérifie la cohérence inter-niveaux."""
+    with st.spinner("Vérification de cohérence..."):
+        ok, data, err = api_call("get", f"/api/v2/coherence/{st.session_state.session_id}/{level}", timeout=30)
+
+    if ok and data:
+        if data.get("coherent"):
+            st.success("✅ Aucune incohérence détectée.")
+        else:
+            issues = data.get("issues", [])
+            for issue in issues:
+                sev = issue.get("severity", "warning")
+                desc = issue.get("description", "")
+                if sev == "error":
+                    st.error(f"🔴 {desc}")
+                else:
+                    st.warning(f"⚠️ {desc}")
+    else:
+        st.error(err)
+
+
+def _collect_sections(level: str) -> list:
+    """Collecte les sections remplies pour un niveau."""
+    sec_data = st.session_state.sections_data.get(level, {})
+    sections = []
+    for sec_id, content in sec_data.items():
+        if content and content.strip():
+            sections.append({"section_id": sec_id, "content": content.strip()})
+    return sections
+
+
+# ============================================================================
+# Main
+# ============================================================================
+
+def main():
+    """Point d'entrée principal."""
+    render_sidebar()
+
+    if not st.session_state.session_id:
+        render_welcome()
+    else:
+        level = st.session_state.current_level
+        render_level(level)
+
+        # Code complet + échanges en bas de page
+        render_full_sysml()
+        render_exchanges()
+
+
+if __name__ == "__main__":
+    main()

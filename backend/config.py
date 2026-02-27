@@ -27,7 +27,6 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "gemini"  # Options: "gemini", "openai", "ollama"
     GEMINI_API_KEY: str = ""  # Rétrocompatibilité : clé unique
     GEMINI_API_KEYS: str = ""  # Multi-clés séparées par virgules pour rotation automatique
-    GEMINI_MODEL: str = "gemini-2.0-flash"
     LLM_MODEL: str = "gemini-2.5-flash"  # Modèle par défaut, configurable
     LLM_TEMPERATURE: float = 0.05
     LLM_MAX_TOKENS: int = 8192
@@ -40,9 +39,6 @@ class Settings(BaseSettings):
     RAG_CHUNK_SIZE: int = 1500
     RAG_CHUNK_OVERLAP: int = 200
     RAG_TOP_K: int = 8
-
-    # === Serveur PlantUML ===
-    PLANTUML_SERVER_URL: str = "http://plantuml:8080"
 
     # === Serveur ===
     HOST: str = "0.0.0.0"

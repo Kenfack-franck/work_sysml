@@ -15,14 +15,10 @@ services:
       - .env
     environment:
       - SYSML_REPO_PATH=/app/SysML-v2-Release
-      - PLANTUML_SERVER_URL=http://plantuml:8080
       - GEMINI_API_KEYS=${GEMINI_API_KEYS}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - LLM_MODEL=${LLM_MODEL}
-      - GEMINI_MODEL=${GEMINI_MODEL}
       - SYSON_URL=http://syson:8080
-    depends_on:
-      - plantuml
     restart: unless-stopped
 
   frontend:
@@ -36,13 +32,6 @@ services:
       - BACKEND_URL=http://backend:8000
     depends_on:
       - backend
-    restart: unless-stopped
-
-  plantuml:
-    image: plantuml/plantuml-server:tomcat
-    container_name: sysml_plantuml
-    ports:
-      - "8080:8080"
     restart: unless-stopped
 
   syson-db:
