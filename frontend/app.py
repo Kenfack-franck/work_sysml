@@ -36,6 +36,12 @@ LEVEL_ICONS = {
     "technical": "🏭",
 }
 
+TAB_SECTIONS = "📝 Sections"
+TAB_RESULTS = "📊 Résultats"
+TAB_CODE = "💻 Code SysML"
+TAB_DEBUG = "🔍 Debug"
+TAB_OPTIONS = [TAB_SECTIONS, TAB_RESULTS, TAB_CODE, TAB_DEBUG]
+
 st.set_page_config(
     page_title="SysAgent — Pipeline SysML v2",
     page_icon="🏗️",
@@ -57,6 +63,7 @@ def _init_state():
         "level_results": {},       # {level: {model, sysml_code, summary, warnings, validation_result}}
         "level_status": {},        # {level: "empty"|"generated"|"validated"}
         "sections_definitions": None,  # chargé depuis GET /api/sections
+        "active_tab": TAB_SECTIONS,    # onglet actif dans render_level
     }
     for key, default in defaults.items():
         if key not in st.session_state:
@@ -261,6 +268,7 @@ def _render_sidebar_navigation():
             btn_type = "primary" if is_current else "secondary"
             if st.sidebar.button(label, key=f"nav_{level}", use_container_width=True, type=btn_type):
                 st.session_state.current_level = level
+                st.session_state.active_tab = TAB_RESULTS
                 st.rerun()
         else:
             st.sidebar.markdown(f"{'**' if is_current else ''}{label}{'**' if is_current else ''}")
@@ -293,6 +301,7 @@ def _reset_state():
     st.session_state.sections_data = {}
     st.session_state.level_results = {}
     st.session_state.level_status = {}
+    st.session_state.active_tab = TAB_SECTIONS
 
 
 def _load_session(session_id: str):
@@ -341,9 +350,16 @@ def _load_session(session_id: str):
     st.session_state.level_results = level_results
     st.session_state.level_status = level_status
 
+    # Ouvrir l'onglet pertinent
+    current = st.session_state.current_level
+    if level_status.get(current) in ("generated", "validated"):
+        st.session_state.active_tab = TAB_RESULTS
+    else:
+        st.session_state.active_tab = TAB_SECTIONS
+
 
 # ============================================================================
-# Zone principale
+# Zone principale — Page d'accueil
 # ============================================================================
 
 def render_welcome():
@@ -386,13 +402,47 @@ de manière **progressive** en 4 étapes :
         _do_generate("operational", use_rag, is_new_session=True)
 
 
+# ============================================================================
+# Zone principale — Niveau actif avec onglets
+# ============================================================================
+
 def render_level(level: str):
-    """Affiche l'interface complète pour un niveau."""
+    """Affiche l'interface complète pour un niveau avec navigation par onglets."""
     idx = LEVELS_ORDER.index(level) + 1
     st.header(f"Niveau {idx}/4 : {LEVEL_LABELS[level]}")
     if st.session_state.session_id:
         st.caption(f"Session : {st.session_state.session_id[:16]}...")
 
+    status = st.session_state.level_status.get(level, "empty")
+
+    # --- Navigation par onglets (radio horizontal) ---
+    # Déterminer l'onglet par défaut
+    default_idx = TAB_OPTIONS.index(st.session_state.active_tab) if st.session_state.active_tab in TAB_OPTIONS else 0
+
+    tab = st.radio(
+        "Navigation",
+        TAB_OPTIONS,
+        index=default_idx,
+        horizontal=True,
+        key=f"level_tab_{level}",
+        label_visibility="collapsed",
+    )
+
+    st.markdown("---")
+
+    # --- Contenu de l'onglet sélectionné ---
+    if tab == TAB_SECTIONS:
+        _render_tab_sections(level, status)
+    elif tab == TAB_RESULTS:
+        _render_tab_results(level, status)
+    elif tab == TAB_CODE:
+        _render_tab_code(level)
+    elif tab == TAB_DEBUG:
+        _render_tab_debug(level)
+
+
+def _render_tab_sections(level: str, status: str):
+    """Onglet Sections : résumé précédent, sections guidées, bouton générer."""
     # Résumé du niveau précédent
     render_previous_summary(level)
 
@@ -409,9 +459,7 @@ def render_level(level: str):
     st.markdown("---")
 
     # Boutons d'action
-    status = st.session_state.level_status.get(level, "empty")
-
-    col1, col2, col3 = st.columns([2, 2, 1])
+    col1, col2 = st.columns([3, 1])
     with col1:
         if status == "empty":
             use_rag = st.checkbox("🔍 RAG", value=True, key=f"rag_{level}")
@@ -422,92 +470,16 @@ def render_level(level: str):
             if st.button("🔄 Modifier & Régénérer", use_container_width=True, key=f"patch_{level}"):
                 _do_patch(level, use_rag)
     with col2:
-        if status == "generated":
-            if st.button("✅ Valider et passer au suivant", type="primary", use_container_width=True, key=f"validate_{level}"):
-                _do_validate(level)
-        elif status == "validated":
-            st.success("✅ Niveau validé")
-    with col3:
-        if status != "empty":
-            if st.button("🔍 Cohérence", key=f"coh_{level}"):
-                _do_coherence(level)
-
-    # Résultats
-    if status != "empty":
-        st.markdown("---")
-        render_results(level)
+        if status == "validated":
+            st.success("✅ Validé")
 
 
-def render_previous_summary(level: str):
-    """Affiche le résumé du niveau précédent validé."""
-    idx = LEVELS_ORDER.index(level)
-    if idx == 0:
-        return
-
-    prev_level = LEVELS_ORDER[idx - 1]
-    prev_result = st.session_state.level_results.get(prev_level)
-    if not prev_result:
-        return
-
-    summary = prev_result.get("summary")
-    if not summary:
-        return
-
-    with st.container():
-        st.markdown(f"#### 📋 Résumé du niveau {LEVEL_SHORT[prev_level]} (validé)")
-        st.info(summary.get("summary_text", ""))
-        key_elements = summary.get("key_elements", {})
-        if key_elements:
-            cols = st.columns(min(len(key_elements), 4))
-            for i, (key, values) in enumerate(key_elements.items()):
-                if values:
-                    with cols[i % len(cols)]:
-                        label = key.replace("_", " ").title()
-                        st.markdown(f"**{label}** ({len(values)})")
-                        for v in values[:8]:
-                            st.markdown(f"- {v}")
-                        if len(values) > 8:
-                            st.caption(f"... et {len(values) - 8} autres")
-        st.markdown("---")
-
-
-def render_sections(level: str, sections_list: list):
-    """Affiche les sections guidées avec question, exemples et zone de texte."""
-    if level not in st.session_state.sections_data:
-        st.session_state.sections_data[level] = {}
-
-    sec_data = st.session_state.sections_data[level]
-
-    for sec in sections_list:
-        sec_id = sec.get("section_id", "")
-        title = sec.get("title", sec_id)
-        question = sec.get("question", "")
-        examples = sec.get("examples", [])
-
-        with st.expander(f"📝 {title}", expanded=True):
-            st.markdown(f"**❓ {question}**")
-
-            if examples:
-                with st.container():
-                    st.caption("💡 **Exemples de réponses :**")
-                    for ex in examples:
-                        st.markdown(f"> _{ex}_")
-
-            current_value = sec_data.get(sec_id, "")
-            new_value = st.text_area(
-                f"Votre réponse — {title}",
-                value=current_value,
-                height=150,
-                key=f"section_{level}_{sec_id}",
-                label_visibility="collapsed",
-            )
-            st.session_state.sections_data[level][sec_id] = new_value
-
-
-def render_results(level: str):
-    """Affiche résumé, warnings, code SysML et JSON du niveau."""
+def _render_tab_results(level: str, status: str):
+    """Onglet Résultats : résumé, warnings, validation, boutons."""
     result = st.session_state.level_results.get(level)
+
     if not result:
+        st.info("Aucun résultat. Remplissez les sections et lancez la génération.")
         return
 
     # --- Résumé ---
@@ -548,50 +520,67 @@ def render_results(level: str):
             else:
                 st.warning(str(w))
 
-    # --- Code SysML v2 ---
-    sysml_code = result.get("sysml_code", "")
-    if sysml_code:
-        st.markdown("#### 📝 Code SysML v2")
-
-        validation = result.get("validation_result", {})
-        if validation:
-            score = validation.get("score", "?")
-            valid = validation.get("valid", True)
-            if valid:
-                st.caption(f"Score de validation : **{score}/100** ✅")
-            else:
-                errors = validation.get("errors", [])
-                st.caption(f"Score de validation : **{score}/100** — {len(errors)} erreur(s)")
-                with st.expander("🔍 Erreurs de syntaxe", expanded=False):
-                    for err in errors:
-                        line = err.get("line", "?")
-                        msg = err.get("message", "")
-                        st.error(f"Ligne {line} : {msg}")
-
-        st.code(sysml_code, language="text", line_numbers=True)
-
-        st.text_area(
-            "Code SysML v2 (sélectionner + copier)",
-            value=sysml_code,
-            height=100,
-            key=f"copy_sysml_{level}",
-            label_visibility="collapsed",
-        )
-
-    # --- Modèle JSON ---
-    model = result.get("model", {})
-    if model:
-        with st.expander("📋 Modèle JSON détaillé", expanded=False):
-            st.json(model)
-
-
-def render_full_sysml():
-    """Affiche le code SysML v2 complet de tous les niveaux."""
-    if not st.session_state.session_id:
-        return
+    # --- Score de validation syntaxique ---
+    validation = result.get("validation_result", {})
+    if validation:
+        st.markdown("#### 🔍 Validation syntaxique")
+        score = validation.get("score", "?")
+        valid = validation.get("valid", True)
+        if valid:
+            st.success(f"Score : **{score}/100** ✅")
+        else:
+            errors = validation.get("errors", [])
+            st.warning(f"Score : **{score}/100** — {len(errors)} erreur(s)")
+            for err in errors:
+                line = err.get("line", "?")
+                msg = err.get("message", "")
+                st.error(f"Ligne {line} : {msg}")
 
     st.markdown("---")
-    st.markdown("### 📦 Code SysML v2 complet")
+
+    # --- Boutons d'action ---
+    col1, col2, col3 = st.columns([2, 2, 1])
+    with col1:
+        if status == "generated":
+            if st.button("✅ Valider et passer au suivant", type="primary", use_container_width=True, key=f"validate_{level}"):
+                _do_validate(level)
+        elif status == "validated":
+            st.success("✅ Niveau validé")
+    with col2:
+        use_rag = st.checkbox("🔍 RAG", value=True, key=f"rag_result_{level}")
+        if st.button("🔄 Modifier & Régénérer", use_container_width=True, key=f"patch_result_{level}"):
+            _do_patch(level, use_rag)
+    with col3:
+        if st.button("🔍 Cohérence", key=f"coh_{level}"):
+            _do_coherence(level)
+
+
+def _render_tab_code(level: str):
+    """Onglet Code SysML : code avec coloration, zone copiable, code complet."""
+    result = st.session_state.level_results.get(level)
+
+    if not result or not result.get("sysml_code"):
+        st.info("Aucun code SysML généré. Lancez la génération depuis l'onglet Sections.")
+        return
+
+    sysml_code = result["sysml_code"]
+
+    # --- Code SysML du niveau ---
+    st.markdown(f"#### 📝 Code SysML v2 — {LEVEL_SHORT[level]}")
+    st.code(sysml_code, language="text", line_numbers=True)
+
+    st.text_area(
+        "Code SysML v2 (sélectionner + copier)",
+        value=sysml_code,
+        height=200,
+        key=f"copy_sysml_{level}",
+        label_visibility="collapsed",
+        disabled=True,
+    )
+
+    # --- Code complet tous niveaux ---
+    st.markdown("---")
+    st.markdown("#### 📦 Code SysML v2 complet (tous niveaux)")
 
     if st.button("📥 Charger le code complet", key="full_sysml_btn"):
         with st.spinner("Chargement..."):
@@ -600,44 +589,146 @@ def render_full_sysml():
                 code = data.get("sysml_code", "")
                 if code and "Aucun niveau" not in code:
                     st.code(code, language="text", line_numbers=True)
-                    st.text_area("Code complet (copier)", value=code, height=100, key="copy_full_sysml", label_visibility="collapsed")
+                    st.text_area(
+                        "Code complet (copier)",
+                        value=code,
+                        height=200,
+                        key="copy_full_sysml",
+                        label_visibility="collapsed",
+                        disabled=True,
+                    )
                 else:
                     st.info("Aucun niveau généré pour le moment.")
             else:
                 st.error(err)
 
 
-def render_exchanges():
-    """Affiche les échanges LLM pour debug."""
+def _render_tab_debug(level: str):
+    """Onglet Debug : modèle JSON et échanges LLM (sans expanders imbriqués)."""
+    result = st.session_state.level_results.get(level)
+
+    # --- Modèle JSON ---
+    st.markdown("#### 📋 Modèle JSON")
+    if result and result.get("model"):
+        st.json(result["model"])
+    else:
+        st.caption("Aucun modèle JSON disponible.")
+
+    st.markdown("---")
+
+    # --- Échanges LLM ---
+    st.markdown("#### 🔍 Échanges LLM")
     if not st.session_state.session_id:
+        st.caption("Pas de session active.")
         return
 
-    with st.expander("🔍 Échanges LLM (debug)", expanded=False):
-        ok, data, err = api_call("get", f"/api/v2/exchanges/{st.session_state.session_id}", timeout=10)
-        if ok and data:
-            exchanges = data.get("exchanges", [])
-            if not exchanges:
-                st.caption("Aucun échange enregistré.")
-                return
-            for i, ex in enumerate(reversed(exchanges)):
-                op = ex.get("operation", "?")
-                level = ex.get("level", "?")
-                ts = format_timestamp(ex.get("timestamp", ""))
-                model_name = ex.get("llm_model", "?")
-                success = ex.get("success", True)
-                status_icon = "✅" if success else "❌"
+    ok, data, err = api_call("get", f"/api/v2/exchanges/{st.session_state.session_id}", timeout=10)
+    if not ok:
+        st.caption(f"Erreur : {err}")
+        return
 
-                with st.expander(f"{status_icon} [{level}] {op} — {ts} ({model_name})"):
-                    prompt = ex.get("prompt_sent", "")
-                    if prompt:
-                        st.text_area("Prompt envoyé", value=prompt[:2000], height=100, key=f"ex_prompt_{i}", disabled=True)
-                    response = ex.get("llm_response_raw", "")
-                    if response:
-                        st.text_area("Réponse brute", value=response[:2000], height=100, key=f"ex_resp_{i}", disabled=True)
-                    if ex.get("error_message"):
-                        st.error(ex["error_message"])
-        else:
-            st.caption(f"Erreur : {err}")
+    exchanges = data.get("exchanges", [])
+    if not exchanges:
+        st.caption("Aucun échange enregistré.")
+        return
+
+    for i, ex in enumerate(reversed(exchanges)):
+        op = ex.get("operation", "?")
+        ex_level = ex.get("level", "?")
+        ts = format_timestamp(ex.get("timestamp", ""))
+        model_name = ex.get("llm_model", "?")
+        success = ex.get("success", True)
+        status_icon = "✅" if success else "❌"
+
+        with st.expander(f"{status_icon} [{ex_level}] {op} — {ts} ({model_name})"):
+            prompt = ex.get("prompt_sent", "")
+            if prompt:
+                st.text_area(
+                    "Prompt envoyé",
+                    value=prompt[:3000],
+                    height=120,
+                    key=f"ex_prompt_{i}",
+                    disabled=True,
+                )
+            response = ex.get("llm_response_raw", "")
+            if response:
+                st.text_area(
+                    "Réponse brute",
+                    value=response[:3000],
+                    height=120,
+                    key=f"ex_resp_{i}",
+                    disabled=True,
+                )
+            if ex.get("error_message"):
+                st.error(ex["error_message"])
+
+
+# ============================================================================
+# Composants réutilisables
+# ============================================================================
+
+def render_previous_summary(level: str):
+    """Affiche le résumé du niveau précédent validé."""
+    idx = LEVELS_ORDER.index(level)
+    if idx == 0:
+        return
+
+    prev_level = LEVELS_ORDER[idx - 1]
+    prev_result = st.session_state.level_results.get(prev_level)
+    if not prev_result:
+        return
+
+    summary = prev_result.get("summary")
+    if not summary:
+        return
+
+    with st.container():
+        st.markdown(f"#### 📋 Résumé du niveau {LEVEL_SHORT[prev_level]} (validé)")
+        st.info(summary.get("summary_text", ""))
+        key_elements = summary.get("key_elements", {})
+        if key_elements:
+            cols = st.columns(min(len(key_elements), 4))
+            for i, (key, values) in enumerate(key_elements.items()):
+                if values:
+                    with cols[i % len(cols)]:
+                        label = key.replace("_", " ").title()
+                        st.markdown(f"**{label}** ({len(values)})")
+                        for v in values[:8]:
+                            st.markdown(f"- {v}")
+                        if len(values) > 8:
+                            st.caption(f"... et {len(values) - 8} autres")
+        st.markdown("---")
+
+
+def render_sections(level: str, sections_list: list):
+    """Affiche les sections guidées avec question, exemples discrets et zone de texte."""
+    if level not in st.session_state.sections_data:
+        st.session_state.sections_data[level] = {}
+
+    sec_data = st.session_state.sections_data[level]
+
+    for sec in sections_list:
+        sec_id = sec.get("section_id", "")
+        title = sec.get("title", sec_id)
+        question = sec.get("question", "")
+        examples = sec.get("examples", [])
+
+        with st.expander(f"📝 {title}", expanded=True):
+            st.markdown(f"**❓ {question}**")
+
+            if examples:
+                examples_text = " · ".join(f"_{ex}_" for ex in examples)
+                st.caption(f"💡 Exemples : {examples_text}")
+
+            current_value = sec_data.get(sec_id, "")
+            new_value = st.text_area(
+                f"Votre réponse — {title}",
+                value=current_value,
+                height=150,
+                key=f"section_{level}_{sec_id}",
+                label_visibility="collapsed",
+            )
+            st.session_state.sections_data[level][sec_id] = new_value
 
 
 # ============================================================================
@@ -672,6 +763,7 @@ def _do_generate(level: str, use_rag: bool, is_new_session: bool = False):
             "validation_result": data.get("validation_result"),
         }
         st.session_state.level_status[level] = "generated"
+        st.session_state.active_tab = TAB_RESULTS
         st.success(f"✅ Niveau {LEVEL_SHORT[level]} généré !")
         st.rerun()
     else:
@@ -704,6 +796,7 @@ def _do_patch(level: str, use_rag: bool):
             "validation_result": data.get("validation_result"),
         }
         st.session_state.level_status[level] = "generated"
+        st.session_state.active_tab = TAB_RESULTS
         st.success(f"✅ Niveau {LEVEL_SHORT[level]} régénéré !")
         st.rerun()
     else:
@@ -725,6 +818,7 @@ def _do_validate(level: str):
         next_level = data.get("next_level")
         if next_level:
             st.session_state.current_level = next_level
+            st.session_state.active_tab = TAB_SECTIONS
             st.success(f"✅ Niveau {LEVEL_SHORT[level]} validé. Passage à {LEVEL_SHORT[next_level]}.")
         else:
             st.balloons()
@@ -778,10 +872,6 @@ def main():
     else:
         level = st.session_state.current_level
         render_level(level)
-
-        # Code complet + échanges en bas de page
-        render_full_sysml()
-        render_exchanges()
 
 
 if __name__ == "__main__":
