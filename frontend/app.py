@@ -14,7 +14,7 @@ from datetime import datetime
 # ============================================================================
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000")
-API_TIMEOUT = 180
+API_TIMEOUT = 300
 
 LEVELS_ORDER = ["operational", "functional", "logical", "technical"]
 LEVEL_LABELS = {

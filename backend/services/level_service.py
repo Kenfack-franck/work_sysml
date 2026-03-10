@@ -20,7 +20,7 @@ from services.rag_service import RAGService
 from services.state_service import StateService
 from services.sysml_validator import SysMLv2Validator
 
-from prompts.operational_prompt import build_operational_json_prompt, build_operational_sysml_prompt
+from prompts.operational_prompt import build_operational_json_prompt, get_operational_sysml_prompts
 from prompts.functional_prompt import build_functional_json_prompt, build_functional_sysml_prompt
 from prompts.logical_prompt import build_logical_json_prompt, build_logical_sysml_prompt
 from prompts.technical_prompt import build_technical_json_prompt, build_technical_sysml_prompt
@@ -492,14 +492,18 @@ class LevelService:
         """
         Génère le code SysML v2 pour un niveau donné.
 
+        Pour le niveau opérationnel, 5 appels LLM sont effectués (un par type
+        de diagramme) et les résultats sont concaténés.
+
         Returns:
             (sysml_code: str, exchange: dict)
         """
+        if level == "operational":
+            return self._generate_sysml_operational(json_model, rag_examples)
+
         json_str = json.dumps(json_model, indent=2, ensure_ascii=False)
 
-        if level == "operational":
-            prompt = build_operational_sysml_prompt(json_str, rag_examples)
-        elif level == "functional":
+        if level == "functional":
             prompt = build_functional_sysml_prompt(json_str, rag_examples)
         elif level == "logical":
             prompt = build_logical_sysml_prompt(json_str, rag_examples)
@@ -530,6 +534,60 @@ class LevelService:
 
         sysml_code = self._clean_sysml_code(response)
         exchange["sysml_code"] = sysml_code
+
+        return sysml_code, exchange
+
+    def _generate_sysml_operational(
+        self,
+        json_model: dict,
+        rag_examples: List[str],
+    ) -> tuple:
+        """
+        Génère le code SysML v2 opérationnel en 5 appels LLM (un par diagramme).
+
+        Returns:
+            (sysml_code: str, exchange: dict)
+        """
+        diagram_prompts = get_operational_sysml_prompts(json_model, rag_examples)
+
+        all_code_parts = []
+        all_raw_responses = []
+        all_prompts = []
+        errors = []
+
+        for i, (diagram_type, prompt) in enumerate(diagram_prompts, 1):
+            logger.info(f"SysML [{i}/5] : Génération du diagramme {diagram_type}...")
+            all_prompts.append(f"--- {diagram_type} ---\n{prompt}")
+            try:
+                response = self.llm.generate(prompt, temperature=0.05, max_tokens=8192)
+                all_raw_responses.append(f"--- {diagram_type} ---\n{response}")
+                code = self._clean_sysml_code(response)
+                if code:
+                    all_code_parts.append(f"// ===== {diagram_type.upper()} =====\n\n{code}")
+                    logger.info(f"SysML [{i}/5] : {diagram_type} OK ({len(code)} chars)")
+                else:
+                    logger.warning(f"SysML [{i}/5] : {diagram_type} — réponse vide")
+            except Exception as e:
+                logger.error(f"SysML [{i}/5] : {diagram_type} ERREUR: {e}")
+                errors.append(f"{diagram_type}: {e}")
+
+        sysml_code = "\n\n".join(all_code_parts)
+
+        exchange = {
+            "id": str(uuid.uuid4()),
+            "timestamp": datetime.now().isoformat(),
+            "operation": "generate_sysml",
+            "prompt_sent": "\n\n".join(all_prompts),
+            "llm_response_raw": "\n\n".join(all_raw_responses),
+            "llm_model": self.llm.get_model_name(),
+            "sysml_code": sysml_code,
+            "success": len(errors) == 0,
+            "error_message": "; ".join(errors) if errors else "",
+            "diagram_count": len(all_code_parts),
+        }
+
+        if errors and not all_code_parts:
+            raise RuntimeError(f"Tous les diagrammes ont échoué : {'; '.join(errors)}")
 
         return sysml_code, exchange
 
