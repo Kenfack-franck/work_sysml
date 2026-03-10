@@ -1,4 +1,4 @@
-# SysAgent — Generateur automatique de modeles SysML v2
+# SysAgent — Generateur automatique de modeles SysML_v2
 
 Outil de generation de modeles SysML v2 a partir de descriptions en langage naturel, suivant une approche MBSE (Model-Based Systems Engineering) en 4 niveaux (Operationnel, Fonctionnel, Logique, Technique).
 
