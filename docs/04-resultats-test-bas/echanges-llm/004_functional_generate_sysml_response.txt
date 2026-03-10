@@ -1,0 +1,299 @@
+```sysml
+package 'BAS (Bleed Air System) - Functional' {
+
+    // ========================================
+    // SECTION : Item Definitions
+    // ========================================
+
+    item def 'ConsignePT';
+    item def 'AirChaudHautePression';
+    item def 'AirAmbiant';
+    item def 'AirReguléPT';
+    item def 'AirTiède';
+    item def 'CommandeDégivragNacelle';
+    item def 'AirChaudNacelle';
+    item def 'ConsigneOuvertureVanne';
+    item def 'AirChaudRéguléNacelle';
+    item def 'MesuréTempératureAir';
+    item def 'StateData';
+
+    // ========================================
+    // SECTION : Action Definitions (Leaf Functions)
+    // ========================================
+
+    action def 'Prélever l''air' {
+        doc /* Le port de pression intermédiaire prélève l'air chaud haute pression sur le compresseur du moteur. Allouée à : IP port */
+        in airChaudHautePression : 'AirChaudHautePression';
+        out airChaudHautePression : 'AirChaudHautePression';
+    }
+
+    action def 'Laisser passer l''air' {
+        doc /* La vanne NAI contrôle le passage de l'air chaud vers la nacelle en fonction de la consigne d'ouverture. Allouée à : Vanne NAI */
+        in airChaudHautePression : 'AirChaudHautePression';
+        in consigneOuvertureVanne : 'ConsigneOuvertureVanne';
+        out airChaudNacelle : 'AirChaudNacelle';
+    }
+
+    action def 'Réguler la température nacelle' {
+        doc /* L'échangeur ACAC mélange l'air chaud nacelle avec l'air ambiant pour réguler la température de sortie. Allouée à : ACAC */
+        in airChaudNacelle : 'AirChaudNacelle';
+        in airAmbiant : 'AirAmbiant';
+        out airChaudRéguléNacelle : 'AirChaudRéguléNacelle';
+        out airTiède : 'AirTiède';
+    }
+
+    action def 'Réguler la vanne NAI' {
+        doc /* Le calculateur de régulation reçoit la commande de dégivrage et la mesure de température, et calcule la consigne d'ouverture de la vanne NAI. Allouée à : Calculateur */
+        in commandeDégivragNacelle : 'CommandeDégivragNacelle';
+        in mesuréTempératureAir : 'MesuréTempératureAir';
+        out consigneOuvertureVanne : 'ConsigneOuvertureVanne';
+    }
+
+    action def 'Mesurer la température' {
+        doc /* Le capteur de température mesure la température de l'air chaud nacelle et transmet la mesure au calculateur. Allouée à : Air Temperature Sensor */
+        in airChaudNacelle : 'AirChaudNacelle';
+        out mesuréTempératureAir : 'MesuréTempératureAir';
+    }
+
+    action def 'Fournir l''air à l''interface Nacelle' {
+        doc /* Le port nacelle fournit l'air chaud régulé à l'interface de la nacelle. Allouée à : Nacelle port */
+        in airChaudRéguléNacelle : 'AirChaudRéguléNacelle';
+        out airChaudNacelle : 'AirChaudNacelle';
+    }
+
+    action def 'Envoyer de l''air régulé en (P,T) à l''avion' {
+        doc /* Satisfait les use cases Pressuriser les réservoirs, Dégivrer les ailes, Pressuriser et tempérer la cabine */
+        in consignePT : 'ConsignePT';
+        in airChaudHautePression : 'AirChaudHautePression';
+        in airAmbiant : 'AirAmbiant';
+        out airReguléPT : 'AirReguléPT';
+        out airTiède : 'AirTiède';
+    }
+
+    action def 'Déterminer l''état du système' {
+        doc /* Satisfait le use case Être informé de l'état du système */
+    }
+
+    action def 'Communiquer' {
+        doc /* Satisfait le use case Être informé de l'état du système */
+        out stateData : 'StateData';
+    }
+
+    // ========================================
+    // SECTION : Action Definitions (Composite Functions)
+    // ========================================
+
+    action def 'Envoyer de l''air chaud à la nacelle' {
+        doc /* Satisfait le use case Dégivrer la nacelle */
+        in commandeDégivragNacelle : 'CommandeDégivragNacelle';
+        in airChaudHautePression : 'AirChaudHautePression';
+        in airAmbiant : 'AirAmbiant';
+        out airChaudNacelle : 'AirChaudNacelle';
+        out airTiède : 'AirTiède';
+
+        action préleverLair : 'Prélever l''air' {
+            in airChaudHautePression;
+            out airChaudHautePression;
+        }
+
+        action laisserPasserLair : 'Laisser passer l''air' {
+            in airChaudHautePression;
+            in consigneOuvertureVanne;
+            out airChaudNacelle;
+        }
+
+        action régulerTempératureNacelle : 'Réguler la température nacelle' {
+            in airChaudNacelle;
+            in airAmbiant;
+            out airChaudRéguléNacelle;
+            out airTiède;
+        }
+
+        action régulerVanneNAI : 'Réguler la vanne NAI' {
+            in commandeDégivragNacelle;
+            in mesuréTempératureAir;
+            out consigneOuvertureVanne;
+        }
+
+        action mesurerLaTempérature : 'Mesurer la température' {
+            in airChaudNacelle;
+            out mesuréTempératureAir;
+        }
+
+        action fournirLairÀLinterfaceNacelle : 'Fournir l''air à l''interface Nacelle' {
+            in airChaudRéguléNacelle;
+            out airChaudNacelle;
+        }
+
+        flow préleverLair.airChaudHautePression to laisserPasserLair.airChaudHautePression;
+        flow régulerVanneNAI.consigneOuvertureVanne to laisserPasserLair.consigneOuvertureVanne;
+        flow laisserPasserLair.airChaudNacelle to régulerTempératureNacelle.airChaudNacelle;
+        flow régulerTempératureNacelle.airChaudRéguléNacelle to fournirLairÀLinterfaceNacelle.airChaudRéguléNacelle;
+        flow fournirLairÀLinterfaceNacelle.airChaudNacelle to mesurerLaTempérature.airChaudNacelle;
+        flow mesurerLaTempérature.mesuréTempératureAir to régulerVanneNAI.mesuréTempératureAir;
+
+        bind préleverLair.airChaudHautePression = airChaudHautePression;
+        bind régulerVanneNAI.commandeDégivragNacelle = commandeDégivragNacelle;
+        bind régulerTempératureNacelle.airAmbiant = airAmbiant;
+        bind fournirLairÀLinterfaceNacelle.airChaudNacelle = airChaudNacelle;
+        bind régulerTempératureNacelle.airTiède = airTiède;
+    }
+
+    // ========================================
+    // SECTION : Functional Chains
+    // ========================================
+
+    action def 'Chaîne Envoyer de l''air chaud à la nacelle' {
+        doc /* Chaîne fonctionnelle complète pour le dégivrage de la nacelle */
+        in commandeDégivragNacelle : 'CommandeDégivragNacelle';
+        in airChaudHautePression : 'AirChaudHautePression';
+        in airAmbiant : 'AirAmbiant';
+        out airChaudNacelle : 'AirChaudNacelle';
+        out airTiède : 'AirTiède';
+
+        action préleverLair : 'Prélever l''air' {
+            in airChaudHautePression;
+            out airChaudHautePression;
+        }
+
+        action laisserPasserLair : 'Laisser passer l''air' {
+            in airChaudHautePression;
+            in consigneOuvertureVanne;
+            out airChaudNacelle;
+        }
+
+        action régulerTempératureNacelle : 'Réguler la température nacelle' {
+            in airChaudNacelle;
+            in airAmbiant;
+            out airChaudRéguléNacelle;
+            out airTiède;
+        }
+
+        action fournirLairÀLinterfaceNacelle : 'Fournir l''air à l''interface Nacelle' {
+            in airChaudRéguléNacelle;
+            out airChaudNacelle;
+        }
+
+        action mesurerLaTempérature : 'Mesurer la température' {
+            in airChaudNacelle;
+            out mesuréTempératureAir;
+        }
+
+        action régulerVanneNAI : 'Réguler la vanne NAI' {
+            in commandeDégivragNacelle;
+            in mesuréTempératureAir;
+            out consigneOuvertureVanne;
+        }
+
+        flow préleverLair.airChaudHautePression to laisserPasserLair.airChaudHautePression;
+        flow régulerVanneNAI.consigneOuvertureVanne to laisserPasserLair.consigneOuvertureVanne;
+        flow laisserPasserLair.airChaudNacelle to régulerTempératureNacelle.airChaudNacelle;
+        flow régulerTempératureNacelle.airChaudRéguléNacelle to fournirLairÀLinterfaceNacelle.airChaudRéguléNacelle;
+        flow fournirLairÀLinterfaceNacelle.airChaudNacelle to mesurerLaTempérature.airChaudNacelle;
+        flow mesurerLaTempérature.mesuréTempératureAir to régulerVanneNAI.mesuréTempératureAir;
+
+        bind préleverLair.airChaudHautePression = airChaudHautePression;
+        bind régulerVanneNAI.commandeDégivragNacelle = commandeDégivragNacelle;
+        bind régulerTempératureNacelle.airAmbiant = airAmbiant;
+        bind fournirLairÀLinterfaceNacelle.airChaudNacelle = airChaudNacelle;
+        bind régulerTempératureNacelle.airTiède = airTiède;
+    }
+
+    action def 'Chaîne Envoyer de l''air régulé à l''avion' {
+        doc /* Chaîne fonctionnelle pour la fourniture d'air régulé en pression et température à l'avion. La décomposition interne n'est pas détaillée. */
+        in consignePT : 'ConsignePT';
+        in airChaudHautePression : 'AirChaudHautePression';
+        in airAmbiant : 'AirAmbiant';
+        out airReguléPT : 'AirReguléPT';
+        out airTiède : 'AirTiède';
+
+        action envoyerAirRéguléPT : 'Envoyer de l''air régulé en (P,T) à l''avion' {
+            in consignePT;
+            in airChaudHautePression;
+            in airAmbiant;
+            out airReguléPT;
+            out airTiède;
+        }
+
+        bind envoyerAirRéguléPT.consignePT = consignePT;
+        bind envoyerAirRéguléPT.airChaudHautePression = airChaudHautePression;
+        bind envoyerAirRéguléPT.airAmbiant = airAmbiant;
+        bind envoyerAirRéguléPT.airReguléPT = airReguléPT;
+        bind envoyerAirRéguléPT.airTiède = airTiède;
+    }
+
+    action def 'Chaîne Communiquer' {
+        doc /* Chaîne fonctionnelle liée à la fonction Déterminer l'état du système. La décomposition interne n'est pas détaillée. */
+        out stateData : 'StateData';
+
+        action communiquer : 'Communiquer' {
+            out stateData;
+        }
+
+        bind communiquer.stateData = stateData;
+    }
+
+    // ========================================
+    // SECTION : Part Definitions with Allocations
+    // ========================================
+
+    part def 'IP port' {
+        perform action préleverLair : 'Prélever l''air';
+    }
+
+    part def 'Vanne NAI' {
+        perform action laisserPasserLair : 'Laisser passer l''air';
+    }
+
+    part def 'ACAC' {
+        perform action régulerTempératureNacelle : 'Réguler la température nacelle';
+    }
+
+    part def 'Calculateur' {
+        perform action régulerVanneNAI : 'Réguler la vanne NAI';
+    }
+
+    part def 'Air Temperature Sensor' {
+        perform action mesurerLaTempérature : 'Mesurer la température';
+    }
+
+    part def 'Nacelle port' {
+        perform action fournirLairÀLinterfaceNacelle : 'Fournir l''air à l''interface Nacelle';
+    }
+
+    // ========================================
+    // SECTION : State Definitions (Modes)
+    // ========================================
+
+    state def 'SystemeModes' {
+        state 'Mode Off' {
+            doc /* État initial du système. Aucune fonction active. */
+        }
+
+        state 'Mode On > Stand by' {
+            doc /* État initial dans Mode On */
+            perform action communiquer : 'Communiquer';
+            perform action déterminerLétatDuSystème : 'Déterminer l''état du système';
+        }
+
+        state 'Mode On > En fonctionnement' {
+            doc /* État de fonctionnement nominal du système */
+            perform action envoyerAirChaudÀLaNacelle : 'Envoyer de l''air chaud à la nacelle';
+            perform action envoyerAirRéguléPT : 'Envoyer de l''air régulé en (P,T) à l''avion';
+            perform action communiquer : 'Communiquer';
+            perform action déterminerLétatDuSystème : 'Déterminer l''état du système';
+            perform action préleverLair : 'Prélever l''air';
+            perform action laisserPasserLair : 'Laisser passer l''air';
+            perform action régulerTempératureNacelle : 'Réguler la température nacelle';
+            perform action régulerVanneNAI : 'Réguler la vanne NAI';
+            perform action mesurerLaTempérature : 'Mesurer la température';
+            perform action fournirLairÀLinterfaceNacelle : 'Fournir l''air à l''interface Nacelle';
+        }
+
+        transition 'Mode Off' then 'Mode On > Stand by' if 'quand le système reçoit de l''énergie';
+        transition 'Mode On > Stand by' then 'Mode On > En fonctionnement' if 'quand une commande opérationnelle est reçue';
+        transition 'Mode On > En fonctionnement' then 'Mode On > Stand by' if 'quand la commande opérationnelle cesse';
+    }
+
+}
+```

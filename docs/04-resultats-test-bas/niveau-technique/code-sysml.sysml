@@ -1,0 +1,597 @@
+// ===== TECHNICAL_BREAKDOWN =====
+
+package 'BAS (Bleed Air System) - Technical Breakdown' {
+
+    part def NAIV {
+        doc /* Realise le composant logique Vanne NAI. Technologie : vanne pneumatique papillon */
+        attribute airChaudHautePression;
+        attribute consigneOuvertureVanne;
+        attribute airChaudNacelle;
+    }
+
+    part def PCEV {
+        doc /* Realise le composant logique Vanne PCE. Technologie : vanne pneumatique de regulation */
+        attribute airChaudHautePression;
+        attribute consigneOuvertureVanne;
+        attribute positionVannePCE;
+    }
+
+    part def ACAC {
+        doc /* Realise le composant logique ACAC. Technologie : echangeur thermique air-air */
+        attribute airChaudNacelle;
+        attribute airAmbiant;
+        attribute airTiede;
+    }
+
+    part def PCE {
+        doc /* Realise le composant logique PCE. Technologie : echangeur thermique de regulation pression */
+        attribute airChaudHautePression;
+        attribute airAmbiant;
+        attribute airReguleT;
+        attribute airTiede;
+    }
+
+    part def EEC {
+        doc /* Realise le composant logique Calculateur. Technologie : calculateur numerique FADEC */
+        attribute stateData;
+        attribute energie;
+        attribute commandeDegiveageNacelle;
+        attribute consignePT;
+        attribute mesureTemperatureAir;
+        attribute mesurePressionAir;
+        attribute consigneOuvertureVanneNAIV;
+        attribute consigneOuvertureVannePCEV;
+        attribute positionVannePCEV;
+    }
+
+    part def IPPort {
+        doc /* Realise le composant logique IP port. Technologie : piquage pneumatique sur compresseur */
+        attribute airChaudHautePression;
+    }
+
+    part def NacelleAntiIcePneumaticPort {
+        doc /* Realise le composant logique Nacelle port. Technologie : interface pneumatique de sortie */
+        attribute airChaudNacelle;
+    }
+
+    part def FanBleedPort {
+        doc /* Technologie : piquage pneumatique sur by-pass */
+        attribute airAmbiant;
+    }
+
+    part def NacelleExhaustPort {
+        doc /* Technologie : port d'echappement */
+        attribute airTiede;
+    }
+
+    part def SOV {
+        doc /* Technologie : vanne d'arret de securite */
+        attribute airRegulePT;
+    }
+
+    part def AirTemperatureSensorACAC {
+        doc /* Realise le composant logique ACAC Air Temperature Sensor. Technologie : thermocouple */
+        attribute airChaudNacelle;
+        attribute mesureTemperatureAir;
+    }
+
+    part def AirTemperatureSensorPCE {
+        doc /* Realise le composant logique PCE Air Temperature Sensor. Technologie : thermocouple */
+        attribute airReguleT;
+        attribute mesureTemperatureAir;
+    }
+
+    part def AirPressureSensor {
+        doc /* Realise le composant logique Air Pressure Sensor. Technologie : capteur de pression */
+        attribute airReguleT;
+        attribute mesurePressionAir;
+    }
+
+    part def Filter {
+        doc /* Realise le composant logique Filter. Technologie : filtre pneumatique en ligne */
+        attribute airRegulePT;
+    }
+
+    part def DataExchangeIO {
+        doc /* Technologie : interface de communication donnees */
+        attribute stateData;
+        attribute commandeDegiveageNacelle;
+        attribute consignePT;
+        attribute energie;
+    }
+
+    part def BASPhysicalSystem {
+        part naiv : NAIV;
+        part pcev : PCEV;
+        part acac : ACAC;
+        part pce : PCE;
+        part eec : EEC;
+        part ipPort : IPPort;
+        part nacelleAntiIcePneumaticPort : NacelleAntiIcePneumaticPort;
+        part fanBleedPort : FanBleedPort;
+        part nacelleExhaustPort : NacelleExhaustPort;
+        part sov : SOV;
+        part airTemperatureSensorACAC : AirTemperatureSensorACAC;
+        part airTemperatureSensorPCE : AirTemperatureSensorPCE;
+        part airPressureSensor : AirPressureSensor;
+        part filter : Filter;
+        part dataExchangeIO : DataExchangeIO;
+    }
+
+}
+
+// ===== TECHNICAL_ARCHITECTURE =====
+
+package 'BAS (Bleed Air System) - Technical Architecture' {
+
+    port def PneumaticPort {
+        attribute fluid;
+    }
+
+    port def ElectricalPort {
+        attribute signal;
+    }
+
+    port def InformationPort {
+        attribute data;
+    }
+
+    part def NAIV {
+        port airHighPressureIn : PneumaticPort;
+        port commandOpeningIn : ElectricalPort;
+        port airNacelleOut : PneumaticPort;
+    }
+
+    part def PCEV {
+        port airHighPressureIn : PneumaticPort;
+        port commandOpeningIn : ElectricalPort;
+        port positionIn : ElectricalPort;
+        port airHighPressureOut : PneumaticPort;
+    }
+
+    part def ACAC {
+        port airNacelleIn : PneumaticPort;
+        port airAmbiantIn : PneumaticPort;
+        port airNacelleOut : PneumaticPort;
+        port airTiedeOut : PneumaticPort;
+    }
+
+    part def PCE {
+        port airHighPressureIn : PneumaticPort;
+        port airAmbiantIn : PneumaticPort;
+        port airReguleTOut : PneumaticPort;
+        port airTiedeOut : PneumaticPort;
+    }
+
+    part def EEC {
+        port stateDataInOut : InformationPort;
+        port energyIn : ElectricalPort;
+        port commandDegivrageIn : InformationPort;
+        port consignePTIn : InformationPort;
+        port measureTemperatureIn : ElectricalPort;
+        port measurePressureIn : ElectricalPort;
+        port commandNAIVOut : ElectricalPort;
+        port commandPCEVOut : ElectricalPort;
+        port positionPCEVOut : ElectricalPort;
+    }
+
+    part def IPPort {
+        port airHighPressureIn : PneumaticPort;
+        port airHighPressureOut : PneumaticPort;
+    }
+
+    part def NacelleAntiIcePneumaticPort {
+        port airNacelleIn : PneumaticPort;
+        port airNacelleOut : PneumaticPort;
+    }
+
+    part def FanBleedPort {
+        port airAmbiantOut : PneumaticPort;
+    }
+
+    part def NacelleExhaustPort {
+        port airTiedeIn : PneumaticPort;
+        port airTiedeOut : PneumaticPort;
+    }
+
+    part def SOV {
+        port airRegulePTIn : PneumaticPort;
+        port airRegulePTOut : PneumaticPort;
+    }
+
+    part def AirTemperatureSensorACAC {
+        port airNacelleIn : PneumaticPort;
+        port measureTemperatureOut : ElectricalPort;
+    }
+
+    part def AirTemperatureSensorPCE {
+        port airReguleTIn : PneumaticPort;
+        port measureTemperatureOut : ElectricalPort;
+    }
+
+    part def AirPressureSensor {
+        port airReguleTIn : PneumaticPort;
+        port measurePressureOut : ElectricalPort;
+    }
+
+    part def Filter {
+        port airRegulePTIn : PneumaticPort;
+        port airRegulePTOut : PneumaticPort;
+    }
+
+    part def DataExchangeIO {
+        port stateDataInOut : InformationPort;
+        port commandDegivrageIn : InformationPort;
+        port consignePTIn : InformationPort;
+        port energyIn : ElectricalPort;
+    }
+
+    part 'Physical Architecture' {
+        part ipPort : IPPort;
+        part naiv : NAIV;
+        part acac : ACAC;
+        part nacelleAntiIcePort : NacelleAntiIcePneumaticPort;
+        part pcev : PCEV;
+        part pce : PCE;
+        part filter : Filter;
+        part sov : SOV;
+        part nacelleExhaustPort : NacelleExhaustPort;
+        part fanBleedPort : FanBleedPort;
+        part airTemperatureSensorACAC : AirTemperatureSensorACAC;
+        part airTemperatureSensorPCE : AirTemperatureSensorPCE;
+        part airPressureSensor : AirPressureSensor;
+        part eec : EEC;
+        part dataExchangeIO : DataExchangeIO;
+    }
+
+}
+
+// ===== TECHNICAL_STATES =====
+
+package 'BAS (Bleed Air System) - Technical States' {
+
+    attribute def PowerOnSignal;
+    attribute def PowerOffSignal;
+    attribute def SystemFault;
+    attribute def SystemReset;
+    attribute def RegulationSignal;
+    attribute def AntiIceActivation;
+    attribute def FilterClogging;
+
+    state def NAIVStates {
+        entry; then Off;
+
+        state Off;
+        transition PowerUp
+            first Off
+            accept PowerOnSignal
+            then Initializing;
+
+        state Initializing {
+            doc /* Initialisation de la vanne anti-glace nacelle */
+        }
+        transition Ready
+            first Initializing
+            then Standby;
+
+        state Standby;
+        transition Activate
+            first Standby
+            accept AntiIceActivation
+            then Active;
+
+        state Active;
+        transition Deactivate
+            first Active
+            accept PowerOffSignal
+            then Standby;
+
+        transition Fault
+            first Active
+            accept SystemFault
+            then FailSafe;
+
+        state FailSafe;
+        transition Reset
+            first FailSafe
+            accept SystemReset
+            then Initializing;
+    }
+
+    state def PCEVStates {
+        entry; then Off;
+
+        state Off;
+        transition PowerUp
+            first Off
+            accept PowerOnSignal
+            then Initializing;
+
+        state Initializing {
+            doc /* Initialisation du clapet de commande moteur */
+        }
+        transition Ready
+            first Initializing
+            then Regulating;
+
+        state Regulating;
+        transition Shutdown
+            first Regulating
+            accept PowerOffSignal
+            then Off;
+
+        transition Fault
+            first Regulating
+            accept SystemFault
+            then FailSafe;
+
+        state FailSafe;
+        transition Reset
+            first FailSafe
+            accept SystemReset
+            then Initializing;
+    }
+
+    state def ACACStates {
+        entry; then Off;
+
+        state Off;
+        transition PowerUp
+            first Off
+            accept PowerOnSignal
+            then Initializing;
+
+        state Initializing {
+            doc /* Initialisation du clapet de commande air */
+        }
+        transition Ready
+            first Initializing
+            then Regulating;
+
+        state Regulating;
+        transition Shutdown
+            first Regulating
+            accept PowerOffSignal
+            then Off;
+
+        transition Fault
+            first Regulating
+            accept SystemFault
+            then FailSafe;
+
+        state FailSafe;
+        transition Reset
+            first FailSafe
+            accept SystemReset
+            then Initializing;
+    }
+
+    state def PCEStates {
+        entry; then Off;
+
+        state Off;
+        transition PowerUp
+            first Off
+            accept PowerOnSignal
+            then Initializing;
+
+        state Initializing {
+            doc /* Initialisation du clapet de commande primaire */
+        }
+        transition Ready
+            first Initializing
+            then Regulating;
+
+        state Regulating;
+        transition Shutdown
+            first Regulating
+            accept PowerOffSignal
+            then Off;
+
+        transition Fault
+            first Regulating
+            accept SystemFault
+            then FailSafe;
+
+        state FailSafe;
+        transition Reset
+            first FailSafe
+            accept SystemReset
+            then Initializing;
+    }
+
+    state def EECStates {
+        entry; then Off;
+
+        state Off;
+        transition PowerUp
+            first Off
+            accept PowerOnSignal
+            then Initializing;
+
+        state Initializing {
+            doc /* Initialisation du controleur moteur */
+        }
+        transition Ready
+            first Initializing
+            then Running;
+
+        state Running;
+        transition Shutdown
+            first Running
+            accept PowerOffSignal
+            then Off;
+
+        transition Fault
+            first Running
+            accept SystemFault
+            then FailSafe;
+
+        state FailSafe;
+        transition Reset
+            first FailSafe
+            accept SystemReset
+            then Initializing;
+    }
+
+    state def SOVStates {
+        entry; then Closed;
+
+        state Closed;
+        transition Open
+            first Closed
+            accept RegulationSignal
+            then Open;
+
+        state Open;
+        transition Close
+            first Open
+            accept PowerOffSignal
+            then Closed;
+
+        transition Fault
+            first Open
+            accept SystemFault
+            then FailSafe;
+
+        state FailSafe;
+        transition Reset
+            first FailSafe
+            accept SystemReset
+            then Closed;
+    }
+
+    state def AirTemperatureSensorACACStates {
+        entry; then Off;
+
+        state Off;
+        transition PowerUp
+            first Off
+            accept PowerOnSignal
+            then Measuring;
+
+        state Measuring {
+            doc /* Mesure de la temperature de l air */
+        }
+        transition Shutdown
+            first Measuring
+            accept PowerOffSignal
+            then Off;
+
+        transition Fault
+            first Measuring
+            accept SystemFault
+            then FailSafe;
+
+        state FailSafe;
+        transition Reset
+            first FailSafe
+            accept SystemReset
+            then Measuring;
+    }
+
+    state def AirTemperatureSensorPCEStates {
+        entry; then Off;
+
+        state Off;
+        transition PowerUp
+            first Off
+            accept PowerOnSignal
+            then Measuring;
+
+        state Measuring {
+            doc /* Mesure de la temperature de l air */
+        }
+        transition Shutdown
+            first Measuring
+            accept PowerOffSignal
+            then Off;
+
+        transition Fault
+            first Measuring
+            accept SystemFault
+            then FailSafe;
+
+        state FailSafe;
+        transition Reset
+            first FailSafe
+            accept SystemReset
+            then Measuring;
+    }
+
+    state def AirPressureSensorStates {
+        entry; then Off;
+
+        state Off;
+        transition PowerUp
+            first Off
+            accept PowerOnSignal
+            then Measuring;
+
+        state Measuring {
+            doc /* Mesure de la pression de l air */
+        }
+        transition Shutdown
+            first Measuring
+            accept PowerOffSignal
+            then Off;
+
+        transition Fault
+            first Measuring
+            accept SystemFault
+            then FailSafe;
+
+        state FailSafe;
+        transition Reset
+            first FailSafe
+            accept SystemReset
+            then Measuring;
+    }
+
+    state def FilterStates {
+        entry; then Clean;
+
+        state Clean;
+        transition Clogging
+            first Clean
+            accept FilterClogging
+            then Clogged;
+
+        state Clogged {
+            doc /* Filtre encrassé */
+        }
+        transition Maintenance
+            first Clogged
+            accept SystemReset
+            then Clean;
+    }
+
+    state def DataExchangeIOStates {
+        entry; then Off;
+
+        state Off;
+        transition PowerUp
+            first Off
+            accept PowerOnSignal
+            then Active;
+
+        state Active {
+            doc /* Echange de donnees actif */
+        }
+        transition Shutdown
+            first Active
+            accept PowerOffSignal
+            then Off;
+
+        transition Fault
+            first Active
+            accept SystemFault
+            then FailSafe;
+
+        state FailSafe;
+        transition Reset
+            first FailSafe
+            accept SystemReset
+            then Active;
+    }
+}

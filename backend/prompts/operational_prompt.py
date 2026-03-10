@@ -14,6 +14,13 @@ Fonctions :
 import json
 from typing import List, Optional
 
+from prompts._shared import (
+    SYSML_FIDELITY_BLOCK,
+    SYSON_RULES_BLOCK,
+    SYSML_FINAL_INSTRUCTION,
+    build_sysml_prompt,
+)
+
 
 # ============================================================================
 # Blocs de texte réutilisables (prompt JSON)
@@ -154,62 +161,10 @@ _OPERATIONAL_SECTIONS = [
 # Blocs réutilisables pour les 5 prompts SysML
 # ============================================================================
 
-_SYSML_FIDELITY_BLOCK = """\
-=== EXIGENCES DE FIDÉLITÉ ===
-
-F1 — Tu traduis UNIQUEMENT ce qui est dans le JSON. Tu n'inventes aucun élément supplémentaire.
-F2 — Tu utilises les noms du JSON pour tous les identifiants SysML v2, convertis en CamelCase ASCII.
-F3 — Si un champ est vide, null ou liste vide dans le JSON, tu ne génères PAS de code pour cet élément.
-F4 — Les warnings du JSON ne doivent PAS être traduits en code SysML v2.
-F5 — AUCUN guillemet simple sauf pour le nom du package. Tous les identifiants en CamelCase sans guillemets."""
-
-_SYSON_RULES_BLOCK = """\
-=== RÈGLES DE COMPATIBILITÉ SysON (OBLIGATOIRES) ===
-
-Le code SysML v2 doit être compatible avec l'outil SysON. Respecte ces règles ABSOLUES :
-
-RS1: AUCUN accent dans les identifiants.
-     Mauvais: Développement, énergie, régulé
-     Bon: Developpement, Energie, Regule
-
-RS2: AUCUN caractère spécial dans les identifiants (pas de parenthèses, slash, virgule, apostrophe).
-     Mauvais: 'air régulé (P,T)', 'A/C Pneumatic System', 'l\\'état'
-     Bon: AirRegulePT, ACPneumaticSystem, LEtat
-
-RS3: Utiliser CamelCase ASCII pour TOUS les identifiants.
-     Mauvais: 'Operation maintenance operator', 'Stockage intermédiaire'
-     Bon: MaintenanceOperator, StockageIntermediaire
-
-RS4: AUCUN guillemet simple sauf si absolument nécessaire (nom avec espace inévitable).
-     Privilégier les identifiants CamelCase sans guillemets.
-
-RS5: Dans les port def, utiliser "attribute nomFlux;" au lieu de "in item nom : Type;" ou "out item nom : Type;".
-     Mauvais: port def X { in item fuel : Fuel; out item status : Status; }
-     Bon: port def X { attribute fuel; attribute status; }
-
-RS6: PAS de "connect" ni "flow of" dans le code. SysON les crée graphiquement.
-     Dans le part contexte, déclarer uniquement les parts instanciés.
-
-RS7: PAS de port conjugué (~). Utiliser le même type de port des deux côtés.
-     Mauvais: port basPort : ~ACAvionicsPort;
-     Bon: port basPort : ACAvionicsPort;
-
-RS8: Les actions référencées dans les états utilisent la syntaxe "entry action : NomAction;" ou "do action : NomAction;".
-     Mauvais: do 'Communicate the system state';
-     Bon: do action : CommunicateSystemState;
-
-RS9: Pour les séquences opérationnelles, NE PAS utiliser message/event occurrence.
-     Utiliser occurrence def avec doc /* description */ et des part participants simples.
-     SysON ne rend pas les diagrammes de séquence."""
-
-_SYSML_FINAL_INSTRUCTION = """\
-=== TON RÉSULTAT ===
-
-Génère le code SysML v2 dans un package '{system_name} - {diagram_type}'.
-Le code doit être syntaxiquement correct et compatible SysON.
-Vérifie que chaque accolade ouvrante a son accolade fermante.
-Réponds UNIQUEMENT avec le code SysML v2, sans commentaire ni explication.
-Pas de markdown, pas de ```. Uniquement le code SysML v2 brut commençant par 'package'."""
+# Aliases locaux pour rétrocompatibilité interne
+_SYSML_FIDELITY_BLOCK = SYSML_FIDELITY_BLOCK
+_SYSON_RULES_BLOCK = SYSON_RULES_BLOCK
+_SYSML_FINAL_INSTRUCTION = SYSML_FINAL_INSTRUCTION
 
 
 # ============================================================================
@@ -620,87 +575,8 @@ def build_operational_json_prompt(
 # FONCTIONS SysML v2 — 5 prompts spécialisés par type de diagramme
 # ============================================================================
 
-def _build_sysml_prompt(
-    diagram_type: str,
-    role_suffix: str,
-    template: str,
-    rules: str,
-    filtered_json: dict,
-    rag_examples: Optional[List[str]] = None,
-) -> str:
-    """
-    Construit un prompt SysML v2 pour un type de diagramme donné.
-
-    Structure en 8 blocs :
-      1. Rôle
-      2. Fidélité SysML
-      3. Règles SysON
-      4. Template de syntaxe
-      5. Règles spécifiques
-      6. Données JSON
-      7. Exemples RAG (optionnel)
-      8. Instruction finale
-
-    Args:
-        diagram_type: nom du type de diagramme (ex: "Lifecycle")
-        role_suffix: complément de rôle spécifique
-        template: template de syntaxe validé SysON
-        rules: règles spécifiques au diagramme
-        filtered_json: sous-ensemble du JSON pertinent
-        rag_examples: exemples RAG (optionnel)
-
-    Returns:
-        Le prompt complet (string).
-    """
-    system_name = filtered_json.get("system_name", "System")
-    parts: list[str] = []
-
-    # --- BLOC 1 : RÔLE ---
-    parts.append(
-        f"Tu es un expert SysML v2 (spécification OMG 2025). "
-        f"Tu génères du code SysML v2 syntaxiquement correct et compatible SysON "
-        f"pour un diagramme de type {diagram_type}. {role_suffix}"
-    )
-
-    # --- BLOC 2 : EXIGENCES DE FIDÉLITÉ ---
-    parts.append(_SYSML_FIDELITY_BLOCK)
-
-    # --- BLOC 3 : RÈGLES DE COMPATIBILITÉ SysON ---
-    parts.append(_SYSON_RULES_BLOCK)
-
-    # --- BLOC 4 : TEMPLATE DE SYNTAXE ---
-    parts.append(
-        "Voici la syntaxe SysML v2 correcte et compatible SysON pour ce type de diagramme.\n"
-        "Tu DOIS utiliser EXACTEMENT ces constructs. Ne PAS inventer d'autre syntaxe.\n\n"
-        f"{template}"
-    )
-
-    # --- BLOC 5 : RÈGLES DE SYNTAXE SPÉCIFIQUES ---
-    parts.append(rules)
-
-    # --- BLOC 6 : DONNÉES À TRADUIRE ---
-    json_str = json.dumps(filtered_json, indent=2, ensure_ascii=False)
-    parts.append(
-        "=== DONNÉES DU MODÈLE JSON À TRADUIRE ===\n\n"
-        "Traduis UNIQUEMENT ces données. N'ajoute rien.\n\n"
-        f"{json_str}"
-    )
-
-    # --- BLOC 7 : EXEMPLES RAG (optionnel) ---
-    if rag_examples:
-        rag_lines = ["=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ==="]
-        for i, example in enumerate(rag_examples[:3], 1):
-            rag_lines.append(f"\nExemple {i}:\n{example}")
-        parts.append("\n".join(rag_lines))
-
-    # --- BLOC 8 : INSTRUCTION FINALE ---
-    instruction = _SYSML_FINAL_INSTRUCTION.format(
-        system_name=system_name,
-        diagram_type=diagram_type,
-    )
-    parts.append(instruction)
-
-    return "\n\n".join(parts)
+# Délégation au helper partagé
+_build_sysml_prompt = build_sysml_prompt
 
 
 # ---- Prompt 1 : Lifecycle ------------------------------------------------
@@ -708,6 +584,7 @@ def _build_sysml_prompt(
 def build_lifecycle_sysml_prompt(
     model_json: dict,
     rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
 ) -> str:
     """Construit le prompt SysML v2 pour le diagramme Lifecycle."""
     filtered = {
@@ -721,6 +598,7 @@ def build_lifecycle_sysml_prompt(
         rules=_RULES_LIFECYCLE,
         filtered_json=filtered,
         rag_examples=rag_examples,
+        naming_constraint=naming_constraint,
     )
 
 
@@ -729,6 +607,7 @@ def build_lifecycle_sysml_prompt(
 def build_usecase_sysml_prompt(
     model_json: dict,
     rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
 ) -> str:
     """Construit le prompt SysML v2 pour le diagramme Use Cases."""
     filtered = {
@@ -743,6 +622,7 @@ def build_usecase_sysml_prompt(
         rules=_RULES_USECASES,
         filtered_json=filtered,
         rag_examples=rag_examples,
+        naming_constraint=naming_constraint,
     )
 
 
@@ -751,6 +631,7 @@ def build_usecase_sysml_prompt(
 def build_context_sysml_prompt(
     model_json: dict,
     rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
 ) -> str:
     """Construit le prompt SysML v2 pour le diagramme de contexte."""
     filtered = {
@@ -768,6 +649,7 @@ def build_context_sysml_prompt(
         rules=_RULES_CONTEXT,
         filtered_json=filtered,
         rag_examples=rag_examples,
+        naming_constraint=naming_constraint,
     )
 
 
@@ -776,6 +658,7 @@ def build_context_sysml_prompt(
 def build_sequence_sysml_prompt(
     model_json: dict,
     rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
 ) -> str:
     """Construit le prompt SysML v2 pour les séquences opérationnelles."""
     filtered = {
@@ -789,6 +672,7 @@ def build_sequence_sysml_prompt(
         rules=_RULES_SEQUENCES,
         filtered_json=filtered,
         rag_examples=rag_examples,
+        naming_constraint=naming_constraint,
     )
 
 
@@ -797,6 +681,7 @@ def build_sequence_sysml_prompt(
 def build_modes_sysml_prompt(
     model_json: dict,
     rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
 ) -> str:
     """Construit le prompt SysML v2 pour les modes de fonctionnement."""
     filtered = {
@@ -810,6 +695,7 @@ def build_modes_sysml_prompt(
         rules=_RULES_MODES,
         filtered_json=filtered,
         rag_examples=rag_examples,
+        naming_constraint=naming_constraint,
     )
 
 
@@ -829,19 +715,22 @@ OPERATIONAL_DIAGRAMS = [
 def get_operational_sysml_prompts(
     model_json: dict,
     rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
 ) -> list:
     """
-    Retourne une liste de (diagram_type, prompt_text) pour les 5 diagrammes opérationnels.
+    Retourne une liste de (diagram_type, build_fn) pour les 5 diagrammes opérationnels.
+    Les fonctions acceptent naming_constraint pour la cohérence inter-packages.
 
     Args:
         model_json: le modèle JSON opérationnel (dict, pas string)
         rag_examples: exemples SysML v2 du RAG (optionnel)
+        naming_constraint: contrainte de nommage des packages précédents
 
     Returns:
         Liste de tuples (diagram_type: str, prompt: str)
     """
     results = []
     for diagram_type, build_fn in OPERATIONAL_DIAGRAMS:
-        prompt = build_fn(model_json, rag_examples)
+        prompt = build_fn(model_json, rag_examples, naming_constraint=naming_constraint)
         results.append((diagram_type, prompt))
     return results

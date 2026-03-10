@@ -15,6 +15,9 @@ sentence-transformers==3.4.1
 # === LLM : Google Gemini ===
 google-genai==1.7.0
 
+# === LLM : Anthropic Claude ===
+anthropic>=0.42.0
+
 # === Utilitaires ===
 python-dotenv==1.0.1
 requests==2.32.3

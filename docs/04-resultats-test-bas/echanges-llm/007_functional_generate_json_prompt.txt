@@ -1,0 +1,829 @@
+Tu es un ingénieur système expert en architecture fonctionnelle et en SysML v2. Tu analyses les réponses structurées d'un utilisateur pour extraire le modèle fonctionnel de son système. Tu disposes également du modèle opérationnel validé comme contexte.
+
+=== EXIGENCES DE FIDÉLITÉ (CRITIQUES) ===
+
+F1 — ZÉRO INVENTION : Tu ne génères que ce qui est EXPLICITEMENT décrit dans les réponses de l'utilisateur. Si une section est vide ou absente, tu laisses le champ correspondant comme liste vide []. Tu n'inventes JAMAIS d'éléments supplémentaires.
+
+F2 — SIGNALEMENT DES INCOHÉRENCES : Si tu détectes une incohérence (un acteur mentionné dans un use case mais absent de la section stakeholders, un flux référencé sans source, etc.), tu ne la corriges PAS. Tu ajoutes un warning de type "inconsistency" dans le champ "warnings" avec une description précise du problème.
+
+F3 — SIGNALEMENT DES MANQUES : Si une information normalement attendue au niveau opérationnel est absente (par exemple : aucun scénario décrit, aucun mode de fonctionnement, aucune exigence), tu ajoutes un warning de type "missing_info" sans inventer la donnée manquante.
+
+F4 — VOCABULAIRE EXACT : Tu utilises EXACTEMENT les noms, termes et formulations de l'utilisateur. Tu ne renommes pas les éléments, tu ne traduis pas, tu ne reformules pas les noms propres.
+
+F5 — TRAÇABILITÉ : Chaque élément du JSON doit provenir d'une section identifiable des réponses utilisateur.
+
+=== MODÈLE OPÉRATIONNEL VALIDÉ (CONTEXTE) ===
+
+{
+  "system_name": "BAS (Bleed Air System)",
+  "description": "Sa mission est de prélever l'air chaud haute pression sur le compresseur du moteur (turbomachine) et de le distribuer aux systèmes avion qui en ont besoin : le dégivrage de la nacelle, la pressurisation et la climatisation de la cabine, le dégivrage des ailes, et la pressurisation des réservoirs carburant.",
+  "system_boundaries": "Le périmètre du BAS inclut : les vannes de régulation (vanne NAI, vanne PCE), les échangeurs thermiques (ACAC), les capteurs (température, pression), le calculateur de régulation, et les ports d'interface (IP port côté moteur, Nacelle port, A/C pneumatic port). Sont hors périmètre (systèmes externes) : la turbomachine (moteur), l'avionique de bord (A/C avionics), le système pneumatique avion (A/C Pneumatic System), la nacelle, et l'environnement (source d'air ambiant et air tiède).",
+  "lifecycle_phases": [
+    {
+      "name": "Concept evaluation",
+      "sub_phases": [],
+      "description": "évaluation initiale du concept système."
+    },
+    {
+      "name": "Développement",
+      "sub_phases": [],
+      "description": "conception et développement du système. Transition vers Production après la revue CR/QR (S8)."
+    },
+    {
+      "name": "Production",
+      "sub_phases": [
+        "Fabrication",
+        "Montage",
+        "Intégration et essais",
+        "Stockage interne"
+      ],
+      "description": "se décompose en 4 sous-phases : Fabrication, Montage, Intégration et essais (couvre l'intégration avec le moteur), Stockage interne."
+    },
+    {
+      "name": "Livraison",
+      "sub_phases": [
+        "Stockage intermédiaire",
+        "Transport"
+      ],
+      "description": "se décompose en 2 sous-phases : Stockage intermédiaire, Transport. Transition vers Montage final après livraison du moteur et du BAS."
+    },
+    {
+      "name": "Montage final",
+      "sub_phases": [],
+      "description": "intégration sur l'avion."
+    },
+    {
+      "name": "Exploitation",
+      "sub_phases": [
+        "Opération",
+        "Maintenance LRU"
+      ],
+      "description": "se décompose en 2 sous-phases : Opération (fonctionnement normal en vol et au sol) et Maintenance LRU (remplacement des unités remplaçables en ligne). Transition vers Recyclage en fin de vie. Transition vers Maintenance quand l'avion n'est pas en service (A/C not in maintenance facility)."
+    },
+    {
+      "name": "Maintenance",
+      "sub_phases": [],
+      "description": "maintenance lourde hors exploitation. Retour vers Exploitation après maintenance."
+    },
+    {
+      "name": "Recyclage",
+      "sub_phases": [],
+      "description": "fin de vie du système."
+    }
+  ],
+  "stakeholders": [
+    {
+      "name": "A/C Pneumatic System",
+      "role": "système technique avion qui reçoit l'air régulé en pression et température (P,T) du BAS.",
+      "type": "system"
+    },
+    {
+      "name": "Nacelle",
+      "role": "système technique qui reçoit l'air chaud du BAS pour le dégivrage.",
+      "type": "system"
+    },
+    {
+      "name": "Turbomachine",
+      "role": "le moteur Silvercrest qui fournit l'air chaud haute pression au BAS.",
+      "type": "system"
+    },
+    {
+      "name": "EECS (Electronic Engine Control System)",
+      "role": "système de contrôle électronique du moteur qui envoie les consignes de régulation (P,T) et la commande de dégivrage nacelle au BAS, et reçoit les données d'état (state data) et l'énergie.",
+      "type": "system"
+    },
+    {
+      "name": "Operation maintenance operator",
+      "role": "personne humaine qui réalise la maintenance opérationnelle.",
+      "type": "human"
+    },
+    {
+      "name": "A/C avionics",
+      "role": "Système de contrôle avionique qui envoie des commandes et de l'énergie au BAS, et reçoit des données d'état.",
+      "type": "system"
+    },
+    {
+      "name": "Pilot",
+      "role": "Personne humaine qui envoie des commandes de dégivrage.",
+      "type": "human"
+    }
+  ],
+  "external_interfaces": [
+    {
+      "system_name": "A/C avionics (avionique de bord)",
+      "flows": [
+        {
+          "name": "state data",
+          "direction": "inout",
+          "flow_type": "information",
+          "description": "le BAS envoie ses données d'état, l'avionique peut interroger"
+        },
+        {
+          "name": "énergie",
+          "direction": "in",
+          "flow_type": "electric",
+          "description": "alimentation électrique"
+        },
+        {
+          "name": "consigne (P,T)",
+          "direction": "in",
+          "flow_type": "information",
+          "description": "consignes de pression et température"
+        },
+        {
+          "name": "commande dégivrage nacelle",
+          "direction": "in",
+          "flow_type": "information",
+          "description": null
+        }
+      ]
+    },
+    {
+      "system_name": "Turbomachine (moteur Silvercrest)",
+      "flows": [
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic",
+          "description": "air prélevé sur le compresseur, Pmin, Tmax"
+        }
+      ]
+    },
+    {
+      "system_name": "Environnement",
+      "flows": [
+        {
+          "name": "air tiède",
+          "direction": "out",
+          "flow_type": "pneumatic",
+          "description": "air rejeté après échange thermique"
+        },
+        {
+          "name": "air ambiant",
+          "direction": "in",
+          "flow_type": "pneumatic",
+          "description": "source froide pour l'échangeur ACAC"
+        }
+      ]
+    },
+    {
+      "system_name": "A/C Pneumatic System (système pneumatique avion)",
+      "flows": [
+        {
+          "name": "air régulé (P,T)",
+          "direction": "out",
+          "flow_type": "pneumatic",
+          "description": "air régulé en pression et température vers l'avion"
+        }
+      ]
+    },
+    {
+      "system_name": "Nacelle",
+      "flows": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic",
+          "description": "air chaud pour le dégivrage de la nacelle"
+        }
+      ]
+    }
+  ],
+  "use_cases": [
+    {
+      "name": "Pressuriser les réservoirs",
+      "actors": [
+        "A/C Pneumatic System",
+        "Turbomachine",
+        "EECS"
+      ],
+      "includes": [],
+      "description": "Le BAS fournit de l'air régulé pour pressuriser les réservoirs carburant."
+    },
+    {
+      "name": "Dégivrer les ailes",
+      "actors": [
+        "A/C Pneumatic System",
+        "Turbomachine",
+        "EECS"
+      ],
+      "includes": [],
+      "description": "Le BAS fournit de l'air chaud pour le dégivrage des ailes via le système pneumatique avion."
+    },
+    {
+      "name": "Pressuriser et tempérer la cabine",
+      "actors": [
+        "A/C Pneumatic System",
+        "Turbomachine",
+        "EECS"
+      ],
+      "includes": [],
+      "description": "Le BAS fournit de l'air régulé en pression et température pour la climatisation cabine."
+    },
+    {
+      "name": "Dégivrer la nacelle",
+      "actors": [
+        "Nacelle",
+        "Turbomachine",
+        "EECS",
+        "A/C Pneumatic System"
+      ],
+      "includes": [
+        "Envoyer de l'air chaud à la nacelle"
+      ],
+      "description": "Le BAS envoie de l'air chaud directement à la nacelle pour le dégivrage."
+    },
+    {
+      "name": "Être informé de l'état du système",
+      "actors": [
+        "EECS",
+        "Operation maintenance operator"
+      ],
+      "includes": [
+        "Communiquer"
+      ],
+      "description": "Le BAS communique son état de fonctionnement."
+    },
+    {
+      "name": "Diagnostiquer l'état",
+      "actors": [
+        "Operation maintenance operator"
+      ],
+      "includes": [],
+      "description": "Inclus dans \"Maintenir en conditions opérationnelles\"."
+    },
+    {
+      "name": "Réparer sous l'aile",
+      "actors": [
+        "Operation maintenance operator"
+      ],
+      "includes": [],
+      "description": "Réparation sur site sans dépose du système."
+    },
+    {
+      "name": "Maintenir en conditions opérationnelles",
+      "actors": [
+        "Operation maintenance operator",
+        "Maintenance facility"
+      ],
+      "includes": [
+        "Diagnostiquer l'état",
+        "Réparer en atelier"
+      ],
+      "description": null
+    }
+  ],
+  "operational_scenarios": [
+    {
+      "name": "Nominal alimentation air régulé",
+      "description": null,
+      "steps": [
+        {
+          "order": 1,
+          "source": "A/C avionics",
+          "target": "BAS",
+          "action": "envoie \"commande de démarrage pilote\"",
+          "flow_type": "information"
+        },
+        {
+          "order": 2,
+          "source": "A/C avionics",
+          "target": "BAS",
+          "action": "envoie \"énergie\". Le BAS passe de l'état Éteint à En fonctionnement.",
+          "flow_type": "electric"
+        },
+        {
+          "order": 3,
+          "source": "A/C avionics",
+          "target": "Turbomachine",
+          "action": "envoie \"énergie\". La Turbomachine passe de l'état Éteint à En fonctionnement.",
+          "flow_type": "electric"
+        },
+        {
+          "order": 4,
+          "source": "A/C avionics",
+          "target": "BAS",
+          "action": "envoie \"commande (P,T)\"",
+          "flow_type": "information"
+        },
+        {
+          "order": 5,
+          "source": "Turbomachine",
+          "target": "BAS",
+          "action": "fournit \"air chaud haute pression = Pmin, Tmax\"",
+          "flow_type": "pneumatic"
+        },
+        {
+          "order": 6,
+          "source": "Source Froide (Environnement)",
+          "target": "BAS",
+          "action": "fournit \"air ambiant source froide\"",
+          "flow_type": "pneumatic"
+        },
+        {
+          "order": 7,
+          "source": "BAS",
+          "target": "BAS",
+          "action": "exécute \"Envoyer de l'air régulé à la cabine\"",
+          "flow_type": null
+        },
+        {
+          "order": 8,
+          "source": "BAS",
+          "target": "A/C Pneumatic System",
+          "action": "envoie \"air régulé (P,T)\"",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "Nominal dégivrage nacelle",
+      "description": "Le BAS est en état Off. La Turbomachine est en état Running. La Nacelle est en état \"Potentially iced\". La Nacelle passe en état \"De-iced\".",
+      "steps": [
+        {
+          "order": 1,
+          "source": "A/C avionics",
+          "target": "BAS",
+          "action": "envoie \"énergie\" (boucle quand BAS command active). Le BAS passe en Stand by.",
+          "flow_type": "electric"
+        },
+        {
+          "order": 2,
+          "source": "Pilot",
+          "target": "A/C avionics",
+          "action": "envoie \"command de-icing\"",
+          "flow_type": "information"
+        },
+        {
+          "order": 3,
+          "source": "A/C avionics",
+          "target": "BAS",
+          "action": "envoie \"Nacelle de-icing demand\"",
+          "flow_type": "information"
+        },
+        {
+          "order": 4,
+          "source": "Turbomachine",
+          "target": "BAS",
+          "action": "fournit \"hot air\"",
+          "flow_type": "pneumatic"
+        },
+        {
+          "order": 5,
+          "source": "BAS",
+          "target": "Nacelle",
+          "action": "envoie \"air chaud nacelle\" (pendant 3 min). Le BAS exécute \"Envoyer de l'air chaud à la nacelle\".",
+          "flow_type": "pneumatic"
+        },
+        {
+          "order": 6,
+          "source": "BAS",
+          "target": "A/C avionics",
+          "action": "envoie \"state data\"",
+          "flow_type": "data"
+        }
+      ]
+    }
+  ],
+  "operating_modes": [
+    {
+      "name": "Mode Off",
+      "description": "État initial du système. Aucune fonction active.",
+      "active_functions": [],
+      "transitions": [
+        {
+          "from_mode": "Mode Off",
+          "to_mode": "Mode On",
+          "trigger": "quand le système reçoit de l'énergie"
+        }
+      ]
+    },
+    {
+      "name": "Mode On",
+      "description": "État composite. Contient deux sous-modes : Stand by et En fonctionnement.",
+      "active_functions": [],
+      "transitions": [
+        {
+          "from_mode": "Mode On",
+          "to_mode": "Mode Off",
+          "trigger": "quand le système est mis hors tension"
+        }
+      ]
+    },
+    {
+      "name": "Sous-mode Stand by",
+      "description": "État initial dans On.",
+      "active_functions": [
+        "Communicate the system state"
+      ],
+      "transitions": [
+        {
+          "from_mode": "Sous-mode Stand by",
+          "to_mode": "Sous-mode En fonctionnement",
+          "trigger": "quand une commande opérationnelle est reçue"
+        }
+      ]
+    },
+    {
+      "name": "Sous-mode En fonctionnement",
+      "description": null,
+      "active_functions": [
+        "Envoyer de l'air chaud à la nacelle",
+        "Envoyer de l'air régulé à la cabine"
+      ],
+      "transitions": [
+        {
+          "from_mode": "Sous-mode En fonctionnement",
+          "to_mode": "Sous-mode Stand by",
+          "trigger": "quand la commande opérationnelle cesse"
+        },
+        {
+          "from_mode": "Sous-mode En fonctionnement",
+          "to_mode": "état final",
+          "trigger": "possible"
+        }
+      ]
+    }
+  ],
+  "requirements": [],
+  "warnings": [
+    {
+      "type": "inconsistency",
+      "message": "The actor 'Maintenance facility' is mentioned in the use case 'Maintenir en conditions opérationnelles' but is not defined in the 'stakeholders' section.",
+      "section": "use_cases",
+      "suggestion": "Define 'Maintenance facility' in the 'stakeholders' section with its role and type, or remove it from the use case actors if it's not an active participant."
+    },
+    {
+      "type": "inconsistency",
+      "message": "The use case 'Maintenir en conditions opérationnelles' includes 'Réparer en atelier', but 'Réparer en atelier' is not defined as a standalone use case or further described. 'Réparer sous l'aile' is defined instead.",
+      "section": "use_cases",
+      "suggestion": "Clarify if 'Réparer en atelier' is a distinct use case, a sub-activity of 'Réparer sous l'aile', or if there's a typo. If it's a distinct use case, define it explicitly."
+    },
+    {
+      "type": "missing_info",
+      "message": "No explicit operational requirements (e.g., REQ-OP-XXX) were found in the user's response.",
+      "section": "requirements",
+      "suggestion": "Provide a dedicated section for operational requirements, following the specified format (ID, text, satisfied_by)."
+    },
+    {
+      "type": "ambiguity",
+      "message": "The operating modes are described with a hierarchical structure (Mode On contains Stand by and En fonctionnement), but the JSON schema represents modes as a flat list. The hierarchy is not fully captured.",
+      "section": "operating_modes",
+      "suggestion": "Consider if the flat representation is sufficient or if a more complex schema supporting mode hierarchy is needed for future analysis."
+    }
+  ]
+}
+
+=== RÉPONSES DE L'UTILISATEUR ===
+
+[SECTION: functional_decomposition]
+Les fonctions de service du BAS identifiées au niveau opérationnel sont :
+
+1. Envoyer de l'air régulé en (P,T) à l'avion — satisfait les use cases "Pressuriser les réservoirs", "Dégivrer les ailes", "Pressuriser et tempérer la cabine".
+2. Envoyer de l'air chaud à la nacelle — satisfait le use case "Dégivrer la nacelle".
+3. Déterminer l'état du système — satisfait le use case "Être informé de l'état du système".
+4. Communiquer — satisfait le use case "Être informé de l'état du système".
+
+Décomposition de la fonction "Envoyer de l'air chaud à la nacelle" :
+
+1. Prélever l'air
+   - Entrée : air chaud haute pression (depuis le moteur via IP port)
+   - Sortie : air chaud haute pression (vers la fonction suivante)
+
+2. Laisser passer l'air
+   - Entrées : air chaud haute pression + consigne d'ouverture vanne
+   - Sortie : air chaud nacelle
+
+3. Réguler la température nacelle
+   - Entrées : air chaud nacelle + air ambiant (depuis l'environnement)
+   - Sorties : air chaud régulé nacelle + air tiède (vers l'environnement)
+
+4. Réguler la vanne NAI
+   - Entrées : commande dégivrage nacelle (depuis l'avionique) + mesure température air
+   - Sortie : consigne d'ouverture vanne
+
+5. Mesurer la température
+   - Entrée : air chaud nacelle
+   - Sortie : mesure température air
+
+6. Fournir l'air à l'interface Nacelle
+   - Entrée : air chaud régulé nacelle
+   - Sortie : air chaud nacelle (vers la nacelle via Nacelle port)
+
+Note : la décomposition de "Envoyer de l'air régulé en (P,T) à l'avion" n'est pas détaillée dans le document. La décomposition de "Déterminer l'état du système" et "Communiquer" n'est pas détaillée non plus.
+
+[SECTION: functional_flows]
+Flux entre les sous-fonctions de "Envoyer de l'air chaud à la nacelle" :
+
+1. De "Prélever l'air" vers "Laisser passer l'air" : air chaud haute pression (pneumatique)
+2. De "Réguler la vanne NAI" vers "Laisser passer l'air" : consigne d'ouverture vanne (électrique)
+3. De "Laisser passer l'air" vers "Réguler la température nacelle" : air chaud nacelle (pneumatique)
+4. De l'environnement vers "Réguler la température nacelle" : air ambiant (pneumatique)
+5. De "Réguler la température nacelle" vers "Fournir l'air à l'interface Nacelle" : air chaud régulé nacelle (pneumatique)
+6. De "Réguler la température nacelle" vers l'environnement : air tiède (pneumatique)
+7. De "Mesurer la température" vers "Réguler la vanne NAI" : mesure température air (électrique)
+8. De "Fournir l'air à l'interface Nacelle" vers "Mesurer la température" : air chaud nacelle (pneumatique)
+9. De l'avionique vers "Réguler la vanne NAI" : commande dégivrage nacelle (information)
+10. Du moteur vers "Prélever l'air" : air chaud haute pression (pneumatique)
+11. De "Fournir l'air à l'interface Nacelle" vers la nacelle : air chaud nacelle (pneumatique)
+
+Légende des types de flux :
+- Pneumatique : flux d'air (cyan dans le diagramme)
+- Information : commandes et données (rouge dans le diagramme)
+- Électrique : signaux de capteurs et consignes (jaune dans le diagramme)
+
+[SECTION: functional_behavior]
+Allocation des sous-fonctions de "Envoyer de l'air chaud à la nacelle" aux constituants logiques :
+
+1. IP port :: Prélever l'air
+   - Le port de pression intermédiaire prélève l'air chaud haute pression sur le compresseur du moteur. Alternative possible : écope.
+
+2. Vanne NAI :: Laisser passer l'air
+   - La vanne NAI (Nacelle Anti-Ice) contrôle le passage de l'air chaud vers la nacelle en fonction de la consigne d'ouverture.
+
+3. ACAC :: Réguler la température nacelle
+   - L'échangeur ACAC (Air Cooled Air Cooler) mélange l'air chaud nacelle avec l'air ambiant pour réguler la température de sortie.
+
+4. Calculateur :: Réguler la vanne NAI
+   - Le calculateur de régulation reçoit la commande de dégivrage et la mesure de température, et calcule la consigne d'ouverture de la vanne NAI.
+
+5. Air Temperature Sensor :: Mesurer la température
+   - Le capteur de température mesure la température de l'air chaud nacelle et transmet la mesure au calculateur.
+
+6. Nacelle port :: Fournir l'air à l'interface Nacelle
+   - Le port nacelle fournit l'air chaud régulé à l'interface de la nacelle.
+
+Ordre d'exécution :
+- Séquence principale : Prélever l'air → Laisser passer l'air → Réguler la température nacelle → Fournir l'air à l'interface Nacelle
+- Boucle de rétroaction en parallèle : Mesurer la température → Réguler la vanne NAI → (consigne vers) Laisser passer l'air
+
+[SECTION: functional_chains]
+Chaîne fonctionnelle 1 : "Envoyer de l'air chaud à la nacelle"
+
+Entrées système :
+- commande dégivrage nacelle (information, depuis A/C avionics)
+- air chaud haute pression (pneumatique, depuis moteur via Intermediate Pressure port)
+- air ambiant (pneumatique, depuis environnement)
+
+Sorties système :
+- air chaud nacelle (pneumatique, vers nacelle via Nacelle anti-ice pneumatic port)
+- air tiède (pneumatique, vers environnement)
+
+Enchaînement : Prélever l'air → Laisser passer l'air → Réguler la température nacelle → Fournir l'air à l'interface Nacelle. En parallèle : boucle Mesurer la température → Réguler la vanne NAI.
+
+
+Chaîne fonctionnelle 2 : "Envoyer de l'air régulé à l'avion"
+
+Entrées système :
+- consigne (P,T) (information, depuis A/C avionics)
+- air chaud haute pression (pneumatique, depuis moteur via Intermediate Pressure port)
+- air ambiant (pneumatique, depuis environnement)
+
+Sorties système :
+- air régulé (P,T) (pneumatique, vers A/C Pneumatic System via A/C pneumatic port)
+- air tiède (pneumatique, vers environnement)
+
+Note : la décomposition interne de cette chaîne n'est pas détaillée dans le document.
+
+
+Chaîne fonctionnelle 3 : "Communiquer"
+
+Sorties système :
+- state data (information, vers A/C avionics via Data exchange I/O)
+
+Note : cette chaîne est liée à la fonction "Déterminer l'état du système" mais sa décomposition n'est pas détaillée dans le document.
+
+Alimentation :
+- Power Supply : alimentation électrique commune aux fonctions du BAS.
+
+[SECTION: functional_modes]
+Modes de fonctionnement et fonctions actives :
+
+Mode Off :
+- Aucune fonction active.
+
+Mode On > Stand by :
+- Fonction active : Communiquer (Communicate the system state)
+- Fonction active : Déterminer l'état du système
+- Fonctions inactives : Envoyer de l'air chaud à la nacelle, Envoyer de l'air régulé en (P,T) à l'avion
+
+Mode On > En fonctionnement :
+- Fonction active : Envoyer de l'air chaud à la nacelle
+- Fonction active : Envoyer de l'air régulé en (P,T) à l'avion (implicite, car c'est le mode de fonctionnement nominal)
+- Fonction active : Communiquer
+- Fonction active : Déterminer l'état du système
+- Toutes les sous-fonctions de "Envoyer de l'air chaud à la nacelle" sont actives : Prélever l'air, Laisser passer l'air, Réguler la température nacelle, Réguler la vanne NAI, Mesurer la température, Fournir l'air à l'interface Nacelle
+
+=== RÈGLES MÉTIER ===
+
+R1 — DÉCOMPOSITION RÉCURSIVE : Les fonctions de service sont décomposées récursivement en sous-fonctions. Une fonction feuille est une fonction élémentaire qui peut être allouée à un seul constituant logique. La profondeur de décomposition est déterminée par l'utilisateur, ne pas en ajouter.
+
+R2 — ENTRÉES/SORTIES OBLIGATOIRES : Chaque fonction (à tout niveau de décomposition) doit avoir au moins une entrée et une sortie. Si l'utilisateur n'a pas précisé les entrées/sorties d'une fonction, ajouter un warning "missing_info" sans les inventer.
+
+R3 — TYPAGE DES FLUX : Chaque flux fonctionnel doit avoir un flow_type parmi : pneumatic, electric, information, mechanical, thermal, data. Si l'utilisateur n'a pas précisé le type, ajouter un warning "missing_info".
+
+R4 — ALLOCATION CONSTITUANT::FONCTION : Si l'utilisateur a précisé la notation "Constituant::Fonction" dans la section functional_behavior, extraire le champ allocated_to de chaque fonction feuille. Si l'allocation n'est pas précisée, laisser allocated_to à null.
+
+R5 — CHAÎNES FONCTIONNELLES : Une chaîne fonctionnelle est un chemin de bout en bout qui réalise une fonction de service. Elle doit lister les fonctions dans l'ordre d'exécution et préciser les entrées/sorties aux frontières du système.
+
+R6 — COHÉRENCE AVEC LE NIVEAU OPÉRATIONNEL : Les fonctions de service du niveau fonctionnel doivent correspondre aux use cases et fonctions mentionnées dans le modèle opérationnel. Si une incohérence est détectée, ajouter un warning "inconsistency".
+
+R7 — MODES FONCTIONNELS : Les modes doivent correspondre aux modes définis au niveau opérationnel. Pour chaque mode, lister les fonctions actives. Ne pas inventer de modes absents du niveau opérationnel.
+
+=== SCHÉMA JSON ATTENDU ===
+
+{
+  "system_name": "string — Nom du système (doit correspondre au niveau opérationnel)",
+  "functions": [
+    {
+      "name": "string — Nom de la fonction (verbe + complément)",
+      "description": "string" ou null,
+      "inputs": [
+        {"name": "string — Nom du flux d'entrée", "flow_type": "pneumatic | electric | information | mechanical | thermal | data"}
+      ],
+      "outputs": [
+        {"name": "string — Nom du flux de sortie", "flow_type": "..."}
+      ],
+      "sub_functions": [ "...même structure récursive..." ] ou null,
+      "allocated_to": "string — Nom du constituant pressenti" ou null
+    }
+  ],
+  "functional_flows": [
+    {
+      "from_function": "string — Nom de la fonction source",
+      "to_function": "string — Nom de la fonction cible",
+      "item": "string — Nom de l'item transporté",
+      "flow_type": "pneumatic | electric | information | mechanical | thermal | data",
+      "description": "string" ou null
+    }
+  ],
+  "functional_chains": [
+    {
+      "name": "string — Nom de la chaîne fonctionnelle",
+      "description": "string" ou null,
+      "functions": ["string — Noms des fonctions dans l'ordre"],
+      "system_inputs": [{"name": "string", "flow_type": "..."}],
+      "system_outputs": [{"name": "string", "flow_type": "..."}]
+    }
+  ],
+  "modes": [
+    {
+      "name": "string — Nom du mode",
+      "description": "string" ou null,
+      "active_functions": ["string — Fonctions actives"],
+      "transitions": [
+        {"from_mode": "string", "to_mode": "string", "trigger": "string"}
+      ] ou null
+    }
+  ],
+  "warnings": [
+    {
+      "type": "inconsistency | missing_info | ambiguity",
+      "message": "string",
+      "section": "string — section_id concernée",
+      "suggestion": "string" ou null
+    }
+  ]
+}
+
+=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ===
+
+Exemple 1:
+e path-independent)
+	        */
+	        action 'Stage 1' :>> start;
+	        action 'Stage 2' :>> done;
+	    }
+	    
+	    action def 'Reversible Adiabatic Process' specializes 'Adiabatic Process';
+	}
+	
+	package 'Low-Pressure Compressor Analysis' {
+	    
+	    part 'Analysis Context' {
+	        private import 'Thermodynamic Functions'::*;
+	        
+	        part 'Inlet Gas' : 'Thermodynamics Structure'::'Moving Ideal Gas Parcel' {
+	        	// Explicit binding notation
+	        	calc 'Solve for Pressure1' : 'Ideal Gas Law';
+	        	bind 'Density' = 'Solve for Pressure1'.rho;
+	        	bind 'Specific Gas Constant' = 'Solve for Pressure1'.R_bar;
+	        	bind 'Static Temperature' = 'Solve for Pressure1'.T;
+	        	bind 'Static Pressure' = 'Solve for Pressure1'.p;	        	
+	        	
+	        	// Shorthand parameter binding notation
+	            calc 'Solve for Pressure2' : 'Ideal Gas Law' {
+	                in rho = 'Density';
+	                in R_bar = 'Specific Gas Constant';
+	                in T = 'Static Temperature';
+				}				
+				            
+	            // Invocation expression notation
+	            attribute :>> 'Static Pressure' = 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature');
+
+	            // Equation as a constraint (note "==")
+	            constraint { 'Static Pressure' == 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature') }
+	        }
+	    }
+	}	
+	
+}
+
+Exemple 2:
+deal Gas Parcel'::'Pressure';
+	        attribute 'Static Temperature' redefines 'Ideal Gas Parcel'::'Temperature';
+	        attribute 'Static Enthalpy' redefines 'Ideal Gas Parcel'::'Enthalpy';
+	    }
+	    
+	    action def 'Thermodynamic Process'; // need start and end shots to show beginning and end attributes
+	    
+	    action def 'Adiabatic Process' specializes 'Thermodynamic Process' {
+	        /*
+	        Thermodynamic process typically have their states defined at beginning and end
+	        of the process (since these starts are path-independent)
+	        */
+	        action 'Stage 1' :>> start;
+	        action 'Stage 2' :>> done;
+	    }
+	    
+	    action def 'Reversible Adiabatic Process' specializes 'Adiabatic Process';
+	}
+
+Exemple 3:
+package 'Turbojet Stage Analysis' {
+	private import Quantities::ScalarQuantityValue;
+	private import MeasurementReferences::DimensionOneValue;
+	private import ISQ::*;
+	
+	package 'Thermodynamic Functions' {
+	    calc def 'Ideal Gas Law' { in rho; in R_bar; in T;
+	    	return p = rho * R_bar * T;
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Density' { in rho_1; in p_1; in p_2; in gamma;
+	    	return rho_2 = rho_1 * (p_2 / p_1)^(1/gamma);
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Temperature' { in T_1; in p_1; in p_2; in gamma;
+	    	return T_2 = T_1 * (p_2 / p_1)**((gamma - 1) / gamma);
+	    }
+	    
+	    calc def 'Total Pressure' { in P_static; in rho; in V;
+	    	1/2 * rho * V^2 + P_static
+	    }
+	    
+	    // Showing explicit parameter typing
+	    calc def 'Total Temperature' { in T_static : TemperatureValue; in Cp : DimensionOneValue; in V : VolumeValue;
+	    	return : TemperatureValue = 1/(2 * Cp) * V^2 + T_static;
+	    }
+	    
+	    calc def 'Total Enthalpy' { in h_total; in h_static; in V;
+	    	return H_total = 1/2 * V^2 + h_static;
+	    }
+	}
+
+Exemple 4:
+attribute 'Molar Mass';
+	        attribute 'Density';
+	        attribute 'Pressure';
+	        attribute 'Temperature';
+	        attribute 'Enthalpy';
+	        attribute 'Specific Gas Constant';
+	    }
+	    
+	    part def 'Moving Ideal Gas Parcel' specializes 'Ideal Gas Parcel' {
+	        comment about 'Stagnation Pressure'
+	            /*
+	            Stagnation pressure is the pressure of the parcel if the kinetic energy defined by its
+	            velocity in a given coordinate frame is converted to gas internal energy through deceleration
+	            to a velocity that matches the current frame.
+	            */
+	        attribute 'Stagnation Pressure';
+	        attribute 'Stagnation Temperature';
+	        attribute 'Stagnation Enthalpy';
+	        
+	        comment about 'Static Pressure'
+	            /*
+	            Static pressure is the pressure of the parcel as it moves
+	            */
+	        attribute 'Static Pressure' redefines 'Ideal Gas Parcel'::'Pressure';
+	        attribute 'Static Temperature' redefines 'Ideal Gas Parcel'::'Temperature';
+	        attribute 'Static Enthalpy' redefines 'Ideal Gas Parcel'::'Enthalpy';
+	    }
+
+Exemple 5:
+.air
+                to s.storageEntry.air;
+            flow HallToStorageroom_Furniture
+                from h.hallExit_to_Storageroom.furniture
+                to s.storageEntry.furniture;
+        }
+    }
+}
+
+
+
+
+
+=== TON RÉSULTAT ===
+Produis UNIQUEMENT le JSON conforme au schéma ci-dessus. Aucun commentaire, aucune explication, aucun markdown. Uniquement le JSON.

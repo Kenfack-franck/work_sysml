@@ -1,0 +1,2105 @@
+--- logical_breakdown ---
+Tu es un expert SysML v2 (spécification OMG 2025). Tu génères du code SysML v2 syntaxiquement correct et compatible SysON pour un diagramme de type Logical Breakdown. Tu modélises la décomposition du système en composants logiques avec leur hiérarchie et les fonctions allouées.
+
+=== EXIGENCES DE FIDÉLITÉ ===
+
+F1 — Tu traduis UNIQUEMENT ce qui est dans le JSON. Tu n'inventes aucun élément supplémentaire.
+F2 — Tu utilises les noms du JSON pour tous les identifiants SysML v2, convertis en CamelCase ASCII.
+F3 — Si un champ est vide, null ou liste vide dans le JSON, tu ne génères PAS de code pour cet élément.
+F4 — Les warnings du JSON ne doivent PAS être traduits en code SysML v2.
+F5 — AUCUN guillemet simple sauf pour le nom du package. Tous les identifiants en CamelCase sans guillemets.
+
+=== RÈGLES DE COMPATIBILITÉ SysON (OBLIGATOIRES) ===
+
+Le code SysML v2 doit être compatible avec l'outil SysON. Respecte ces règles ABSOLUES :
+
+RS1: AUCUN accent dans les identifiants.
+     Mauvais: Développement, énergie, régulé
+     Bon: Developpement, Energie, Regule
+
+RS2: AUCUN caractère spécial dans les identifiants (pas de parenthèses, slash, virgule, apostrophe).
+     Mauvais: 'air régulé (P,T)', 'A/C Pneumatic System', 'l\'état'
+     Bon: AirRegulePT, ACPneumaticSystem, LEtat
+
+RS3: Utiliser CamelCase ASCII pour TOUS les identifiants.
+     Mauvais: 'Operation maintenance operator', 'Stockage intermédiaire'
+     Bon: MaintenanceOperator, StockageIntermediaire
+
+RS4: AUCUN guillemet simple sauf si absolument nécessaire (nom avec espace inévitable).
+     Privilégier les identifiants CamelCase sans guillemets.
+
+RS5: Dans les port def, utiliser "attribute nomFlux;" au lieu de "in item nom : Type;" ou "out item nom : Type;".
+     Mauvais: port def X { in item fuel : Fuel; out item status : Status; }
+     Bon: port def X { attribute fuel; attribute status; }
+
+RS6: PAS de "connect" ni "flow of" dans le code. SysON les crée graphiquement.
+     Dans le part contexte, déclarer uniquement les parts instanciés.
+
+RS7: PAS de port conjugué (~). Utiliser le même type de port des deux côtés.
+     Mauvais: port basPort : ~ACAvionicsPort;
+     Bon: port basPort : ACAvionicsPort;
+
+RS8: Les actions référencées dans les états utilisent la syntaxe "entry action : NomAction;" ou "do action : NomAction;".
+     Mauvais: do 'Communicate the system state';
+     Bon: do action : CommunicateSystemState;
+
+RS9: Pour les séquences opérationnelles, NE PAS utiliser message/event occurrence.
+     Utiliser occurrence def avec doc /* description */ et des part participants simples.
+     SysON ne rend pas les diagrammes de séquence.
+
+Voici la syntaxe SysML v2 correcte et compatible SysON pour ce type de diagramme.
+Tu DOIS utiliser EXACTEMENT ces constructs. Ne PAS inventer d'autre syntaxe.
+
+=== TEMPLATE DE SYNTAXE : LOGICAL BREAKDOWN (compatible SysON) ===
+
+package 'SystemName - Logical Breakdown' {
+
+    // Composants logiques avec hierarchie
+    part def Controller {
+        doc /* Fonctions allouees : Reguler la vanne, Provide Feedback */
+    }
+
+    part def Valve {
+        doc /* Fonction allouee : Laisser passer lair */
+    }
+
+    part def HeatExchanger {
+        doc /* Fonction allouee : Reguler la temperature */
+    }
+
+    part def Sensor {
+        doc /* Fonction allouee : Mesurer la temperature */
+    }
+
+    // Decomposition du systeme
+    part def MainSystem {
+        part controller : Controller;
+        part valve : Valve;
+        part heatExchanger : HeatExchanger;
+        part sensor : Sensor;
+    }
+}
+
+=== RÈGLES DE SYNTAXE SPÉCIFIQUES : LOGICAL BREAKDOWN ===
+
+R-LB1: Les constituants logiques sont des "part def" au niveau package.
+R-LB2: Le doc /* ... */ liste les fonctions allouees a ce constituant.
+R-LB3: La decomposition du systeme utilise un "part def MainSystem" contenant les parts instances.
+R-LB4: Si des sous-systemes existent, imbriquer : part def SousSysteme { part composant : ComposantDef; }
+R-LB5: Tous les noms en CamelCase ASCII sans accents (RS1-RS4).
+
+=== DONNÉES DU MODÈLE JSON À TRADUIRE ===
+
+Traduis UNIQUEMENT ces données. N'ajoute rien.
+
+{
+  "system_name": "BAS (Bleed Air System)",
+  "components": [
+    {
+      "name": "Calculateur",
+      "component_type": "calculateur numérique",
+      "description": "Traiter les commandes et les mesures pour réguler les vannes et communiquer l'état du système.",
+      "ports": [
+        {
+          "name": "state data",
+          "direction": "inout",
+          "flow_type": "information"
+        },
+        {
+          "name": "énergie",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "commande dégivrage nacelle",
+          "direction": "in",
+          "flow_type": "information"
+        },
+        {
+          "name": "consigne (P,T)",
+          "direction": "in",
+          "flow_type": "information"
+        },
+        {
+          "name": "mesure température air",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "mesure pression air",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "consigne ouverture vanne NAI",
+          "direction": "out",
+          "flow_type": "electric"
+        },
+        {
+          "name": "consigne ouverture vanne PCE",
+          "direction": "out",
+          "flow_type": "electric"
+        },
+        {
+          "name": "position vanne PCE",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ],
+      "allocated_functions": [
+        "Provide Feedback",
+        "Réguler la PRV",
+        "Réguler la vanne NAI",
+        "Réguler la vanne PCE",
+        "Déterminer l'état du système",
+        "Communiquer"
+      ],
+      "children": null
+    },
+    {
+      "name": "IP port",
+      "component_type": "port d'interface d'entrée",
+      "description": "Point de prélèvement de l'air chaud haute pression sur le compresseur du moteur.",
+      "ports": [
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Prélever l'air"
+      ],
+      "children": null
+    },
+    {
+      "name": "Vanne NAI",
+      "component_type": "vanne pneumatique",
+      "description": "Contrôler le passage de l'air chaud vers la nacelle pour le dégivrage.",
+      "ports": [
+        {
+          "name": "consigne ouverture vanne",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Laisser passer l'air"
+      ],
+      "children": null
+    },
+    {
+      "name": "Vanne PCE",
+      "component_type": "vanne pneumatique",
+      "description": "Contrôler le passage de l'air chaud vers l'échangeur PCE pour la régulation en pression et température.",
+      "ports": [
+        {
+          "name": "consigne ouverture vanne",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "position vanne PCE",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Actuated bleed select"
+      ],
+      "children": null
+    },
+    {
+      "name": "PCE",
+      "component_type": "échangeur thermique",
+      "description": "Transfert d'énergie thermique entre l'air chaud moteur et l'air ambiant pour réguler la température.",
+      "ports": [
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air ambiant",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air régulé T",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Transfert d'énergie thermique"
+      ],
+      "children": null
+    },
+    {
+      "name": "ACAC",
+      "component_type": "échangeur thermique",
+      "description": "Réguler la température de l'air chaud nacelle en mélangeant avec l'air ambiant.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air ambiant",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Réguler la température nacelle"
+      ],
+      "children": null
+    },
+    {
+      "name": "Filter",
+      "component_type": "filtre pneumatique",
+      "description": "Filtrer l'air régulé avant distribution vers le système pneumatique avion.",
+      "ports": [
+        {
+          "name": "air régulé (P,T)",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air régulé (P,T)",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Filtrer air"
+      ],
+      "children": null
+    },
+    {
+      "name": "PCE Air Temperature Sensor",
+      "component_type": "capteur de température",
+      "description": "Mesurer la température de l'air en sortie de l'ACAC/PCE côté avion.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "mesure température air",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ],
+      "allocated_functions": [
+        "Mesurer la température"
+      ],
+      "children": null
+    },
+    {
+      "name": "Air Pressure Sensor",
+      "component_type": "capteur de pression",
+      "description": "Mesurer la pression de l'air régulé en sortie du PCE.",
+      "ports": [
+        {
+          "name": "air régulé T",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "mesure pression air",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ],
+      "allocated_functions": [
+        "Mesurer la pression"
+      ],
+      "children": null
+    },
+    {
+      "name": "ACAC Air Temperature Sensor",
+      "component_type": "capteur de température",
+      "description": "Mesurer la température de l'air chaud nacelle en sortie de l'ACAC.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "mesure température air",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ],
+      "allocated_functions": [
+        "Mesurer la température"
+      ],
+      "children": null
+    },
+    {
+      "name": "Nacelle port",
+      "component_type": "port d'interface de sortie",
+      "description": "Fournir l'air chaud régulé à l'interface de la nacelle.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Fournir l'air à l'interface Nacelle"
+      ],
+      "children": null
+    }
+  ]
+}
+
+=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ===
+
+Exemple 1:
+package 'Turbojet Stage Analysis' {
+	private import Quantities::ScalarQuantityValue;
+	private import MeasurementReferences::DimensionOneValue;
+	private import ISQ::*;
+	
+	package 'Thermodynamic Functions' {
+	    calc def 'Ideal Gas Law' { in rho; in R_bar; in T;
+	    	return p = rho * R_bar * T;
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Density' { in rho_1; in p_1; in p_2; in gamma;
+	    	return rho_2 = rho_1 * (p_2 / p_1)^(1/gamma);
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Temperature' { in T_1; in p_1; in p_2; in gamma;
+	    	return T_2 = T_1 * (p_2 / p_1)**((gamma - 1) / gamma);
+	    }
+	    
+	    calc def 'Total Pressure' { in P_static; in rho; in V;
+	    	1/2 * rho * V^2 + P_static
+	    }
+	    
+	    // Showing explicit parameter typing
+	    calc def 'Total Temperature' { in T_static : TemperatureValue; in Cp : DimensionOneValue; in V : VolumeValue;
+	    	return : TemperatureValue = 1/(2 * Cp) * V^2 + T_static;
+	    }
+	    
+	    calc def 'Total Enthalpy' { in h_total; in h_static; in V;
+	    	return H_total = 1/2 * V^2 + h_static;
+	    }
+	}
+
+Exemple 2:
+e path-independent)
+	        */
+	        action 'Stage 1' :>> start;
+	        action 'Stage 2' :>> done;
+	    }
+	    
+	    action def 'Reversible Adiabatic Process' specializes 'Adiabatic Process';
+	}
+	
+	package 'Low-Pressure Compressor Analysis' {
+	    
+	    part 'Analysis Context' {
+	        private import 'Thermodynamic Functions'::*;
+	        
+	        part 'Inlet Gas' : 'Thermodynamics Structure'::'Moving Ideal Gas Parcel' {
+	        	// Explicit binding notation
+	        	calc 'Solve for Pressure1' : 'Ideal Gas Law';
+	        	bind 'Density' = 'Solve for Pressure1'.rho;
+	        	bind 'Specific Gas Constant' = 'Solve for Pressure1'.R_bar;
+	        	bind 'Static Temperature' = 'Solve for Pressure1'.T;
+	        	bind 'Static Pressure' = 'Solve for Pressure1'.p;	        	
+	        	
+	        	// Shorthand parameter binding notation
+	            calc 'Solve for Pressure2' : 'Ideal Gas Law' {
+	                in rho = 'Density';
+	                in R_bar = 'Specific Gas Constant';
+	                in T = 'Static Temperature';
+				}				
+				            
+	            // Invocation expression notation
+	            attribute :>> 'Static Pressure' = 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature');
+
+	            // Equation as a constraint (note "==")
+	            constraint { 'Static Pressure' == 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature') }
+	        }
+	    }
+	}	
+	
+}
+
+Exemple 3:
+kg] }
+        }
+
+        analysis smallEVAnalysis : VehicleAnalysis {
+            subject :>> vehicle :> vehicle_compact;
+            requirement :>> vehicleRequirement = smallEVRequirement;
+        }
+
+        requirement <C1> rangeRequirementSmall :> smallEVRequirement : RangeRequirement {
+            doc /* The small EVs must run longer than 130km */
+            attribute :>> requiredRange = 130[km];
+        }
+
+        analysis rangeAnalysisSmall :> smallEVAnalysis : RangeAnalysis {
+            requirement :>> rangeRequirement = rangeRequirementSmall;
+            return simulatedRange = vehicle.vehicleBehavior.output.distance;
+        }
+
+        requirement <C2> efficiencyRequirementSmall :> smallEVRequirement : EfficiencyRequirement {
+            doc /* The target efficiency of small EVs is 0.9. */
+            attribute :>> requiredEfficiency = 0.9;
+        }
+
+        analysis efficiencyAnalysisSmall :> smallEVAnalysis : EfficiencyAnalysis {
+            requirement :>> efficiencyRequirement = efficiencyRequirementSmall;
+
+            return simulatedEfficiency = vehicle.efficiency;
+        }
+
+        requirement <C3> maxSpeedRequirementSmall :> smallEVRequirement : MaxSpeedRequirement {
+            doc /* The target maximum speed of small EVs is 130 [km/h]. */
+            attribute :>> requiredMaxSpeed = 130 [km/h];
+        }
+
+=== TON RÉSULTAT ===
+
+Génère le code SysML v2 dans un package 'BAS (Bleed Air System) - Logical Breakdown'.
+Le code doit être syntaxiquement correct et compatible SysON.
+Vérifie que chaque accolade ouvrante a son accolade fermante.
+Réponds UNIQUEMENT avec le code SysML v2, sans commentaire ni explication.
+Pas de markdown, pas de ```. Uniquement le code SysML v2 brut commençant par 'package'.
+
+--- logical_architecture ---
+Tu es un expert SysML v2 (spécification OMG 2025). Tu génères du code SysML v2 syntaxiquement correct et compatible SysON pour un diagramme de type Logical Architecture. Tu modélises les composants logiques avec leurs ports et l'instanciation dans l'architecture système.
+
+=== EXIGENCES DE FIDÉLITÉ ===
+
+F1 — Tu traduis UNIQUEMENT ce qui est dans le JSON. Tu n'inventes aucun élément supplémentaire.
+F2 — Tu utilises les noms du JSON pour tous les identifiants SysML v2, convertis en CamelCase ASCII.
+F3 — Si un champ est vide, null ou liste vide dans le JSON, tu ne génères PAS de code pour cet élément.
+F4 — Les warnings du JSON ne doivent PAS être traduits en code SysML v2.
+F5 — AUCUN guillemet simple sauf pour le nom du package. Tous les identifiants en CamelCase sans guillemets.
+
+=== RÈGLES DE COMPATIBILITÉ SysON (OBLIGATOIRES) ===
+
+Le code SysML v2 doit être compatible avec l'outil SysON. Respecte ces règles ABSOLUES :
+
+RS1: AUCUN accent dans les identifiants.
+     Mauvais: Développement, énergie, régulé
+     Bon: Developpement, Energie, Regule
+
+RS2: AUCUN caractère spécial dans les identifiants (pas de parenthèses, slash, virgule, apostrophe).
+     Mauvais: 'air régulé (P,T)', 'A/C Pneumatic System', 'l\'état'
+     Bon: AirRegulePT, ACPneumaticSystem, LEtat
+
+RS3: Utiliser CamelCase ASCII pour TOUS les identifiants.
+     Mauvais: 'Operation maintenance operator', 'Stockage intermédiaire'
+     Bon: MaintenanceOperator, StockageIntermediaire
+
+RS4: AUCUN guillemet simple sauf si absolument nécessaire (nom avec espace inévitable).
+     Privilégier les identifiants CamelCase sans guillemets.
+
+RS5: Dans les port def, utiliser "attribute nomFlux;" au lieu de "in item nom : Type;" ou "out item nom : Type;".
+     Mauvais: port def X { in item fuel : Fuel; out item status : Status; }
+     Bon: port def X { attribute fuel; attribute status; }
+
+RS6: PAS de "connect" ni "flow of" dans le code. SysON les crée graphiquement.
+     Dans le part contexte, déclarer uniquement les parts instanciés.
+
+RS7: PAS de port conjugué (~). Utiliser le même type de port des deux côtés.
+     Mauvais: port basPort : ~ACAvionicsPort;
+     Bon: port basPort : ACAvionicsPort;
+
+RS8: Les actions référencées dans les états utilisent la syntaxe "entry action : NomAction;" ou "do action : NomAction;".
+     Mauvais: do 'Communicate the system state';
+     Bon: do action : CommunicateSystemState;
+
+RS9: Pour les séquences opérationnelles, NE PAS utiliser message/event occurrence.
+     Utiliser occurrence def avec doc /* description */ et des part participants simples.
+     SysON ne rend pas les diagrammes de séquence.
+
+Voici la syntaxe SysML v2 correcte et compatible SysON pour ce type de diagramme.
+Tu DOIS utiliser EXACTEMENT ces constructs. Ne PAS inventer d'autre syntaxe.
+
+=== TEMPLATE DE SYNTAXE : LOGICAL ARCHITECTURE (compatible SysON) ===
+
+package 'SystemName - Logical Architecture' {
+
+    port def ControlPort {
+        attribute command;
+        attribute feedback;
+    }
+
+    port def FluidPort {
+        attribute fluid;
+    }
+
+    part def Controller {
+        port commandOut : ControlPort;
+        port sensorIn : ControlPort;
+    }
+
+    part def Valve {
+        port commandIn : ControlPort;
+        port fluidIn : FluidPort;
+        port fluidOut : FluidPort;
+    }
+
+    part def Sensor {
+        port measureOut : ControlPort;
+        port fluidIn : FluidPort;
+    }
+
+    part 'System Architecture' {
+        part controller : Controller;
+        part valve : Valve;
+        part sensor : Sensor;
+    }
+}
+
+=== RÈGLES DE SYNTAXE SPÉCIFIQUES : LOGICAL ARCHITECTURE ===
+
+R-LA1: Les port def contiennent des "attribute nomFlux;" PAS "in item" ni "out item".
+R-LA2: PAS de port conjugue (~). Utiliser le meme type de port des deux cotes.
+R-LA3: PAS de "connect" ni "flow of" dans le code. SysON les cree graphiquement.
+        Declarer uniquement les parts dans le contexte d architecture.
+R-LA4: Chaque constituant a un "part def" avec ses ports types.
+R-LA5: Le part 'System Architecture' instancie tous les parts sans les connecter.
+R-LA6: Tous les noms en CamelCase ASCII sans accents (RS1-RS4).
+
+=== CONTRAINTE DE NOMMAGE (OBLIGATOIRE) ===
+Les packages precedents ont deja defini les identifiants suivants.
+Tu DOIS reutiliser EXACTEMENT ces noms. Ne PAS inventer de variantes.
+
+Part definitions existantes : ACAC, ACACTemperatureSensor, AirPressureSensor, BASSystem, Calculateur, Filter, IPPort, NacellePort, PCE, PCEAirTemperatureSensor, VanneNAI, VannePCE
+
+Si tu dois referencer un element deja defini, utilise EXACTEMENT le nom ci-dessus.
+
+=== DONNÉES DU MODÈLE JSON À TRADUIRE ===
+
+Traduis UNIQUEMENT ces données. N'ajoute rien.
+
+{
+  "system_name": "BAS (Bleed Air System)",
+  "components": [
+    {
+      "name": "Calculateur",
+      "component_type": "calculateur numérique",
+      "description": "Traiter les commandes et les mesures pour réguler les vannes et communiquer l'état du système.",
+      "ports": [
+        {
+          "name": "state data",
+          "direction": "inout",
+          "flow_type": "information"
+        },
+        {
+          "name": "énergie",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "commande dégivrage nacelle",
+          "direction": "in",
+          "flow_type": "information"
+        },
+        {
+          "name": "consigne (P,T)",
+          "direction": "in",
+          "flow_type": "information"
+        },
+        {
+          "name": "mesure température air",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "mesure pression air",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "consigne ouverture vanne NAI",
+          "direction": "out",
+          "flow_type": "electric"
+        },
+        {
+          "name": "consigne ouverture vanne PCE",
+          "direction": "out",
+          "flow_type": "electric"
+        },
+        {
+          "name": "position vanne PCE",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ],
+      "allocated_functions": [
+        "Provide Feedback",
+        "Réguler la PRV",
+        "Réguler la vanne NAI",
+        "Réguler la vanne PCE",
+        "Déterminer l'état du système",
+        "Communiquer"
+      ],
+      "children": null
+    },
+    {
+      "name": "IP port",
+      "component_type": "port d'interface d'entrée",
+      "description": "Point de prélèvement de l'air chaud haute pression sur le compresseur du moteur.",
+      "ports": [
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Prélever l'air"
+      ],
+      "children": null
+    },
+    {
+      "name": "Vanne NAI",
+      "component_type": "vanne pneumatique",
+      "description": "Contrôler le passage de l'air chaud vers la nacelle pour le dégivrage.",
+      "ports": [
+        {
+          "name": "consigne ouverture vanne",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Laisser passer l'air"
+      ],
+      "children": null
+    },
+    {
+      "name": "Vanne PCE",
+      "component_type": "vanne pneumatique",
+      "description": "Contrôler le passage de l'air chaud vers l'échangeur PCE pour la régulation en pression et température.",
+      "ports": [
+        {
+          "name": "consigne ouverture vanne",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "position vanne PCE",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Actuated bleed select"
+      ],
+      "children": null
+    },
+    {
+      "name": "PCE",
+      "component_type": "échangeur thermique",
+      "description": "Transfert d'énergie thermique entre l'air chaud moteur et l'air ambiant pour réguler la température.",
+      "ports": [
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air ambiant",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air régulé T",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Transfert d'énergie thermique"
+      ],
+      "children": null
+    },
+    {
+      "name": "ACAC",
+      "component_type": "échangeur thermique",
+      "description": "Réguler la température de l'air chaud nacelle en mélangeant avec l'air ambiant.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air ambiant",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Réguler la température nacelle"
+      ],
+      "children": null
+    },
+    {
+      "name": "Filter",
+      "component_type": "filtre pneumatique",
+      "description": "Filtrer l'air régulé avant distribution vers le système pneumatique avion.",
+      "ports": [
+        {
+          "name": "air régulé (P,T)",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air régulé (P,T)",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Filtrer air"
+      ],
+      "children": null
+    },
+    {
+      "name": "PCE Air Temperature Sensor",
+      "component_type": "capteur de température",
+      "description": "Mesurer la température de l'air en sortie de l'ACAC/PCE côté avion.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "mesure température air",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ],
+      "allocated_functions": [
+        "Mesurer la température"
+      ],
+      "children": null
+    },
+    {
+      "name": "Air Pressure Sensor",
+      "component_type": "capteur de pression",
+      "description": "Mesurer la pression de l'air régulé en sortie du PCE.",
+      "ports": [
+        {
+          "name": "air régulé T",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "mesure pression air",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ],
+      "allocated_functions": [
+        "Mesurer la pression"
+      ],
+      "children": null
+    },
+    {
+      "name": "ACAC Air Temperature Sensor",
+      "component_type": "capteur de température",
+      "description": "Mesurer la température de l'air chaud nacelle en sortie de l'ACAC.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "mesure température air",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ],
+      "allocated_functions": [
+        "Mesurer la température"
+      ],
+      "children": null
+    },
+    {
+      "name": "Nacelle port",
+      "component_type": "port d'interface de sortie",
+      "description": "Fournir l'air chaud régulé à l'interface de la nacelle.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Fournir l'air à l'interface Nacelle"
+      ],
+      "children": null
+    }
+  ],
+  "connections": [
+    {
+      "from_component": "IP port",
+      "from_port": "air chaud haute pression",
+      "to_component": "Vanne NAI",
+      "to_port": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "item": "air chaud haute pression",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Calculateur",
+      "from_port": "consigne ouverture vanne NAI",
+      "to_component": "Vanne NAI",
+      "to_port": "consigne ouverture vanne",
+      "flow_type": "electric",
+      "item": "consigne ouverture vanne",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Vanne NAI",
+      "from_port": "air chaud nacelle",
+      "to_component": "ACAC",
+      "to_port": "air chaud nacelle",
+      "flow_type": "pneumatic",
+      "item": "air chaud nacelle",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "ACAC",
+      "from_port": "air chaud nacelle",
+      "to_component": "Nacelle port",
+      "to_port": "air chaud nacelle",
+      "flow_type": "pneumatic",
+      "item": "air chaud nacelle",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "ACAC",
+      "from_port": "air chaud nacelle",
+      "to_component": "ACAC Air Temperature Sensor",
+      "to_port": "air chaud nacelle",
+      "flow_type": "pneumatic",
+      "item": "air chaud nacelle",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "ACAC Air Temperature Sensor",
+      "from_port": "mesure température air",
+      "to_component": "Calculateur",
+      "to_port": "mesure température air",
+      "flow_type": "electric",
+      "item": "mesure température air",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "IP port",
+      "from_port": "air chaud haute pression",
+      "to_component": "Vanne PCE",
+      "to_port": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "item": "air chaud haute pression",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Calculateur",
+      "from_port": "consigne ouverture vanne PCE",
+      "to_component": "Vanne PCE",
+      "to_port": "consigne ouverture vanne",
+      "flow_type": "electric",
+      "item": "consigne ouverture vanne",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Calculateur",
+      "from_port": "position vanne PCE",
+      "to_component": "Vanne PCE",
+      "to_port": "position vanne PCE",
+      "flow_type": "electric",
+      "item": "position vanne PCE",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Vanne PCE",
+      "from_port": "air chaud haute pression",
+      "to_component": "PCE",
+      "to_port": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "item": "air chaud haute pression",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "PCE",
+      "from_port": "air régulé T",
+      "to_component": "Air Pressure Sensor",
+      "to_port": "air régulé T",
+      "flow_type": "pneumatic",
+      "item": "air régulé T",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "PCE",
+      "from_port": "air régulé T",
+      "to_component": "Filter",
+      "to_port": "air régulé (P,T)",
+      "flow_type": "pneumatic",
+      "item": "air régulé (P,T)",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Air Pressure Sensor",
+      "from_port": "mesure pression air",
+      "to_component": "Calculateur",
+      "to_port": "mesure pression air",
+      "flow_type": "electric",
+      "item": "mesure pression air",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "PCE Air Temperature Sensor",
+      "from_port": "mesure température air",
+      "to_component": "Calculateur",
+      "to_port": "mesure température air",
+      "flow_type": "electric",
+      "item": "mesure température air",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Filter",
+      "from_port": "air régulé (P,T)",
+      "to_component": "Environnement externe",
+      "to_port": "A/C pneumatic port",
+      "flow_type": "pneumatic",
+      "item": "air régulé (P,T)",
+      "connection_type": "interface",
+      "description": "Sortie système vers A/C pneumatic port"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "air chaud haute pression du moteur",
+      "to_component": "IP port",
+      "to_port": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "item": "air chaud haute pression",
+      "connection_type": "interface",
+      "description": "Entrée système depuis le moteur"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "air ambiant",
+      "to_component": "ACAC",
+      "to_port": "air ambiant",
+      "flow_type": "pneumatic",
+      "item": "air ambiant",
+      "connection_type": "interface",
+      "description": "Entrée système depuis l'environnement"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "air ambiant",
+      "to_component": "PCE",
+      "to_port": "air ambiant",
+      "flow_type": "pneumatic",
+      "item": "air ambiant",
+      "connection_type": "interface",
+      "description": "Entrée système depuis l'environnement"
+    },
+    {
+      "from_component": "ACAC",
+      "from_port": "air tiède",
+      "to_component": "Environnement externe",
+      "to_port": "environnement",
+      "flow_type": "pneumatic",
+      "item": "air tiède",
+      "connection_type": "interface",
+      "description": "Sortie système vers l'environnement"
+    },
+    {
+      "from_component": "PCE",
+      "from_port": "air tiède",
+      "to_component": "Environnement externe",
+      "to_port": "environnement",
+      "flow_type": "pneumatic",
+      "item": "air tiède",
+      "connection_type": "interface",
+      "description": "Sortie système vers l'environnement"
+    },
+    {
+      "from_component": "Nacelle port",
+      "from_port": "air chaud nacelle",
+      "to_component": "Environnement externe",
+      "to_port": "nacelle",
+      "flow_type": "pneumatic",
+      "item": "air chaud nacelle",
+      "connection_type": "interface",
+      "description": "Sortie système vers la nacelle"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "commande dégivrage nacelle",
+      "to_component": "Calculateur",
+      "to_port": "commande dégivrage nacelle",
+      "flow_type": "information",
+      "item": "commande dégivrage nacelle",
+      "connection_type": "interface",
+      "description": "Entrée système depuis l'avionique"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "consigne (P,T)",
+      "to_component": "Calculateur",
+      "to_port": "consigne (P,T)",
+      "flow_type": "information",
+      "item": "consigne (P,T)",
+      "connection_type": "interface",
+      "description": "Entrée système depuis l'avionique"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "énergie",
+      "to_component": "Calculateur",
+      "to_port": "énergie",
+      "flow_type": "electric",
+      "item": "énergie",
+      "connection_type": "interface",
+      "description": "Entrée système d'alimentation"
+    },
+    {
+      "from_component": "Calculateur",
+      "from_port": "state data",
+      "to_component": "Environnement externe",
+      "to_port": "avionique",
+      "flow_type": "information",
+      "item": "state data",
+      "connection_type": "interface",
+      "description": "Sortie système vers l'avionique"
+    }
+  ]
+}
+
+=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ===
+
+Exemple 1:
+package 'Turbojet Stage Analysis' {
+	private import Quantities::ScalarQuantityValue;
+	private import MeasurementReferences::DimensionOneValue;
+	private import ISQ::*;
+	
+	package 'Thermodynamic Functions' {
+	    calc def 'Ideal Gas Law' { in rho; in R_bar; in T;
+	    	return p = rho * R_bar * T;
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Density' { in rho_1; in p_1; in p_2; in gamma;
+	    	return rho_2 = rho_1 * (p_2 / p_1)^(1/gamma);
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Temperature' { in T_1; in p_1; in p_2; in gamma;
+	    	return T_2 = T_1 * (p_2 / p_1)**((gamma - 1) / gamma);
+	    }
+	    
+	    calc def 'Total Pressure' { in P_static; in rho; in V;
+	    	1/2 * rho * V^2 + P_static
+	    }
+	    
+	    // Showing explicit parameter typing
+	    calc def 'Total Temperature' { in T_static : TemperatureValue; in Cp : DimensionOneValue; in V : VolumeValue;
+	    	return : TemperatureValue = 1/(2 * Cp) * V^2 + T_static;
+	    }
+	    
+	    calc def 'Total Enthalpy' { in h_total; in h_static; in V;
+	    	return H_total = 1/2 * V^2 + h_static;
+	    }
+	}
+
+Exemple 2:
+e path-independent)
+	        */
+	        action 'Stage 1' :>> start;
+	        action 'Stage 2' :>> done;
+	    }
+	    
+	    action def 'Reversible Adiabatic Process' specializes 'Adiabatic Process';
+	}
+	
+	package 'Low-Pressure Compressor Analysis' {
+	    
+	    part 'Analysis Context' {
+	        private import 'Thermodynamic Functions'::*;
+	        
+	        part 'Inlet Gas' : 'Thermodynamics Structure'::'Moving Ideal Gas Parcel' {
+	        	// Explicit binding notation
+	        	calc 'Solve for Pressure1' : 'Ideal Gas Law';
+	        	bind 'Density' = 'Solve for Pressure1'.rho;
+	        	bind 'Specific Gas Constant' = 'Solve for Pressure1'.R_bar;
+	        	bind 'Static Temperature' = 'Solve for Pressure1'.T;
+	        	bind 'Static Pressure' = 'Solve for Pressure1'.p;	        	
+	        	
+	        	// Shorthand parameter binding notation
+	            calc 'Solve for Pressure2' : 'Ideal Gas Law' {
+	                in rho = 'Density';
+	                in R_bar = 'Specific Gas Constant';
+	                in T = 'Static Temperature';
+				}				
+				            
+	            // Invocation expression notation
+	            attribute :>> 'Static Pressure' = 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature');
+
+	            // Equation as a constraint (note "==")
+	            constraint { 'Static Pressure' == 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature') }
+	        }
+	    }
+	}	
+	
+}
+
+Exemple 3:
+kg] }
+        }
+
+        analysis smallEVAnalysis : VehicleAnalysis {
+            subject :>> vehicle :> vehicle_compact;
+            requirement :>> vehicleRequirement = smallEVRequirement;
+        }
+
+        requirement <C1> rangeRequirementSmall :> smallEVRequirement : RangeRequirement {
+            doc /* The small EVs must run longer than 130km */
+            attribute :>> requiredRange = 130[km];
+        }
+
+        analysis rangeAnalysisSmall :> smallEVAnalysis : RangeAnalysis {
+            requirement :>> rangeRequirement = rangeRequirementSmall;
+            return simulatedRange = vehicle.vehicleBehavior.output.distance;
+        }
+
+        requirement <C2> efficiencyRequirementSmall :> smallEVRequirement : EfficiencyRequirement {
+            doc /* The target efficiency of small EVs is 0.9. */
+            attribute :>> requiredEfficiency = 0.9;
+        }
+
+        analysis efficiencyAnalysisSmall :> smallEVAnalysis : EfficiencyAnalysis {
+            requirement :>> efficiencyRequirement = efficiencyRequirementSmall;
+
+            return simulatedEfficiency = vehicle.efficiency;
+        }
+
+        requirement <C3> maxSpeedRequirementSmall :> smallEVRequirement : MaxSpeedRequirement {
+            doc /* The target maximum speed of small EVs is 130 [km/h]. */
+            attribute :>> requiredMaxSpeed = 130 [km/h];
+        }
+
+=== TON RÉSULTAT ===
+
+Génère le code SysML v2 dans un package 'BAS (Bleed Air System) - Logical Architecture'.
+Le code doit être syntaxiquement correct et compatible SysON.
+Vérifie que chaque accolade ouvrante a son accolade fermante.
+Réponds UNIQUEMENT avec le code SysML v2, sans commentaire ni explication.
+Pas de markdown, pas de ```. Uniquement le code SysML v2 brut commençant par 'package'.
+
+--- logical_sequences ---
+Tu es un expert SysML v2 (spécification OMG 2025). Tu génères du code SysML v2 syntaxiquement correct et compatible SysON pour un diagramme de type Logical Sequences. Tu modélises les séquences d'échanges entre composants logiques avec des occurrence def et participants.
+
+=== EXIGENCES DE FIDÉLITÉ ===
+
+F1 — Tu traduis UNIQUEMENT ce qui est dans le JSON. Tu n'inventes aucun élément supplémentaire.
+F2 — Tu utilises les noms du JSON pour tous les identifiants SysML v2, convertis en CamelCase ASCII.
+F3 — Si un champ est vide, null ou liste vide dans le JSON, tu ne génères PAS de code pour cet élément.
+F4 — Les warnings du JSON ne doivent PAS être traduits en code SysML v2.
+F5 — AUCUN guillemet simple sauf pour le nom du package. Tous les identifiants en CamelCase sans guillemets.
+
+=== RÈGLES DE COMPATIBILITÉ SysON (OBLIGATOIRES) ===
+
+Le code SysML v2 doit être compatible avec l'outil SysON. Respecte ces règles ABSOLUES :
+
+RS1: AUCUN accent dans les identifiants.
+     Mauvais: Développement, énergie, régulé
+     Bon: Developpement, Energie, Regule
+
+RS2: AUCUN caractère spécial dans les identifiants (pas de parenthèses, slash, virgule, apostrophe).
+     Mauvais: 'air régulé (P,T)', 'A/C Pneumatic System', 'l\'état'
+     Bon: AirRegulePT, ACPneumaticSystem, LEtat
+
+RS3: Utiliser CamelCase ASCII pour TOUS les identifiants.
+     Mauvais: 'Operation maintenance operator', 'Stockage intermédiaire'
+     Bon: MaintenanceOperator, StockageIntermediaire
+
+RS4: AUCUN guillemet simple sauf si absolument nécessaire (nom avec espace inévitable).
+     Privilégier les identifiants CamelCase sans guillemets.
+
+RS5: Dans les port def, utiliser "attribute nomFlux;" au lieu de "in item nom : Type;" ou "out item nom : Type;".
+     Mauvais: port def X { in item fuel : Fuel; out item status : Status; }
+     Bon: port def X { attribute fuel; attribute status; }
+
+RS6: PAS de "connect" ni "flow of" dans le code. SysON les crée graphiquement.
+     Dans le part contexte, déclarer uniquement les parts instanciés.
+
+RS7: PAS de port conjugué (~). Utiliser le même type de port des deux côtés.
+     Mauvais: port basPort : ~ACAvionicsPort;
+     Bon: port basPort : ACAvionicsPort;
+
+RS8: Les actions référencées dans les états utilisent la syntaxe "entry action : NomAction;" ou "do action : NomAction;".
+     Mauvais: do 'Communicate the system state';
+     Bon: do action : CommunicateSystemState;
+
+RS9: Pour les séquences opérationnelles, NE PAS utiliser message/event occurrence.
+     Utiliser occurrence def avec doc /* description */ et des part participants simples.
+     SysON ne rend pas les diagrammes de séquence.
+
+Voici la syntaxe SysML v2 correcte et compatible SysON pour ce type de diagramme.
+Tu DOIS utiliser EXACTEMENT ces constructs. Ne PAS inventer d'autre syntaxe.
+
+=== TEMPLATE DE SYNTAXE : LOGICAL SEQUENCES (compatible SysON) ===
+
+package 'SystemName - Logical Sequences' {
+
+    item def Command;
+    item def Measurement;
+    item def FluidFlow;
+
+    occurrence def NominalOperationSequence {
+        doc /* Sequence nominale :
+               1. Controller envoie Command a Valve
+               2. Valve laisse passer le fluide
+               3. Sensor mesure et envoie Measurement a Controller
+               4. Controller ajuste la commande */
+        part controller;
+        part valve;
+        part sensor;
+    }
+
+    occurrence def DegradedSequence {
+        doc /* Sequence degradee :
+               1. Sensor detecte une anomalie
+               2. Controller arrete la vanne
+               3. Controller envoie alerte */
+        part controller;
+        part valve;
+        part sensor;
+    }
+}
+
+=== RÈGLES DE SYNTAXE SPÉCIFIQUES : LOGICAL SEQUENCES ===
+
+R-LS1: Les sequences utilisent "occurrence def NomSequence { doc /* etapes */ part participants; }".
+R-LS2: NE PAS utiliser "message", "event occurrence", "from", "to".
+        SysON ne rend pas les diagrammes de sequence.
+R-LS3: Decrire les etapes du scenario dans le doc /* ... */ de maniere numerotee.
+R-LS4: Les participants sont des "part nomParticipant;" simples (sans type).
+R-LS5: Les types de messages echanges sont des "item def NomMessage;" au niveau package.
+R-LS6: Noms en CamelCase ASCII.
+
+=== CONTRAINTE DE NOMMAGE (OBLIGATOIRE) ===
+Les packages precedents ont deja defini les identifiants suivants.
+Tu DOIS reutiliser EXACTEMENT ces noms. Ne PAS inventer de variantes.
+
+Part definitions existantes : ACAC, ACACTemperatureSensor, AirPressureSensor, BASSystem, Calculateur, Filter, IPPort, NacellePort, PCE, PCEAirTemperatureSensor, VanneNAI, VannePCE
+Port definitions existantes : ControlPort, ElectricPort, InformationPort, PneumaticPort
+
+Si tu dois referencer un element deja defini, utilise EXACTEMENT le nom ci-dessus.
+
+=== DONNÉES DU MODÈLE JSON À TRADUIRE ===
+
+Traduis UNIQUEMENT ces données. N'ajoute rien.
+
+{
+  "system_name": "BAS (Bleed Air System)",
+  "components": [
+    {
+      "name": "Calculateur"
+    },
+    {
+      "name": "IP port"
+    },
+    {
+      "name": "Vanne NAI"
+    },
+    {
+      "name": "Vanne PCE"
+    },
+    {
+      "name": "PCE"
+    },
+    {
+      "name": "ACAC"
+    },
+    {
+      "name": "Filter"
+    },
+    {
+      "name": "PCE Air Temperature Sensor"
+    },
+    {
+      "name": "Air Pressure Sensor"
+    },
+    {
+      "name": "ACAC Air Temperature Sensor"
+    },
+    {
+      "name": "Nacelle port"
+    }
+  ],
+  "connections": [
+    {
+      "from_component": "IP port",
+      "from_port": "air chaud haute pression",
+      "to_component": "Vanne NAI",
+      "to_port": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "item": "air chaud haute pression",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Calculateur",
+      "from_port": "consigne ouverture vanne NAI",
+      "to_component": "Vanne NAI",
+      "to_port": "consigne ouverture vanne",
+      "flow_type": "electric",
+      "item": "consigne ouverture vanne",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Vanne NAI",
+      "from_port": "air chaud nacelle",
+      "to_component": "ACAC",
+      "to_port": "air chaud nacelle",
+      "flow_type": "pneumatic",
+      "item": "air chaud nacelle",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "ACAC",
+      "from_port": "air chaud nacelle",
+      "to_component": "Nacelle port",
+      "to_port": "air chaud nacelle",
+      "flow_type": "pneumatic",
+      "item": "air chaud nacelle",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "ACAC",
+      "from_port": "air chaud nacelle",
+      "to_component": "ACAC Air Temperature Sensor",
+      "to_port": "air chaud nacelle",
+      "flow_type": "pneumatic",
+      "item": "air chaud nacelle",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "ACAC Air Temperature Sensor",
+      "from_port": "mesure température air",
+      "to_component": "Calculateur",
+      "to_port": "mesure température air",
+      "flow_type": "electric",
+      "item": "mesure température air",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "IP port",
+      "from_port": "air chaud haute pression",
+      "to_component": "Vanne PCE",
+      "to_port": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "item": "air chaud haute pression",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Calculateur",
+      "from_port": "consigne ouverture vanne PCE",
+      "to_component": "Vanne PCE",
+      "to_port": "consigne ouverture vanne",
+      "flow_type": "electric",
+      "item": "consigne ouverture vanne",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Calculateur",
+      "from_port": "position vanne PCE",
+      "to_component": "Vanne PCE",
+      "to_port": "position vanne PCE",
+      "flow_type": "electric",
+      "item": "position vanne PCE",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Vanne PCE",
+      "from_port": "air chaud haute pression",
+      "to_component": "PCE",
+      "to_port": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "item": "air chaud haute pression",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "PCE",
+      "from_port": "air régulé T",
+      "to_component": "Air Pressure Sensor",
+      "to_port": "air régulé T",
+      "flow_type": "pneumatic",
+      "item": "air régulé T",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "PCE",
+      "from_port": "air régulé T",
+      "to_component": "Filter",
+      "to_port": "air régulé (P,T)",
+      "flow_type": "pneumatic",
+      "item": "air régulé (P,T)",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Air Pressure Sensor",
+      "from_port": "mesure pression air",
+      "to_component": "Calculateur",
+      "to_port": "mesure pression air",
+      "flow_type": "electric",
+      "item": "mesure pression air",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "PCE Air Temperature Sensor",
+      "from_port": "mesure température air",
+      "to_component": "Calculateur",
+      "to_port": "mesure température air",
+      "flow_type": "electric",
+      "item": "mesure température air",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Filter",
+      "from_port": "air régulé (P,T)",
+      "to_component": "Environnement externe",
+      "to_port": "A/C pneumatic port",
+      "flow_type": "pneumatic",
+      "item": "air régulé (P,T)",
+      "connection_type": "interface",
+      "description": "Sortie système vers A/C pneumatic port"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "air chaud haute pression du moteur",
+      "to_component": "IP port",
+      "to_port": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "item": "air chaud haute pression",
+      "connection_type": "interface",
+      "description": "Entrée système depuis le moteur"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "air ambiant",
+      "to_component": "ACAC",
+      "to_port": "air ambiant",
+      "flow_type": "pneumatic",
+      "item": "air ambiant",
+      "connection_type": "interface",
+      "description": "Entrée système depuis l'environnement"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "air ambiant",
+      "to_component": "PCE",
+      "to_port": "air ambiant",
+      "flow_type": "pneumatic",
+      "item": "air ambiant",
+      "connection_type": "interface",
+      "description": "Entrée système depuis l'environnement"
+    },
+    {
+      "from_component": "ACAC",
+      "from_port": "air tiède",
+      "to_component": "Environnement externe",
+      "to_port": "environnement",
+      "flow_type": "pneumatic",
+      "item": "air tiède",
+      "connection_type": "interface",
+      "description": "Sortie système vers l'environnement"
+    },
+    {
+      "from_component": "PCE",
+      "from_port": "air tiède",
+      "to_component": "Environnement externe",
+      "to_port": "environnement",
+      "flow_type": "pneumatic",
+      "item": "air tiède",
+      "connection_type": "interface",
+      "description": "Sortie système vers l'environnement"
+    },
+    {
+      "from_component": "Nacelle port",
+      "from_port": "air chaud nacelle",
+      "to_component": "Environnement externe",
+      "to_port": "nacelle",
+      "flow_type": "pneumatic",
+      "item": "air chaud nacelle",
+      "connection_type": "interface",
+      "description": "Sortie système vers la nacelle"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "commande dégivrage nacelle",
+      "to_component": "Calculateur",
+      "to_port": "commande dégivrage nacelle",
+      "flow_type": "information",
+      "item": "commande dégivrage nacelle",
+      "connection_type": "interface",
+      "description": "Entrée système depuis l'avionique"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "consigne (P,T)",
+      "to_component": "Calculateur",
+      "to_port": "consigne (P,T)",
+      "flow_type": "information",
+      "item": "consigne (P,T)",
+      "connection_type": "interface",
+      "description": "Entrée système depuis l'avionique"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "énergie",
+      "to_component": "Calculateur",
+      "to_port": "énergie",
+      "flow_type": "electric",
+      "item": "énergie",
+      "connection_type": "interface",
+      "description": "Entrée système d'alimentation"
+    },
+    {
+      "from_component": "Calculateur",
+      "from_port": "state data",
+      "to_component": "Environnement externe",
+      "to_port": "avionique",
+      "flow_type": "information",
+      "item": "state data",
+      "connection_type": "interface",
+      "description": "Sortie système vers l'avionique"
+    }
+  ]
+}
+
+=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ===
+
+Exemple 1:
+package 'Turbojet Stage Analysis' {
+	private import Quantities::ScalarQuantityValue;
+	private import MeasurementReferences::DimensionOneValue;
+	private import ISQ::*;
+	
+	package 'Thermodynamic Functions' {
+	    calc def 'Ideal Gas Law' { in rho; in R_bar; in T;
+	    	return p = rho * R_bar * T;
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Density' { in rho_1; in p_1; in p_2; in gamma;
+	    	return rho_2 = rho_1 * (p_2 / p_1)^(1/gamma);
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Temperature' { in T_1; in p_1; in p_2; in gamma;
+	    	return T_2 = T_1 * (p_2 / p_1)**((gamma - 1) / gamma);
+	    }
+	    
+	    calc def 'Total Pressure' { in P_static; in rho; in V;
+	    	1/2 * rho * V^2 + P_static
+	    }
+	    
+	    // Showing explicit parameter typing
+	    calc def 'Total Temperature' { in T_static : TemperatureValue; in Cp : DimensionOneValue; in V : VolumeValue;
+	    	return : TemperatureValue = 1/(2 * Cp) * V^2 + T_static;
+	    }
+	    
+	    calc def 'Total Enthalpy' { in h_total; in h_static; in V;
+	    	return H_total = 1/2 * V^2 + h_static;
+	    }
+	}
+
+Exemple 2:
+e path-independent)
+	        */
+	        action 'Stage 1' :>> start;
+	        action 'Stage 2' :>> done;
+	    }
+	    
+	    action def 'Reversible Adiabatic Process' specializes 'Adiabatic Process';
+	}
+	
+	package 'Low-Pressure Compressor Analysis' {
+	    
+	    part 'Analysis Context' {
+	        private import 'Thermodynamic Functions'::*;
+	        
+	        part 'Inlet Gas' : 'Thermodynamics Structure'::'Moving Ideal Gas Parcel' {
+	        	// Explicit binding notation
+	        	calc 'Solve for Pressure1' : 'Ideal Gas Law';
+	        	bind 'Density' = 'Solve for Pressure1'.rho;
+	        	bind 'Specific Gas Constant' = 'Solve for Pressure1'.R_bar;
+	        	bind 'Static Temperature' = 'Solve for Pressure1'.T;
+	        	bind 'Static Pressure' = 'Solve for Pressure1'.p;	        	
+	        	
+	        	// Shorthand parameter binding notation
+	            calc 'Solve for Pressure2' : 'Ideal Gas Law' {
+	                in rho = 'Density';
+	                in R_bar = 'Specific Gas Constant';
+	                in T = 'Static Temperature';
+				}				
+				            
+	            // Invocation expression notation
+	            attribute :>> 'Static Pressure' = 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature');
+
+	            // Equation as a constraint (note "==")
+	            constraint { 'Static Pressure' == 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature') }
+	        }
+	    }
+	}	
+	
+}
+
+Exemple 3:
+kg] }
+        }
+
+        analysis smallEVAnalysis : VehicleAnalysis {
+            subject :>> vehicle :> vehicle_compact;
+            requirement :>> vehicleRequirement = smallEVRequirement;
+        }
+
+        requirement <C1> rangeRequirementSmall :> smallEVRequirement : RangeRequirement {
+            doc /* The small EVs must run longer than 130km */
+            attribute :>> requiredRange = 130[km];
+        }
+
+        analysis rangeAnalysisSmall :> smallEVAnalysis : RangeAnalysis {
+            requirement :>> rangeRequirement = rangeRequirementSmall;
+            return simulatedRange = vehicle.vehicleBehavior.output.distance;
+        }
+
+        requirement <C2> efficiencyRequirementSmall :> smallEVRequirement : EfficiencyRequirement {
+            doc /* The target efficiency of small EVs is 0.9. */
+            attribute :>> requiredEfficiency = 0.9;
+        }
+
+        analysis efficiencyAnalysisSmall :> smallEVAnalysis : EfficiencyAnalysis {
+            requirement :>> efficiencyRequirement = efficiencyRequirementSmall;
+
+            return simulatedEfficiency = vehicle.efficiency;
+        }
+
+        requirement <C3> maxSpeedRequirementSmall :> smallEVRequirement : MaxSpeedRequirement {
+            doc /* The target maximum speed of small EVs is 130 [km/h]. */
+            attribute :>> requiredMaxSpeed = 130 [km/h];
+        }
+
+=== TON RÉSULTAT ===
+
+Génère le code SysML v2 dans un package 'BAS (Bleed Air System) - Logical Sequences'.
+Le code doit être syntaxiquement correct et compatible SysON.
+Vérifie que chaque accolade ouvrante a son accolade fermante.
+Réponds UNIQUEMENT avec le code SysML v2, sans commentaire ni explication.
+Pas de markdown, pas de ```. Uniquement le code SysML v2 brut commençant par 'package'.
+
+--- logical_modes ---
+Tu es un expert SysML v2 (spécification OMG 2025). Tu génères du code SysML v2 syntaxiquement correct et compatible SysON pour un diagramme de type Logical Modes. Tu modélises les machines à états des composants logiques avec transitions et signaux.
+
+=== EXIGENCES DE FIDÉLITÉ ===
+
+F1 — Tu traduis UNIQUEMENT ce qui est dans le JSON. Tu n'inventes aucun élément supplémentaire.
+F2 — Tu utilises les noms du JSON pour tous les identifiants SysML v2, convertis en CamelCase ASCII.
+F3 — Si un champ est vide, null ou liste vide dans le JSON, tu ne génères PAS de code pour cet élément.
+F4 — Les warnings du JSON ne doivent PAS être traduits en code SysML v2.
+F5 — AUCUN guillemet simple sauf pour le nom du package. Tous les identifiants en CamelCase sans guillemets.
+
+=== RÈGLES DE COMPATIBILITÉ SysON (OBLIGATOIRES) ===
+
+Le code SysML v2 doit être compatible avec l'outil SysON. Respecte ces règles ABSOLUES :
+
+RS1: AUCUN accent dans les identifiants.
+     Mauvais: Développement, énergie, régulé
+     Bon: Developpement, Energie, Regule
+
+RS2: AUCUN caractère spécial dans les identifiants (pas de parenthèses, slash, virgule, apostrophe).
+     Mauvais: 'air régulé (P,T)', 'A/C Pneumatic System', 'l\'état'
+     Bon: AirRegulePT, ACPneumaticSystem, LEtat
+
+RS3: Utiliser CamelCase ASCII pour TOUS les identifiants.
+     Mauvais: 'Operation maintenance operator', 'Stockage intermédiaire'
+     Bon: MaintenanceOperator, StockageIntermediaire
+
+RS4: AUCUN guillemet simple sauf si absolument nécessaire (nom avec espace inévitable).
+     Privilégier les identifiants CamelCase sans guillemets.
+
+RS5: Dans les port def, utiliser "attribute nomFlux;" au lieu de "in item nom : Type;" ou "out item nom : Type;".
+     Mauvais: port def X { in item fuel : Fuel; out item status : Status; }
+     Bon: port def X { attribute fuel; attribute status; }
+
+RS6: PAS de "connect" ni "flow of" dans le code. SysON les crée graphiquement.
+     Dans le part contexte, déclarer uniquement les parts instanciés.
+
+RS7: PAS de port conjugué (~). Utiliser le même type de port des deux côtés.
+     Mauvais: port basPort : ~ACAvionicsPort;
+     Bon: port basPort : ACAvionicsPort;
+
+RS8: Les actions référencées dans les états utilisent la syntaxe "entry action : NomAction;" ou "do action : NomAction;".
+     Mauvais: do 'Communicate the system state';
+     Bon: do action : CommunicateSystemState;
+
+RS9: Pour les séquences opérationnelles, NE PAS utiliser message/event occurrence.
+     Utiliser occurrence def avec doc /* description */ et des part participants simples.
+     SysON ne rend pas les diagrammes de séquence.
+
+Voici la syntaxe SysML v2 correcte et compatible SysON pour ce type de diagramme.
+Tu DOIS utiliser EXACTEMENT ces constructs. Ne PAS inventer d'autre syntaxe.
+
+=== TEMPLATE DE SYNTAXE : LOGICAL MODES (compatible SysON) ===
+
+package 'SystemName - Logical Modes' {
+
+    attribute def PowerOnSignal;
+    attribute def PowerOffSignal;
+    attribute def FaultDetected;
+    attribute def FaultCleared;
+
+    state def ControllerStates {
+        entry; then Idle;
+
+        state Idle;
+        transition Activate
+            first Idle
+            accept PowerOnSignal
+            then Active;
+
+        state Active {
+            doc /* Controller regule activement */
+        }
+        transition Deactivate
+            first Active
+            accept PowerOffSignal
+            then Idle;
+
+        transition Fault
+            first Active
+            accept FaultDetected
+            then Degraded;
+
+        state Degraded;
+        transition Recover
+            first Degraded
+            accept FaultCleared
+            then Active;
+    }
+}
+
+=== RÈGLES DE SYNTAXE SPÉCIFIQUES : LOGICAL MODES ===
+
+R-LM1: Les modes utilisent "state def" avec "entry; then PremierEtat;". JAMAIS "entry state".
+R-LM2: Les transitions : "transition Nom first Source accept Signal then Cible;"
+R-LM3: Les signaux sont des "attribute def NomSignal;" en CamelCase au niveau package.
+R-LM4: Noms d etats en CamelCase ASCII : Idle, Active, Degraded, FailSafe.
+R-LM5: Les etats composites contiennent "entry; then" pour leur sous-etat initial.
+R-LM6: JAMAIS de "transition Source then Cible if 'texte francais'". Utiliser accept Signal.
+
+=== CONTRAINTE DE NOMMAGE (OBLIGATOIRE) ===
+Les packages precedents ont deja defini les identifiants suivants.
+Tu DOIS reutiliser EXACTEMENT ces noms. Ne PAS inventer de variantes.
+
+Part definitions existantes : ACAC, ACACTemperatureSensor, AirPressureSensor, BASSystem, Calculateur, Filter, IPPort, NacellePort, PCE, PCEAirTemperatureSensor, VanneNAI, VannePCE
+Port definitions existantes : ControlPort, ElectricPort, InformationPort, PneumaticPort
+Item definitions existantes : AirAmbiant, AirChaudHautePression, AirChaudNacelle, AirReguleT, AirTiede, CommandeDegrivageNacelle, ConsigneOuvertureVanne, ConsignePT, Energie, MesurePressionAir, MesureTemperatureAir, PositionVannePC, StateData
+Occurrence definitions existantes : ACACAirCoolingSequence, ControlSequence, DegradedSequence, NominalOperationSequence, PCEPressureRegulationSequence
+
+Si tu dois referencer un element deja defini, utilise EXACTEMENT le nom ci-dessus.
+
+=== DONNÉES DU MODÈLE JSON À TRADUIRE ===
+
+Traduis UNIQUEMENT ces données. N'ajoute rien.
+
+{
+  "system_name": "BAS (Bleed Air System)",
+  "components": [
+    {
+      "name": "Calculateur"
+    },
+    {
+      "name": "IP port"
+    },
+    {
+      "name": "Vanne NAI"
+    },
+    {
+      "name": "Vanne PCE"
+    },
+    {
+      "name": "PCE"
+    },
+    {
+      "name": "ACAC"
+    },
+    {
+      "name": "Filter"
+    },
+    {
+      "name": "PCE Air Temperature Sensor"
+    },
+    {
+      "name": "Air Pressure Sensor"
+    },
+    {
+      "name": "ACAC Air Temperature Sensor"
+    },
+    {
+      "name": "Nacelle port"
+    }
+  ]
+}
+
+=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ===
+
+Exemple 1:
+package 'Turbojet Stage Analysis' {
+	private import Quantities::ScalarQuantityValue;
+	private import MeasurementReferences::DimensionOneValue;
+	private import ISQ::*;
+	
+	package 'Thermodynamic Functions' {
+	    calc def 'Ideal Gas Law' { in rho; in R_bar; in T;
+	    	return p = rho * R_bar * T;
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Density' { in rho_1; in p_1; in p_2; in gamma;
+	    	return rho_2 = rho_1 * (p_2 / p_1)^(1/gamma);
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Temperature' { in T_1; in p_1; in p_2; in gamma;
+	    	return T_2 = T_1 * (p_2 / p_1)**((gamma - 1) / gamma);
+	    }
+	    
+	    calc def 'Total Pressure' { in P_static; in rho; in V;
+	    	1/2 * rho * V^2 + P_static
+	    }
+	    
+	    // Showing explicit parameter typing
+	    calc def 'Total Temperature' { in T_static : TemperatureValue; in Cp : DimensionOneValue; in V : VolumeValue;
+	    	return : TemperatureValue = 1/(2 * Cp) * V^2 + T_static;
+	    }
+	    
+	    calc def 'Total Enthalpy' { in h_total; in h_static; in V;
+	    	return H_total = 1/2 * V^2 + h_static;
+	    }
+	}
+
+Exemple 2:
+e path-independent)
+	        */
+	        action 'Stage 1' :>> start;
+	        action 'Stage 2' :>> done;
+	    }
+	    
+	    action def 'Reversible Adiabatic Process' specializes 'Adiabatic Process';
+	}
+	
+	package 'Low-Pressure Compressor Analysis' {
+	    
+	    part 'Analysis Context' {
+	        private import 'Thermodynamic Functions'::*;
+	        
+	        part 'Inlet Gas' : 'Thermodynamics Structure'::'Moving Ideal Gas Parcel' {
+	        	// Explicit binding notation
+	        	calc 'Solve for Pressure1' : 'Ideal Gas Law';
+	        	bind 'Density' = 'Solve for Pressure1'.rho;
+	        	bind 'Specific Gas Constant' = 'Solve for Pressure1'.R_bar;
+	        	bind 'Static Temperature' = 'Solve for Pressure1'.T;
+	        	bind 'Static Pressure' = 'Solve for Pressure1'.p;	        	
+	        	
+	        	// Shorthand parameter binding notation
+	            calc 'Solve for Pressure2' : 'Ideal Gas Law' {
+	                in rho = 'Density';
+	                in R_bar = 'Specific Gas Constant';
+	                in T = 'Static Temperature';
+				}				
+				            
+	            // Invocation expression notation
+	            attribute :>> 'Static Pressure' = 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature');
+
+	            // Equation as a constraint (note "==")
+	            constraint { 'Static Pressure' == 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature') }
+	        }
+	    }
+	}	
+	
+}
+
+Exemple 3:
+kg] }
+        }
+
+        analysis smallEVAnalysis : VehicleAnalysis {
+            subject :>> vehicle :> vehicle_compact;
+            requirement :>> vehicleRequirement = smallEVRequirement;
+        }
+
+        requirement <C1> rangeRequirementSmall :> smallEVRequirement : RangeRequirement {
+            doc /* The small EVs must run longer than 130km */
+            attribute :>> requiredRange = 130[km];
+        }
+
+        analysis rangeAnalysisSmall :> smallEVAnalysis : RangeAnalysis {
+            requirement :>> rangeRequirement = rangeRequirementSmall;
+            return simulatedRange = vehicle.vehicleBehavior.output.distance;
+        }
+
+        requirement <C2> efficiencyRequirementSmall :> smallEVRequirement : EfficiencyRequirement {
+            doc /* The target efficiency of small EVs is 0.9. */
+            attribute :>> requiredEfficiency = 0.9;
+        }
+
+        analysis efficiencyAnalysisSmall :> smallEVAnalysis : EfficiencyAnalysis {
+            requirement :>> efficiencyRequirement = efficiencyRequirementSmall;
+
+            return simulatedEfficiency = vehicle.efficiency;
+        }
+
+        requirement <C3> maxSpeedRequirementSmall :> smallEVRequirement : MaxSpeedRequirement {
+            doc /* The target maximum speed of small EVs is 130 [km/h]. */
+            attribute :>> requiredMaxSpeed = 130 [km/h];
+        }
+
+=== TON RÉSULTAT ===
+
+Génère le code SysML v2 dans un package 'BAS (Bleed Air System) - Logical Modes'.
+Le code doit être syntaxiquement correct et compatible SysON.
+Vérifie que chaque accolade ouvrante a son accolade fermante.
+Réponds UNIQUEMENT avec le code SysML v2, sans commentaire ni explication.
+Pas de markdown, pas de ```. Uniquement le code SysML v2 brut commençant par 'package'.

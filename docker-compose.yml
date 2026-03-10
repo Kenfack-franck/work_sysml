@@ -15,9 +15,12 @@ services:
       - .env
     environment:
       - SYSML_REPO_PATH=/app/SysML-v2-Release
+      - LLM_PROVIDER=${LLM_PROVIDER:-gemini}
       - GEMINI_API_KEYS=${GEMINI_API_KEYS}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - LLM_MODEL=${LLM_MODEL}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
       - SYSON_URL=http://syson:8080
     restart: unless-stopped
 

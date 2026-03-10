@@ -1,0 +1,44 @@
+[
+  {
+    "type": "missing_info",
+    "message": "La fonction 'Déterminer l'état du système' n'a pas d'entrées ni de sorties explicitement définies.",
+    "section": "functions",
+    "suggestion": "Préciser les entrées et sorties de cette fonction ou clarifier son rôle dans le système."
+  },
+  {
+    "type": "missing_info",
+    "message": "La fonction 'Communiquer' n'a pas d'entrées explicitement définies, seulement des sorties.",
+    "section": "functions",
+    "suggestion": "Préciser les entrées de cette fonction (par exemple, l'état du système à communiquer)."
+  },
+  {
+    "type": "missing_info",
+    "message": "La décomposition interne de la fonction 'Envoyer de l'air régulé en (P,T) à l'avion' n'est pas détaillée dans le document.",
+    "section": "functions",
+    "suggestion": "Fournir la décomposition en sous-fonctions et l'allocation aux constituants logiques."
+  },
+  {
+    "type": "missing_info",
+    "message": "La décomposition interne de la fonction 'Déterminer l'état du système' n'est pas détaillée dans le document.",
+    "section": "functions",
+    "suggestion": "Fournir la décomposition en sous-fonctions si applicable."
+  },
+  {
+    "type": "missing_info",
+    "message": "La décomposition interne de la fonction 'Communiquer' n'est pas détaillée dans le document.",
+    "section": "functions",
+    "suggestion": "Fournir la décomposition en sous-fonctions si applicable."
+  },
+  {
+    "type": "inconsistency",
+    "message": "La fonction 'Déterminer l'état du système' est listée comme active dans les modes Stand by et En fonctionnement, mais elle n'a pas d'entrées ni de sorties définies, ce qui rend son rôle ambigu.",
+    "section": "modes",
+    "suggestion": "Clarifier le rôle de cette fonction et ses interactions avec les autres fonctions."
+  },
+  {
+    "type": "ambiguity",
+    "message": "Les modes sont décrits avec une hiérarchie (Mode On contient Stand by et En fonctionnement), mais le JSON les représente comme une liste plate avec des noms composés (Mode On > Stand by). Cette représentation peut être ambiguë.",
+    "section": "modes",
+    "suggestion": "Clarifier si une structure hiérarchique est nécessaire ou si la notation avec '>' est suffisante."
+  }
+]

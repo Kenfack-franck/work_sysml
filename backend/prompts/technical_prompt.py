@@ -1,17 +1,22 @@
 """
 Prompts pour le niveau TECHNIQUE (Technical).
 
-Deux fonctions :
-  - build_technical_json_prompt  : sections utilisateur → JSON TechnicalModel
-  - build_technical_sysml_prompt : JSON TechnicalModel  → code SysML v2
+Fonctions :
+  - build_technical_json_prompt               : sections utilisateur → JSON TechnicalModel
+  - build_technical_breakdown_sysml_prompt    : JSON → code SysML v2 (Technical Breakdown)
+  - build_technical_architecture_sysml_prompt : JSON → code SysML v2 (Technical Architecture)
+  - build_technical_states_sysml_prompt       : JSON → code SysML v2 (Technical States)
+  - get_technical_sysml_prompts               : JSON → [(diagram_type, prompt), ...] x3
 """
 
 import json
 from typing import List, Optional
 
+from prompts._shared import build_sysml_prompt
+
 
 # ============================================================================
-# Blocs de texte réutilisables
+# Blocs de texte réutilisables (prompt JSON uniquement)
 # ============================================================================
 
 _FIDELITY_RULES = """\
@@ -80,80 +85,6 @@ _JSON_SCHEMA = """\
     {"type": "inconsistency | missing_info | ambiguity", "message": "string", "section": "string", "suggestion": "string" ou null}
   ]
 }"""
-
-_SYSML_SYNTAX_RULES = """\
-=== RÈGLES DE SYNTAXE SysML v2 (OBLIGATOIRES) ===
-
-RÈGLE S1 — PACKAGE : Tout le code doit être dans un package nommé '{{system_name}} - Technical'.
-
-RÈGLE S2 — ITEM DEFINITIONS : item def pour chaque type de flux physique.
-
-RÈGLE S3 — PORT DEFINITIONS : ports physiques des composants réels.
-
-RÈGLE S4 — PART DEFINITIONS (Composants techniques) :
-  part def NAIV {{
-    doc /* Nacelle Anti-Ice Valve — Vanne pneumatique papillon
-           Implémente : Vanne NAI (logique)
-           Référence : SAE-NAIV-200 */
-    port portEntreeAir : PortPneumatiqueIn;
-    port portSortieAir : PortPneumatiqueOut;
-    port portCommandeElec : PortElectriqueIn;
-  }}
-
-RÈGLE S5 — ALLOCATION LOGIQUE→TECHNIQUE :
-  allocation def LogicalToTechnical {{
-    end logicalPart : LogicalComponentDef;
-    end technicalPart : TechnicalComponentDef;
-  }}
-Ou plus simplement, documenter dans le 'doc' de chaque part def technique quel constituant logique il implémente.
-
-RÈGLE S6 — ARCHITECTURE TECHNIQUE (part + connections) :
-  part basPhysique : BASPhysique {{
-    part naiv : NAIV;
-    part eec : EEC;
-
-    connect naiv.portCommandeElec to eec.portSortieCommande;
-
-    flow of ConsigneOuverture
-      from eec.portSortieCommande
-      to naiv.portCommandeElec;
-  }}
-Documenter le medium dans un commentaire ou doc sur chaque connexion.
-
-RÈGLE S7 — CHOIX TECHNOLOGIQUES :
-Documenter chaque choix avec un commentaire structuré :
-  part def NAIV {{
-    doc /* Technologie : vanne papillon
-           Justification : meilleure tenue aux hautes températures (500°C) */
-  }}
-
-RÈGLE S8 — REQUIREMENTS :
-  requirement def 'REQ-TECH-001' {{
-    doc /* La NAIV doit résister à 45 PSI et 500°C en continu */
-  }}
-  satisfy requirement 'REQ-TECH-001' by naiv;
-
-RÈGLE S9 — COMMENTAIRES DE SECTION :
-Séparer les grandes parties du code avec des commentaires :
-  // ========================================
-  // SECTION : Item Definitions
-  // ========================================
-
-RÈGLE S10 — IDENTIFIANTS :
-Les identifiants avec espaces ou caractères spéciaux doivent être entourés de guillemets simples."""
-
-_SYSML_CODE_STRUCTURE = """\
-=== STRUCTURE DU CODE SysML v2 À PRODUIRE ===
-
-Le code doit suivre cette organisation :
-
-1. package '{{system_name}} - Technical' {{
-2.   // Item definitions (flux physiques)
-3.   // Port definitions (ports physiques)
-4.   // Part definitions (composants techniques avec doc allocation + technologie)
-5.   // Part englobant (architecture technique + connections + flows)
-6.   // Requirement definitions + satisfy
-7. }}"""
 
 # Liste ordonnée des 4 sections techniques
 _TECHNICAL_SECTIONS = [
@@ -249,65 +180,249 @@ def build_technical_json_prompt(
 
 
 # ============================================================================
-# FONCTION 2 — Prompt SysML v2 (JSON TechnicalModel → code SysML v2)
+# Templates de syntaxe validés (compatibles SysON)
 # ============================================================================
 
-def build_technical_sysml_prompt(
-    json_model: str,
+_TEMPLATE_TECHNICAL_BREAKDOWN = """\
+=== TEMPLATE DE SYNTAXE : TECHNICAL BREAKDOWN (compatible SysON) ===
+
+package 'SystemName - Technical Breakdown' {
+
+    part def ECU {
+        doc /* Realise le composant logique Controller. Technologie : microcontroleur ARM Cortex-M4 */
+        attribute manufacturer;
+        attribute partNumber;
+    }
+
+    part def PneumaticValve {
+        doc /* Realise le composant logique Valve. Technologie : vanne pneumatique proportionnelle */
+        attribute maxPressure;
+        attribute maxTemperature;
+    }
+
+    part def TemperatureSensor {
+        doc /* Realise le composant logique Sensor. Technologie : thermocouple type K */
+        attribute range;
+        attribute accuracy;
+    }
+
+    // Decomposition physique
+    part def PhysicalSystem {
+        part ecu : ECU;
+        part valve : PneumaticValve;
+        part sensor : TemperatureSensor;
+    }
+}"""
+
+_RULES_TECHNICAL_BREAKDOWN = """\
+=== RÈGLES DE SYNTAXE SPÉCIFIQUES : TECHNICAL BREAKDOWN ===
+
+R-TB1: Les composants techniques sont des "part def" au niveau package.
+R-TB2: Le doc /* ... */ indique le composant logique realise et la technologie choisie.
+R-TB3: Les attributs techniques (manufacturer, partNumber, maxPressure, etc.) sont des "attribute" sans valeur ni unite si non fournis.
+R-TB4: La decomposition physique utilise un "part def PhysicalSystem" contenant les parts instances.
+R-TB5: Tous les noms en CamelCase ASCII sans accents (RS1-RS4)."""
+
+_TEMPLATE_TECHNICAL_ARCHITECTURE = """\
+=== TEMPLATE DE SYNTAXE : TECHNICAL ARCHITECTURE (compatible SysON) ===
+
+package 'SystemName - Technical Architecture' {
+
+    port def ElectricalPort {
+        attribute signal;
+    }
+
+    port def PneumaticPort {
+        attribute fluid;
+    }
+
+    part def ECU {
+        port commandOut : ElectricalPort;
+        port sensorIn : ElectricalPort;
+        port powerIn : ElectricalPort;
+    }
+
+    part def PneumaticValve {
+        port commandIn : ElectricalPort;
+        port airIn : PneumaticPort;
+        port airOut : PneumaticPort;
+    }
+
+    part def TemperatureSensor {
+        port measureOut : ElectricalPort;
+        port fluidIn : PneumaticPort;
+    }
+
+    part 'Physical Architecture' {
+        part ecu : ECU;
+        part valve : PneumaticValve;
+        part sensor : TemperatureSensor;
+    }
+}"""
+
+_RULES_TECHNICAL_ARCHITECTURE = """\
+=== RÈGLES DE SYNTAXE SPÉCIFIQUES : TECHNICAL ARCHITECTURE ===
+
+R-TA1: Les port def contiennent des "attribute nomFlux;" PAS "in item" ni "out item".
+R-TA2: PAS de port conjugue (~). Utiliser le meme type de port des deux cotes.
+R-TA3: PAS de "connect" ni "flow of" dans le code. SysON les cree graphiquement.
+        Declarer uniquement les parts dans le contexte d architecture.
+R-TA4: Chaque composant technique a un "part def" avec ses ports types.
+R-TA5: Tous les noms en CamelCase ASCII sans accents (RS1-RS4)."""
+
+_TEMPLATE_TECHNICAL_STATES = """\
+=== TEMPLATE DE SYNTAXE : TECHNICAL STATES (compatible SysON) ===
+
+package 'SystemName - Technical States' {
+
+    attribute def PowerOnSignal;
+    attribute def PowerOffSignal;
+    attribute def HardwareFault;
+    attribute def HardwareReset;
+
+    state def ECUStates {
+        entry; then Off;
+
+        state Off;
+        transition BootUp
+            first Off
+            accept PowerOnSignal
+            then Initializing;
+
+        state Initializing {
+            doc /* Autotest et initialisation du firmware */
+        }
+        transition Ready
+            first Initializing
+            then Running;
+
+        state Running;
+        transition Shutdown
+            first Running
+            accept PowerOffSignal
+            then Off;
+
+        transition HWFault
+            first Running
+            accept HardwareFault
+            then FailSafe;
+
+        state FailSafe;
+        transition Reset
+            first FailSafe
+            accept HardwareReset
+            then Initializing;
+    }
+}"""
+
+_RULES_TECHNICAL_STATES = """\
+=== RÈGLES DE SYNTAXE SPÉCIFIQUES : TECHNICAL STATES ===
+
+R-TS1: Les etats utilisent "state def" avec "entry; then PremierEtat;". JAMAIS "entry state".
+R-TS2: Les transitions : "transition Nom first Source accept Signal then Cible;"
+R-TS3: Les signaux sont des "attribute def NomSignal;" en CamelCase au niveau package.
+R-TS4: Noms d etats en CamelCase ASCII : Off, Initializing, Running, FailSafe.
+R-TS5: JAMAIS de "transition Source then Cible if 'texte francais'". Utiliser accept Signal."""
+
+
+# ============================================================================
+# FONCTIONS SysML v2 — 3 prompts spécialisés par type de diagramme
+# ============================================================================
+
+def build_technical_breakdown_sysml_prompt(
+    model_json: dict,
     rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
 ) -> str:
+    """Construit le prompt SysML v2 pour le diagramme Technical Breakdown."""
+    filtered = {
+        "system_name": model_json.get("system_name", "System"),
+        "technical_components": model_json.get("technical_components", []),
+        "technology_choices": model_json.get("technology_choices", []),
+    }
+    return build_sysml_prompt(
+        diagram_type="Technical Breakdown",
+        role_suffix="Tu modélises la décomposition en composants physiques avec technologies et attributs techniques.",
+        template=_TEMPLATE_TECHNICAL_BREAKDOWN,
+        rules=_RULES_TECHNICAL_BREAKDOWN,
+        filtered_json=filtered,
+        rag_examples=rag_examples,
+        naming_constraint=naming_constraint,
+    )
+
+
+def build_technical_architecture_sysml_prompt(
+    model_json: dict,
+    rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
+) -> str:
+    """Construit le prompt SysML v2 pour le diagramme Technical Architecture."""
+    filtered = {
+        "system_name": model_json.get("system_name", "System"),
+        "technical_components": model_json.get("technical_components", []),
+        "physical_connections": model_json.get("physical_connections", []),
+    }
+    return build_sysml_prompt(
+        diagram_type="Technical Architecture",
+        role_suffix="Tu modélises les composants techniques avec leurs ports physiques et l'instanciation dans l'architecture.",
+        template=_TEMPLATE_TECHNICAL_ARCHITECTURE,
+        rules=_RULES_TECHNICAL_ARCHITECTURE,
+        filtered_json=filtered,
+        rag_examples=rag_examples,
+        naming_constraint=naming_constraint,
+    )
+
+
+def build_technical_states_sysml_prompt(
+    model_json: dict,
+    rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
+) -> str:
+    """Construit le prompt SysML v2 pour les états techniques."""
+    filtered = {
+        "system_name": model_json.get("system_name", "System"),
+        "technical_components": [{"name": c.get("name")} for c in model_json.get("technical_components", [])],
+    }
+    return build_sysml_prompt(
+        diagram_type="Technical States",
+        role_suffix="Tu modélises les machines à états des composants techniques avec transitions matérielles.",
+        template=_TEMPLATE_TECHNICAL_STATES,
+        rules=_RULES_TECHNICAL_STATES,
+        filtered_json=filtered,
+        rag_examples=rag_examples,
+        naming_constraint=naming_constraint,
+    )
+
+
+# ============================================================================
+# Fonction utilitaire — appelle les 3 prompts
+# ============================================================================
+
+TECHNICAL_DIAGRAMS = [
+    ("technical_breakdown", build_technical_breakdown_sysml_prompt),
+    ("technical_architecture", build_technical_architecture_sysml_prompt),
+    ("technical_states", build_technical_states_sysml_prompt),
+]
+
+
+def get_technical_sysml_prompts(
+    model_json: dict,
+    rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
+) -> list:
     """
-    Construit le prompt pour traduire le modèle technique JSON
-    en code SysML v2 (Technical Architecture Diagram).
+    Retourne une liste de (diagram_type, prompt_text) pour les 3 diagrammes techniques.
 
     Args:
-        json_model: le modèle JSON sérialisé (TechnicalModel)
+        model_json: le modèle JSON technique (dict, pas string)
         rag_examples: exemples SysML v2 du RAG (optionnel)
+        naming_constraint: contrainte de nommage des packages précédents
 
     Returns:
-        Le prompt complet (string).
+        Liste de tuples (diagram_type: str, prompt: str)
     """
-    parts: list[str] = []
-
-    # --- BLOC 1 : RÔLE ---
-    parts.append(
-        "Tu es un expert SysML v2 (spécification OMG, release 2026-01). "
-        "Tu traduis un modèle d'architecture technique JSON en code SysML v2 valide en notation textuelle."
-    )
-
-    # --- BLOC 2 : EXIGENCES DE FIDÉLITÉ ---
-    parts.append(
-        "=== EXIGENCES DE FIDÉLITÉ ===\n\n"
-        "- Tu traduis UNIQUEMENT ce qui est dans le JSON. Tu n'inventes aucun élément supplémentaire.\n"
-        "- Tu utilises les noms EXACTS du JSON pour tous les identifiants SysML v2.\n"
-        "- Si un champ est vide ou null dans le JSON, tu ne génères PAS de code pour cet élément.\n"
-        "- Les warnings du JSON ne doivent PAS être traduits en code SysML v2 — ils sont uniquement informatifs."
-    )
-
-    # --- BLOC 3 : RÈGLES DE SYNTAXE SysML v2 ---
-    parts.append(_SYSML_SYNTAX_RULES)
-
-    # --- BLOC 4 : MODÈLE JSON À TRADUIRE ---
-    parts.append(
-        "=== MODÈLE JSON À TRADUIRE ===\n\n"
-        f"{json_model}"
-    )
-
-    # --- BLOC 5 : EXEMPLES RAG (optionnel) ---
-    if rag_examples:
-        rag_lines = ["=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ==="]
-        for i, example in enumerate(rag_examples[:5], 1):
-            rag_lines.append(f"\nExemple {i}:\n{example}")
-        parts.append("\n".join(rag_lines))
-
-    # --- BLOC 6 : STRUCTURE ATTENDUE DU CODE ---
-    parts.append(_SYSML_CODE_STRUCTURE)
-
-    # --- BLOC 7 : INSTRUCTION FINALE ---
-    parts.append(
-        "=== TON RÉSULTAT ===\n"
-        "Produis UNIQUEMENT le code SysML v2. Pas de markdown, pas de ```, pas d'explication. "
-        "Uniquement le code SysML v2 brut commençant par 'package'."
-    )
-
-    return "\n\n".join(parts)
+    results = []
+    for diagram_type, build_fn in TECHNICAL_DIAGRAMS:
+        prompt = build_fn(model_json, rag_examples, naming_constraint=naming_constraint)
+        results.append((diagram_type, prompt))
+    return results

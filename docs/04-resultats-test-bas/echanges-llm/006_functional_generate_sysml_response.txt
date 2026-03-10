@@ -1,0 +1,369 @@
+--- functional_breakdown ---
+package 'BAS (Bleed Air System) - Functional Breakdown' {
+
+    // Item definitions for flow types
+    item def Information;
+    item def Pneumatic;
+    item def Electric;
+    item def Data;
+
+    // Leaf action definitions
+    action def PreleveAir {
+        doc /* Le port de pression intermédiaire prélève l'air chaud haute pression sur le compresseur du moteur. */
+        in airChaudHautePression : Pneumatic;
+        out airChaudHautePression : Pneumatic;
+    }
+
+    action def LaissePasser {
+        doc /* La vanne NAI contrôle le passage de l'air chaud vers la nacelle en fonction de la consigne d'ouverture. */
+        in airChaudHautePression : Pneumatic;
+        in consigneOuvertureVanne : Electric;
+        out airChaudNacelle : Pneumatic;
+    }
+
+    action def ReguleTemperatureNacelle {
+        doc /* L'échangeur ACAC mélange l'air chaud nacelle avec l'air ambiant pour réguler la température de sortie. */
+        in airChaudNacelle : Pneumatic;
+        in airAmbiant : Pneumatic;
+        out airChaudReguleNacelle : Pneumatic;
+        out airTiede : Pneumatic;
+    }
+
+    action def ReguleVanneNAI {
+        doc /* Le calculateur de régulation reçoit la commande de dégivrage et la mesure de température, et calcule la consigne d'ouverture de la vanne NAI. */
+        in commandeDegiveageNacelle : Information;
+        in mesureTemperatureAir : Electric;
+        out consigneOuvertureVanne : Electric;
+    }
+
+    action def MesurerTemperature {
+        doc /* Le capteur de température mesure la température de l'air chaud nacelle et transmet la mesure au calculateur. */
+        in airChaudNacelle : Pneumatic;
+        out mesureTemperatureAir : Electric;
+    }
+
+    action def FournirAirInterfaceNacelle {
+        doc /* Le port nacelle fournit l'air chaud régulé à l'interface de la nacelle. */
+        in airChaudReguleNacelle : Pneumatic;
+        out airChaudNacelle : Pneumatic;
+    }
+
+    // Composite action with decomposition
+    action def EnvoyerAirChaudNacelle {
+        doc /* Satisfait le use case 'Dégivrer la nacelle'. */
+        in commandeDegiveageNacelle : Information;
+        in airChaudHautePression : Pneumatic;
+        in airAmbiant : Pneumatic;
+        out airChaudNacelle : Pneumatic;
+        out airTiede : Pneumatic;
+
+        action preleveAir : PreleveAir {
+            in airChaudHautePression;
+            out airChaudHautePression;
+        }
+
+        action laissePasser : LaissePasser {
+            in airChaudHautePression;
+            in consigneOuvertureVanne;
+            out airChaudNacelle;
+        }
+
+        action reguleTemperatureNacelle : ReguleTemperatureNacelle {
+            in airChaudNacelle;
+            in airAmbiant;
+            out airChaudReguleNacelle;
+            out airTiede;
+        }
+
+        action reguleVanneNAI : ReguleVanneNAI {
+            in commandeDegiveageNacelle;
+            in mesureTemperatureAir;
+            out consigneOuvertureVanne;
+        }
+
+        action mesurerTemperature : MesurerTemperature {
+            in airChaudNacelle;
+            out mesureTemperatureAir;
+        }
+
+        action fournirAirInterfaceNacelle : FournirAirInterfaceNacelle {
+            in airChaudReguleNacelle;
+            out airChaudNacelle;
+        }
+
+        bind preleveAir.airChaudHautePression = airChaudHautePression;
+        bind laissePasser.airChaudHautePression = preleveAir.airChaudHautePression;
+        bind laissePasser.consigneOuvertureVanne = reguleVanneNAI.consigneOuvertureVanne;
+        bind reguleTemperatureNacelle.airChaudNacelle = laissePasser.airChaudNacelle;
+        bind reguleTemperatureNacelle.airAmbiant = airAmbiant;
+        bind reguleVanneNAI.commandeDegiveageNacelle = commandeDegiveageNacelle;
+        bind mesurerTemperature.airChaudNacelle = laissePasser.airChaudNacelle;
+        bind reguleVanneNAI.mesureTemperatureAir = mesurerTemperature.mesureTemperatureAir;
+        bind fournirAirInterfaceNacelle.airChaudReguleNacelle = reguleTemperatureNacelle.airChaudReguleNacelle;
+        bind airChaudNacelle = fournirAirInterfaceNacelle.airChaudNacelle;
+        bind airTiede = reguleTemperatureNacelle.airTiede;
+    }
+
+    // Service functions
+    action def EnvoyerAirReguleAvion {
+        doc /* Satisfait les use cases 'Pressuriser les réservoirs', 'Dégivrer les ailes', 'Pressuriser et tempérer la cabine'. */
+        in consignePT : Information;
+        in airChaudHautePression : Pneumatic;
+        in airAmbiant : Pneumatic;
+        out airRegulePT : Pneumatic;
+        out airTiede : Pneumatic;
+    }
+
+    action def DeterminerEtatSysteme {
+        doc /* Satisfait le use case 'Être informé de l'état du système'. */
+    }
+
+    action def Communiquer {
+        doc /* Satisfait le use case 'Être informé de l'état du système'. */
+        out stateData : Data;
+    }
+
+    // Allocation to logical constituents
+    part def IPPort {
+        doc /* Intermediate Pressure port */
+        perform action preleveAir : PreleveAir;
+    }
+
+    part def VanneNAI {
+        doc /* NAI valve */
+        perform action laissePasser : LaissePasser;
+    }
+
+    part def ACAC {
+        doc /* Air Conditioning Air Cooler */
+        perform action reguleTemperatureNacelle : ReguleTemperatureNacelle;
+    }
+
+    part def Calculateur {
+        doc /* Regulation calculator */
+        perform action reguleVanneNAI : ReguleVanneNAI;
+    }
+
+    part def AirTemperatureSensor {
+        doc /* Air temperature sensor */
+        perform action mesurerTemperature : MesurerTemperature;
+    }
+
+    part def nacellePort {
+        doc /* Nacelle port */
+        perform action fournirAirInterfaceNacelle : FournirAirInterfaceNacelle;
+    }
+
+}
+
+--- functional_behaviour ---
+package 'BAS (Bleed Air System) - Functional Behaviour' {
+
+    // Item definitions for exchanged flows
+    item def CommandeDegivrage;
+    item def AirChaudHautePression;
+    item def AirAmbiant;
+    item def AirChaudNacelle;
+    item def AirTiede;
+    item def ConsigneOuvertureVanne;
+    item def MesureTemperatureAir;
+    item def AirChaudReguleNacelle;
+    item def ConsignePT;
+    item def AirRegulePT;
+    item def StateData;
+
+    // Sub-function: Prélever l'air
+    action def PreleverLAir {
+        in airChaudHautePression : AirChaudHautePression;
+        out airChaudHautePression : AirChaudHautePression;
+    }
+
+    // Sub-function: Laisser passer l'air
+    action def LaisserPasserLAir {
+        in airChaudHautePression : AirChaudHautePression;
+        in consigneOuvertureVanne : ConsigneOuvertureVanne;
+        out airChaudNacelle : AirChaudNacelle;
+    }
+
+    // Sub-function: Réguler la température nacelle
+    action def RegulerTemperatureNacelle {
+        in airChaudNacelle : AirChaudNacelle;
+        in airAmbiant : AirAmbiant;
+        out airChaudReguleNacelle : AirChaudReguleNacelle;
+        out airTiede : AirTiede;
+    }
+
+    // Sub-function: Réguler la vanne NAI
+    action def RegulerVanneNAI {
+        in commandeDegivrage : CommandeDegivrage;
+        in mesureTemperatureAir : MesureTemperatureAir;
+        out consigneOuvertureVanne : ConsigneOuvertureVanne;
+    }
+
+    // Sub-function: Mesurer la température
+    action def MesurerTemperature {
+        in airChaudNacelle : AirChaudNacelle;
+        out mesureTemperatureAir : MesureTemperatureAir;
+    }
+
+    // Sub-function: Fournir l'air à l'interface Nacelle
+    action def FournirLAirInterfaceNacelle {
+        in airChaudReguleNacelle : AirChaudReguleNacelle;
+        out airChaudNacelle : AirChaudNacelle;
+    }
+
+    // Functional chain: Envoyer de l'air chaud à la nacelle
+    action def EnvoyerAirChaudNacelle {
+        doc /* Chaîne fonctionnelle pour envoyer de l'air chaud à la nacelle */
+        in commandeDegivrage : CommandeDegivrage;
+        in airChaudHautePression : AirChaudHautePression;
+        in airAmbiant : AirAmbiant;
+        out airChaudNacelle : AirChaudNacelle;
+        out airTiede : AirTiede;
+
+        action preleveAir : PreleveLAir {
+            in airChaudHautePression;
+            out airChaudHautePression;
+        }
+
+        action laissePasseAir : LaisserPasserLAir {
+            in airChaudHautePression;
+            in consigneOuvertureVanne;
+            out airChaudNacelle;
+        }
+
+        action reguleTempNacelle : RegulerTemperatureNacelle {
+            in airChaudNacelle;
+            in airAmbiant;
+            out airChaudReguleNacelle;
+            out airTiede;
+        }
+
+        action fourniAirInterface : FournirLAirInterfaceNacelle {
+            in airChaudReguleNacelle;
+            out airChaudNacelle;
+        }
+
+        action mesureTemp : MesurerTemperature {
+            in airChaudNacelle;
+            out mesureTemperatureAir;
+        }
+
+        action regulVanne : RegulerVanneNAI {
+            in commandeDegivrage;
+            in mesureTemperatureAir;
+            out consigneOuvertureVanne;
+        }
+
+        // Flows between sub-functions
+        flow preleveAir.airChaudHautePression to laissePasseAir.airChaudHautePression;
+        flow regulVanne.consigneOuvertureVanne to laissePasseAir.consigneOuvertureVanne;
+        flow laissePasseAir.airChaudNacelle to reguleTempNacelle.airChaudNacelle;
+        flow reguleTempNacelle.airChaudReguleNacelle to fourniAirInterface.airChaudReguleNacelle;
+        flow fourniAirInterface.airChaudNacelle to mesureTemp.airChaudNacelle;
+        flow mesureTemp.mesureTemperatureAir to regulVanne.mesureTemperatureAir;
+
+        // Bindings to system boundaries
+        bind preleveAir.airChaudHautePression = airChaudHautePression;
+        bind reguleTempNacelle.airAmbiant = airAmbiant;
+        bind regulVanne.commandeDegivrage = commandeDegivrage;
+        bind fourniAirInterface.airChaudNacelle = airChaudNacelle;
+        bind reguleTempNacelle.airTiede = airTiede;
+
+        // Execution order
+        first preleveAir then laissePasseAir then reguleTempNacelle then fourniAirInterface;
+        first regulVanne then laissePasseAir;
+        first mesureTemp then regulVanne;
+    }
+
+    // Top-level function: Envoyer de l'air régulé en (P,T) à l'avion
+    action def EnvoyerAirRegulePT {
+        doc /* Satisfait les use cases Pressuriser les réservoirs, Dégivrer les ailes, Pressuriser et tempérer la cabine */
+        in consignePT : ConsignePT;
+        in airChaudHautePression : AirChaudHautePression;
+        in airAmbiant : AirAmbiant;
+        out airRegulePT : AirRegulePT;
+        out airTiede : AirTiede;
+    }
+
+    // Top-level function: Déterminer l'état du système
+    action def DeterminerEtatSysteme {
+        doc /* Satisfait le use case Être informé de l'état du système */
+    }
+
+    // Top-level function: Communiquer
+    action def Communiquer {
+        doc /* Satisfait le use case Être informé de l'état du système */
+        out stateData : StateData;
+    }
+
+}
+
+--- functional_modes ---
+package 'BAS (Bleed Air System) - Functional Modes' {
+
+    // Signaux de transition
+    attribute def PowerOnSignal;
+    attribute def OperationalCommandSignal;
+    attribute def OperationalCommandStopSignal;
+
+    // Références aux fonctions
+    action def EnvoyerAirRegulePTAvion;
+    action def EnvoyerAirChaudNacelle;
+    action def DeterminerEtatSysteme;
+    action def Communiquer;
+    action def PreleverAir;
+    action def LaisserPasserAir;
+    action def RegulerTemperatureNacelle;
+    action def RegulerVanneNAI;
+    action def MesurerTemperature;
+    action def FournirAirInterfaceNacelle;
+
+    state def FunctionalModes {
+        entry; then ModeOff;
+
+        state ModeOff {
+            doc /* État initial du système. Aucune fonction active. */
+        }
+        transition PowerOn
+            first ModeOff
+            accept PowerOnSignal
+            then ModeOn;
+
+        state ModeOn {
+            entry; then StandBy;
+
+            state StandBy {
+                doc /* État initial dans On. */
+                perform action communiquer : Communiquer;
+                perform action determinerEtatSysteme : DeterminerEtatSysteme;
+            }
+            transition StartOperation
+                first StandBy
+                accept OperationalCommandSignal
+                then EnFonctionnement;
+
+            state EnFonctionnement {
+                doc /* Toutes les fonctions sont actives. */
+                perform action envoyerAirChaudNacelle : EnvoyerAirChaudNacelle;
+                perform action envoyerAirRegulePTAvion : EnvoyerAirRegulePTAvion;
+                perform action communiquer : Communiquer;
+                perform action determinerEtatSysteme : DeterminerEtatSysteme;
+                perform action prelerAir : PrelevAir;
+                perform action laisserPasserAir : LaisserPasserAir;
+                perform action regulerTemperatureNacelle : RegulerTemperatureNacelle;
+                perform action regulerVanneNAI : RegulerVanneNAI;
+                perform action mesurerTemperature : MesurerTemperature;
+                perform action fournirAirInterfaceNacelle : FournirAirInterfaceNacelle;
+            }
+            transition StopOperation
+                first EnFonctionnement
+                accept OperationalCommandStopSignal
+                then StandBy;
+        }
+        transition PowerOff
+            first ModeOn
+            accept PowerOnSignal
+            then ModeOff;
+    }
+}

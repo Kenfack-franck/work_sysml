@@ -76,17 +76,23 @@ async def startup_event():
 
     # 2. LLM
     logger.info("Initialisation du service LLM...")
-    api_keys = []
-    if settings.GEMINI_API_KEYS:
-        api_keys = [k.strip() for k in settings.GEMINI_API_KEYS.split(",")]
-    if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY not in api_keys:
-        api_keys.insert(0, settings.GEMINI_API_KEY)
-
-    llm = create_llm(
-        provider=settings.LLM_PROVIDER,
-        api_keys=api_keys,
-        model_name=settings.LLM_MODEL,
-    )
+    if settings.LLM_PROVIDER == "claude":
+        llm = create_llm(
+            provider="claude",
+            api_key=settings.ANTHROPIC_API_KEY,
+            model_name=settings.ANTHROPIC_MODEL,
+        )
+    else:
+        api_keys = []
+        if settings.GEMINI_API_KEYS:
+            api_keys = [k.strip() for k in settings.GEMINI_API_KEYS.split(",")]
+        if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY not in api_keys:
+            api_keys.insert(0, settings.GEMINI_API_KEY)
+        llm = create_llm(
+            provider=settings.LLM_PROVIDER,
+            api_keys=api_keys,
+            model_name=settings.LLM_MODEL,
+        )
     logger.info(f"LLM prêt : {llm.get_provider_name()} / {llm.get_model_name()}")
     if hasattr(llm, "get_status"):
         status = llm.get_status()

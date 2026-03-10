@@ -1,0 +1,462 @@
+{
+  "system_name": "BAS (Bleed Air System)",
+  "functions": [
+    {
+      "name": "Envoyer de l'air régulé en (P,T) à l'avion",
+      "description": "Satisfait les use cases 'Pressuriser les réservoirs', 'Dégivrer les ailes', 'Pressuriser et tempérer la cabine'.",
+      "inputs": [
+        {
+          "name": "consigne (P,T)",
+          "flow_type": "information"
+        },
+        {
+          "name": "air chaud haute pression",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air ambiant",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "air régulé (P,T)",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "sub_functions": null,
+      "allocated_to": null
+    },
+    {
+      "name": "Envoyer de l'air chaud à la nacelle",
+      "description": "Satisfait le use case 'Dégivrer la nacelle'.",
+      "inputs": [
+        {
+          "name": "commande dégivrage nacelle",
+          "flow_type": "information"
+        },
+        {
+          "name": "air chaud haute pression",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air ambiant",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "air chaud nacelle",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "sub_functions": [
+        {
+          "name": "Prélever l'air",
+          "description": "Le port de pression intermédiaire prélève l'air chaud haute pression sur le compresseur du moteur.",
+          "inputs": [
+            {
+              "name": "air chaud haute pression",
+              "flow_type": "pneumatic"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "air chaud haute pression",
+              "flow_type": "pneumatic"
+            }
+          ],
+          "sub_functions": null,
+          "allocated_to": "IP port"
+        },
+        {
+          "name": "Laisser passer l'air",
+          "description": "La vanne NAI contrôle le passage de l'air chaud vers la nacelle en fonction de la consigne d'ouverture.",
+          "inputs": [
+            {
+              "name": "air chaud haute pression",
+              "flow_type": "pneumatic"
+            },
+            {
+              "name": "consigne d'ouverture vanne",
+              "flow_type": "electric"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "air chaud nacelle",
+              "flow_type": "pneumatic"
+            }
+          ],
+          "sub_functions": null,
+          "allocated_to": "Vanne NAI"
+        },
+        {
+          "name": "Réguler la température nacelle",
+          "description": "L'échangeur ACAC mélange l'air chaud nacelle avec l'air ambiant pour réguler la température de sortie.",
+          "inputs": [
+            {
+              "name": "air chaud nacelle",
+              "flow_type": "pneumatic"
+            },
+            {
+              "name": "air ambiant",
+              "flow_type": "pneumatic"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "air chaud régulé nacelle",
+              "flow_type": "pneumatic"
+            },
+            {
+              "name": "air tiède",
+              "flow_type": "pneumatic"
+            }
+          ],
+          "sub_functions": null,
+          "allocated_to": "ACAC"
+        },
+        {
+          "name": "Réguler la vanne NAI",
+          "description": "Le calculateur de régulation reçoit la commande de dégivrage et la mesure de température, et calcule la consigne d'ouverture de la vanne NAI.",
+          "inputs": [
+            {
+              "name": "commande dégivrage nacelle",
+              "flow_type": "information"
+            },
+            {
+              "name": "mesure température air",
+              "flow_type": "electric"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "consigne d'ouverture vanne",
+              "flow_type": "electric"
+            }
+          ],
+          "sub_functions": null,
+          "allocated_to": "Calculateur"
+        },
+        {
+          "name": "Mesurer la température",
+          "description": "Le capteur de température mesure la température de l'air chaud nacelle et transmet la mesure au calculateur.",
+          "inputs": [
+            {
+              "name": "air chaud nacelle",
+              "flow_type": "pneumatic"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "mesure température air",
+              "flow_type": "electric"
+            }
+          ],
+          "sub_functions": null,
+          "allocated_to": "Air Temperature Sensor"
+        },
+        {
+          "name": "Fournir l'air à l'interface Nacelle",
+          "description": "Le port nacelle fournit l'air chaud régulé à l'interface de la nacelle.",
+          "inputs": [
+            {
+              "name": "air chaud régulé nacelle",
+              "flow_type": "pneumatic"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "air chaud nacelle",
+              "flow_type": "pneumatic"
+            }
+          ],
+          "sub_functions": null,
+          "allocated_to": "Nacelle port"
+        }
+      ],
+      "allocated_to": null
+    },
+    {
+      "name": "Déterminer l'état du système",
+      "description": "Satisfait le use case 'Être informé de l'état du système'.",
+      "inputs": [],
+      "outputs": [],
+      "sub_functions": null,
+      "allocated_to": null
+    },
+    {
+      "name": "Communiquer",
+      "description": "Satisfait le use case 'Être informé de l'état du système'.",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "state data",
+          "flow_type": "data"
+        }
+      ],
+      "sub_functions": null,
+      "allocated_to": null
+    }
+  ],
+  "functional_flows": [
+    {
+      "from_function": "Prélever l'air",
+      "to_function": "Laisser passer l'air",
+      "item": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "description": null
+    },
+    {
+      "from_function": "Réguler la vanne NAI",
+      "to_function": "Laisser passer l'air",
+      "item": "consigne d'ouverture vanne",
+      "flow_type": "electric",
+      "description": null
+    },
+    {
+      "from_function": "Laisser passer l'air",
+      "to_function": "Réguler la température nacelle",
+      "item": "air chaud nacelle",
+      "flow_type": "pneumatic",
+      "description": null
+    },
+    {
+      "from_function": "Réguler la température nacelle",
+      "to_function": "Fournir l'air à l'interface Nacelle",
+      "item": "air chaud régulé nacelle",
+      "flow_type": "pneumatic",
+      "description": null
+    },
+    {
+      "from_function": "Réguler la température nacelle",
+      "to_function": "Environnement",
+      "item": "air tiède",
+      "flow_type": "pneumatic",
+      "description": null
+    },
+    {
+      "from_function": "Mesurer la température",
+      "to_function": "Réguler la vanne NAI",
+      "item": "mesure température air",
+      "flow_type": "electric",
+      "description": null
+    },
+    {
+      "from_function": "Fournir l'air à l'interface Nacelle",
+      "to_function": "Mesurer la température",
+      "item": "air chaud nacelle",
+      "flow_type": "pneumatic",
+      "description": null
+    },
+    {
+      "from_function": "A/C avionics",
+      "to_function": "Réguler la vanne NAI",
+      "item": "commande dégivrage nacelle",
+      "flow_type": "information",
+      "description": null
+    },
+    {
+      "from_function": "Turbomachine",
+      "to_function": "Prélever l'air",
+      "item": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "description": null
+    },
+    {
+      "from_function": "Fournir l'air à l'interface Nacelle",
+      "to_function": "Nacelle",
+      "item": "air chaud nacelle",
+      "flow_type": "pneumatic",
+      "description": null
+    }
+  ],
+  "functional_chains": [
+    {
+      "name": "Envoyer de l'air chaud à la nacelle",
+      "description": null,
+      "functions": [
+        "Prélever l'air",
+        "Laisser passer l'air",
+        "Réguler la température nacelle",
+        "Fournir l'air à l'interface Nacelle",
+        "Mesurer la température",
+        "Réguler la vanne NAI"
+      ],
+      "system_inputs": [
+        {
+          "name": "commande dégivrage nacelle",
+          "flow_type": "information"
+        },
+        {
+          "name": "air chaud haute pression",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air ambiant",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "system_outputs": [
+        {
+          "name": "air chaud nacelle",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "Envoyer de l'air régulé à l'avion",
+      "description": "La décomposition interne de cette chaîne n'est pas détaillée dans le document.",
+      "functions": [
+        "Envoyer de l'air régulé en (P,T) à l'avion"
+      ],
+      "system_inputs": [
+        {
+          "name": "consigne (P,T)",
+          "flow_type": "information"
+        },
+        {
+          "name": "air chaud haute pression",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air ambiant",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "system_outputs": [
+        {
+          "name": "air régulé (P,T)",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "Communiquer",
+      "description": "Cette chaîne est liée à la fonction 'Déterminer l'état du système' mais sa décomposition n'est pas détaillée dans le document.",
+      "functions": [
+        "Communiquer"
+      ],
+      "system_inputs": [],
+      "system_outputs": [
+        {
+          "name": "state data",
+          "flow_type": "data"
+        }
+      ]
+    }
+  ],
+  "modes": [
+    {
+      "name": "Mode Off",
+      "description": "État initial du système. Aucune fonction active.",
+      "active_functions": [],
+      "transitions": [
+        {
+          "from_mode": "Mode Off",
+          "to_mode": "Mode On",
+          "trigger": "quand le système reçoit de l'énergie"
+        }
+      ]
+    },
+    {
+      "name": "Mode On > Stand by",
+      "description": "État initial dans On.",
+      "active_functions": [
+        "Communiquer",
+        "Déterminer l'état du système"
+      ],
+      "transitions": [
+        {
+          "from_mode": "Mode On > Stand by",
+          "to_mode": "Mode On > En fonctionnement",
+          "trigger": "quand une commande opérationnelle est reçue"
+        }
+      ]
+    },
+    {
+      "name": "Mode On > En fonctionnement",
+      "description": null,
+      "active_functions": [
+        "Envoyer de l'air chaud à la nacelle",
+        "Envoyer de l'air régulé en (P,T) à l'avion",
+        "Communiquer",
+        "Déterminer l'état du système",
+        "Prélever l'air",
+        "Laisser passer l'air",
+        "Réguler la température nacelle",
+        "Réguler la vanne NAI",
+        "Mesurer la température",
+        "Fournir l'air à l'interface Nacelle"
+      ],
+      "transitions": [
+        {
+          "from_mode": "Mode On > En fonctionnement",
+          "to_mode": "Mode On > Stand by",
+          "trigger": "quand la commande opérationnelle cesse"
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "type": "missing_info",
+      "message": "La fonction 'Déterminer l'état du système' n'a pas d'entrées ni de sorties explicitement définies.",
+      "section": "functions",
+      "suggestion": "Préciser les entrées et sorties de cette fonction ou clarifier son rôle dans le système."
+    },
+    {
+      "type": "missing_info",
+      "message": "La fonction 'Communiquer' n'a pas d'entrées explicitement définies, seulement des sorties.",
+      "section": "functions",
+      "suggestion": "Préciser les entrées de cette fonction (par exemple, l'état du système à communiquer)."
+    },
+    {
+      "type": "missing_info",
+      "message": "La décomposition interne de la fonction 'Envoyer de l'air régulé en (P,T) à l'avion' n'est pas détaillée dans le document.",
+      "section": "functions",
+      "suggestion": "Fournir la décomposition en sous-fonctions et l'allocation aux constituants logiques."
+    },
+    {
+      "type": "missing_info",
+      "message": "La décomposition interne de la fonction 'Déterminer l'état du système' n'est pas détaillée dans le document.",
+      "section": "functions",
+      "suggestion": "Fournir la décomposition en sous-fonctions si applicable."
+    },
+    {
+      "type": "missing_info",
+      "message": "La décomposition interne de la fonction 'Communiquer' n'est pas détaillée dans le document.",
+      "section": "functions",
+      "suggestion": "Fournir la décomposition en sous-fonctions si applicable."
+    },
+    {
+      "type": "inconsistency",
+      "message": "La fonction 'Déterminer l'état du système' est listée comme active dans les modes Stand by et En fonctionnement, mais elle n'a pas d'entrées ni de sorties définies, ce qui rend son rôle ambigu.",
+      "section": "modes",
+      "suggestion": "Clarifier le rôle de cette fonction et ses interactions avec les autres fonctions."
+    },
+    {
+      "type": "ambiguity",
+      "message": "Les modes sont décrits avec une hiérarchie (Mode On contient Stand by et En fonctionnement), mais le JSON les représente comme une liste plate avec des noms composés (Mode On > Stand by). Cette représentation peut être ambiguë.",
+      "section": "modes",
+      "suggestion": "Clarifier si une structure hiérarchique est nécessaire ou si la notation avec '>' est suffisante."
+    }
+  ]
+}

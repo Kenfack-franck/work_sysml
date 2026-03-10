@@ -24,10 +24,12 @@ class Settings(BaseSettings):
     )
 
     # === LLM ===
-    LLM_PROVIDER: str = "gemini"  # Options: "gemini", "openai", "ollama"
+    LLM_PROVIDER: str = "gemini"  # Options: "gemini", "claude"
     GEMINI_API_KEY: str = ""  # Rétrocompatibilité : clé unique
     GEMINI_API_KEYS: str = ""  # Multi-clés séparées par virgules pour rotation automatique
     LLM_MODEL: str = "gemini-2.5-flash"  # Modèle par défaut, configurable
+    ANTHROPIC_API_KEY: str = ""  # Clé API Anthropic (requis si provider=claude)
+    ANTHROPIC_MODEL: str = "claude-haiku-4-5-20251001"  # Modèle Claude par défaut
     LLM_TEMPERATURE: float = 0.05
     LLM_MAX_TOKENS: int = 8192
 

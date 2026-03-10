@@ -1,0 +1,459 @@
+{
+  "system_name": "BAS (Bleed Air System)",
+  "description": "Sa mission est de prélever l'air chaud haute pression sur le compresseur du moteur (turbomachine) et de le distribuer aux systèmes avion qui en ont besoin : le dégivrage de la nacelle, la pressurisation et la climatisation de la cabine, le dégivrage des ailes, et la pressurisation des réservoirs carburant.",
+  "system_boundaries": "Le périmètre du BAS inclut : les vannes de régulation (vanne NAI, vanne PCE), les échangeurs thermiques (ACAC), les capteurs (température, pression), le calculateur de régulation, et les ports d'interface (IP port côté moteur, Nacelle port, A/C pneumatic port). Sont hors périmètre (systèmes externes) : la turbomachine (moteur), l'avionique de bord (A/C avionics), le système pneumatique avion (A/C Pneumatic System), la nacelle, et l'environnement (source d'air ambiant et air tiède).",
+  "lifecycle_phases": [
+    {
+      "name": "Concept evaluation",
+      "sub_phases": [],
+      "description": "évaluation initiale du concept système."
+    },
+    {
+      "name": "Développement",
+      "sub_phases": [],
+      "description": "conception et développement du système. Transition vers Production après la revue CR/QR (S8)."
+    },
+    {
+      "name": "Production",
+      "sub_phases": [
+        "Fabrication",
+        "Montage",
+        "Intégration et essais",
+        "Stockage interne"
+      ],
+      "description": "se décompose en 4 sous-phases : Fabrication, Montage, Intégration et essais (couvre l'intégration avec le moteur), Stockage interne."
+    },
+    {
+      "name": "Livraison",
+      "sub_phases": [
+        "Stockage intermédiaire",
+        "Transport"
+      ],
+      "description": "se décompose en 2 sous-phases : Stockage intermédiaire, Transport. Transition vers Montage final après livraison du moteur et du BAS."
+    },
+    {
+      "name": "Montage final",
+      "sub_phases": [],
+      "description": "intégration sur l'avion."
+    },
+    {
+      "name": "Exploitation",
+      "sub_phases": [
+        "Opération",
+        "Maintenance LRU"
+      ],
+      "description": "se décompose en 2 sous-phases : Opération (fonctionnement normal en vol et au sol) et Maintenance LRU (remplacement des unités remplaçables en ligne). Transition vers Recyclage en fin de vie. Transition vers Maintenance quand l'avion n'est pas en service (A/C not in maintenance facility)."
+    },
+    {
+      "name": "Maintenance",
+      "sub_phases": [],
+      "description": "maintenance lourde hors exploitation. Retour vers Exploitation après maintenance."
+    },
+    {
+      "name": "Recyclage",
+      "sub_phases": [],
+      "description": "fin de vie du système."
+    }
+  ],
+  "stakeholders": [
+    {
+      "name": "A/C Pneumatic System",
+      "role": "système technique avion qui reçoit l'air régulé en pression et température (P,T) du BAS.",
+      "type": "system"
+    },
+    {
+      "name": "Nacelle",
+      "role": "système technique qui reçoit l'air chaud du BAS pour le dégivrage.",
+      "type": "system"
+    },
+    {
+      "name": "Turbomachine",
+      "role": "le moteur Silvercrest qui fournit l'air chaud haute pression au BAS.",
+      "type": "system"
+    },
+    {
+      "name": "EECS (Electronic Engine Control System)",
+      "role": "système de contrôle électronique du moteur qui envoie les consignes de régulation (P,T) et la commande de dégivrage nacelle au BAS, et reçoit les données d'état (state data) et l'énergie.",
+      "type": "system"
+    },
+    {
+      "name": "Operation maintenance operator",
+      "role": "personne humaine qui réalise la maintenance opérationnelle.",
+      "type": "human"
+    },
+    {
+      "name": "A/C avionics",
+      "role": "Système de contrôle avionique qui envoie des commandes et de l'énergie au BAS, et reçoit des données d'état.",
+      "type": "system"
+    },
+    {
+      "name": "Pilot",
+      "role": "Personne humaine qui envoie des commandes de dégivrage.",
+      "type": "human"
+    }
+  ],
+  "external_interfaces": [
+    {
+      "system_name": "A/C avionics (avionique de bord)",
+      "flows": [
+        {
+          "name": "state data",
+          "direction": "inout",
+          "flow_type": "information",
+          "description": "le BAS envoie ses données d'état, l'avionique peut interroger"
+        },
+        {
+          "name": "énergie",
+          "direction": "in",
+          "flow_type": "electric",
+          "description": "alimentation électrique"
+        },
+        {
+          "name": "consigne (P,T)",
+          "direction": "in",
+          "flow_type": "information",
+          "description": "consignes de pression et température"
+        },
+        {
+          "name": "commande dégivrage nacelle",
+          "direction": "in",
+          "flow_type": "information",
+          "description": null
+        }
+      ]
+    },
+    {
+      "system_name": "Turbomachine (moteur Silvercrest)",
+      "flows": [
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic",
+          "description": "air prélevé sur le compresseur, Pmin, Tmax"
+        }
+      ]
+    },
+    {
+      "system_name": "Environnement",
+      "flows": [
+        {
+          "name": "air tiède",
+          "direction": "out",
+          "flow_type": "pneumatic",
+          "description": "air rejeté après échange thermique"
+        },
+        {
+          "name": "air ambiant",
+          "direction": "in",
+          "flow_type": "pneumatic",
+          "description": "source froide pour l'échangeur ACAC"
+        }
+      ]
+    },
+    {
+      "system_name": "A/C Pneumatic System (système pneumatique avion)",
+      "flows": [
+        {
+          "name": "air régulé (P,T)",
+          "direction": "out",
+          "flow_type": "pneumatic",
+          "description": "air régulé en pression et température vers l'avion"
+        }
+      ]
+    },
+    {
+      "system_name": "Nacelle",
+      "flows": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic",
+          "description": "air chaud pour le dégivrage de la nacelle"
+        }
+      ]
+    }
+  ],
+  "use_cases": [
+    {
+      "name": "Pressuriser les réservoirs",
+      "actors": [
+        "A/C Pneumatic System",
+        "Turbomachine",
+        "EECS"
+      ],
+      "includes": [],
+      "description": "Le BAS fournit de l'air régulé pour pressuriser les réservoirs carburant."
+    },
+    {
+      "name": "Dégivrer les ailes",
+      "actors": [
+        "A/C Pneumatic System",
+        "Turbomachine",
+        "EECS"
+      ],
+      "includes": [],
+      "description": "Le BAS fournit de l'air chaud pour le dégivrage des ailes via le système pneumatique avion."
+    },
+    {
+      "name": "Pressuriser et tempérer la cabine",
+      "actors": [
+        "A/C Pneumatic System",
+        "Turbomachine",
+        "EECS"
+      ],
+      "includes": [],
+      "description": "Le BAS fournit de l'air régulé en pression et température pour la climatisation cabine."
+    },
+    {
+      "name": "Dégivrer la nacelle",
+      "actors": [
+        "Nacelle",
+        "Turbomachine",
+        "EECS",
+        "A/C Pneumatic System"
+      ],
+      "includes": [
+        "Envoyer de l'air chaud à la nacelle"
+      ],
+      "description": "Le BAS envoie de l'air chaud directement à la nacelle pour le dégivrage."
+    },
+    {
+      "name": "Être informé de l'état du système",
+      "actors": [
+        "EECS",
+        "Operation maintenance operator"
+      ],
+      "includes": [
+        "Communiquer"
+      ],
+      "description": "Le BAS communique son état de fonctionnement."
+    },
+    {
+      "name": "Diagnostiquer l'état",
+      "actors": [
+        "Operation maintenance operator"
+      ],
+      "includes": [],
+      "description": "Inclus dans \"Maintenir en conditions opérationnelles\"."
+    },
+    {
+      "name": "Réparer sous l'aile",
+      "actors": [
+        "Operation maintenance operator"
+      ],
+      "includes": [],
+      "description": "Réparation sur site sans dépose du système."
+    },
+    {
+      "name": "Maintenir en conditions opérationnelles",
+      "actors": [
+        "Operation maintenance operator",
+        "Maintenance facility"
+      ],
+      "includes": [
+        "Diagnostiquer l'état",
+        "Réparer en atelier"
+      ],
+      "description": null
+    }
+  ],
+  "operational_scenarios": [
+    {
+      "name": "Nominal alimentation air régulé",
+      "description": null,
+      "steps": [
+        {
+          "order": 1,
+          "source": "A/C avionics",
+          "target": "BAS",
+          "action": "envoie \"commande de démarrage pilote\"",
+          "flow_type": "information"
+        },
+        {
+          "order": 2,
+          "source": "A/C avionics",
+          "target": "BAS",
+          "action": "envoie \"énergie\". Le BAS passe de l'état Éteint à En fonctionnement.",
+          "flow_type": "electric"
+        },
+        {
+          "order": 3,
+          "source": "A/C avionics",
+          "target": "Turbomachine",
+          "action": "envoie \"énergie\". La Turbomachine passe de l'état Éteint à En fonctionnement.",
+          "flow_type": "electric"
+        },
+        {
+          "order": 4,
+          "source": "A/C avionics",
+          "target": "BAS",
+          "action": "envoie \"commande (P,T)\"",
+          "flow_type": "information"
+        },
+        {
+          "order": 5,
+          "source": "Turbomachine",
+          "target": "BAS",
+          "action": "fournit \"air chaud haute pression = Pmin, Tmax\"",
+          "flow_type": "pneumatic"
+        },
+        {
+          "order": 6,
+          "source": "Source Froide (Environnement)",
+          "target": "BAS",
+          "action": "fournit \"air ambiant source froide\"",
+          "flow_type": "pneumatic"
+        },
+        {
+          "order": 7,
+          "source": "BAS",
+          "target": "BAS",
+          "action": "exécute \"Envoyer de l'air régulé à la cabine\"",
+          "flow_type": null
+        },
+        {
+          "order": 8,
+          "source": "BAS",
+          "target": "A/C Pneumatic System",
+          "action": "envoie \"air régulé (P,T)\"",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "Nominal dégivrage nacelle",
+      "description": "Le BAS est en état Off. La Turbomachine est en état Running. La Nacelle est en état \"Potentially iced\". La Nacelle passe en état \"De-iced\".",
+      "steps": [
+        {
+          "order": 1,
+          "source": "A/C avionics",
+          "target": "BAS",
+          "action": "envoie \"énergie\" (boucle quand BAS command active). Le BAS passe en Stand by.",
+          "flow_type": "electric"
+        },
+        {
+          "order": 2,
+          "source": "Pilot",
+          "target": "A/C avionics",
+          "action": "envoie \"command de-icing\"",
+          "flow_type": "information"
+        },
+        {
+          "order": 3,
+          "source": "A/C avionics",
+          "target": "BAS",
+          "action": "envoie \"Nacelle de-icing demand\"",
+          "flow_type": "information"
+        },
+        {
+          "order": 4,
+          "source": "Turbomachine",
+          "target": "BAS",
+          "action": "fournit \"hot air\"",
+          "flow_type": "pneumatic"
+        },
+        {
+          "order": 5,
+          "source": "BAS",
+          "target": "Nacelle",
+          "action": "envoie \"air chaud nacelle\" (pendant 3 min). Le BAS exécute \"Envoyer de l'air chaud à la nacelle\".",
+          "flow_type": "pneumatic"
+        },
+        {
+          "order": 6,
+          "source": "BAS",
+          "target": "A/C avionics",
+          "action": "envoie \"state data\"",
+          "flow_type": "data"
+        }
+      ]
+    }
+  ],
+  "operating_modes": [
+    {
+      "name": "Mode Off",
+      "description": "État initial du système. Aucune fonction active.",
+      "active_functions": [],
+      "transitions": [
+        {
+          "from_mode": "Mode Off",
+          "to_mode": "Mode On",
+          "trigger": "quand le système reçoit de l'énergie"
+        }
+      ]
+    },
+    {
+      "name": "Mode On",
+      "description": "État composite. Contient deux sous-modes : Stand by et En fonctionnement.",
+      "active_functions": [],
+      "transitions": [
+        {
+          "from_mode": "Mode On",
+          "to_mode": "Mode Off",
+          "trigger": "quand le système est mis hors tension"
+        }
+      ]
+    },
+    {
+      "name": "Sous-mode Stand by",
+      "description": "État initial dans On.",
+      "active_functions": [
+        "Communicate the system state"
+      ],
+      "transitions": [
+        {
+          "from_mode": "Sous-mode Stand by",
+          "to_mode": "Sous-mode En fonctionnement",
+          "trigger": "quand une commande opérationnelle est reçue"
+        }
+      ]
+    },
+    {
+      "name": "Sous-mode En fonctionnement",
+      "description": null,
+      "active_functions": [
+        "Envoyer de l'air chaud à la nacelle",
+        "Envoyer de l'air régulé à la cabine"
+      ],
+      "transitions": [
+        {
+          "from_mode": "Sous-mode En fonctionnement",
+          "to_mode": "Sous-mode Stand by",
+          "trigger": "quand la commande opérationnelle cesse"
+        },
+        {
+          "from_mode": "Sous-mode En fonctionnement",
+          "to_mode": "état final",
+          "trigger": "possible"
+        }
+      ]
+    }
+  ],
+  "requirements": [],
+  "warnings": [
+    {
+      "type": "inconsistency",
+      "message": "The actor 'Maintenance facility' is mentioned in the use case 'Maintenir en conditions opérationnelles' but is not defined in the 'stakeholders' section.",
+      "section": "use_cases",
+      "suggestion": "Define 'Maintenance facility' in the 'stakeholders' section with its role and type, or remove it from the use case actors if it's not an active participant."
+    },
+    {
+      "type": "inconsistency",
+      "message": "The use case 'Maintenir en conditions opérationnelles' includes 'Réparer en atelier', but 'Réparer en atelier' is not defined as a standalone use case or further described. 'Réparer sous l'aile' is defined instead.",
+      "section": "use_cases",
+      "suggestion": "Clarify if 'Réparer en atelier' is a distinct use case, a sub-activity of 'Réparer sous l'aile', or if there's a typo. If it's a distinct use case, define it explicitly."
+    },
+    {
+      "type": "missing_info",
+      "message": "No explicit operational requirements (e.g., REQ-OP-XXX) were found in the user's response.",
+      "section": "requirements",
+      "suggestion": "Provide a dedicated section for operational requirements, following the specified format (ID, text, satisfied_by)."
+    },
+    {
+      "type": "ambiguity",
+      "message": "The operating modes are described with a hierarchical structure (Mode On contains Stand by and En fonctionnement), but the JSON schema represents modes as a flat list. The hierarchy is not fully captured.",
+      "section": "operating_modes",
+      "suggestion": "Consider if the flat representation is sufficient or if a more complex schema supporting mode hierarchy is needed for future analysis."
+    }
+  ]
+}

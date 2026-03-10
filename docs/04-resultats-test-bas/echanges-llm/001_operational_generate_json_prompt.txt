@@ -1,0 +1,427 @@
+Tu es un ingénieur système expert en analyse opérationnelle et en SysML v2. Tu analyses les réponses structurées d'un utilisateur pour extraire le modèle opérationnel de son système.
+
+=== EXIGENCES DE FIDÉLITÉ (CRITIQUES) ===
+
+F1 — ZÉRO INVENTION : Tu ne génères que ce qui est EXPLICITEMENT décrit dans les réponses de l'utilisateur. Si une section est vide ou absente, tu laisses le champ correspondant comme liste vide []. Tu n'inventes JAMAIS d'éléments supplémentaires.
+
+F2 — SIGNALEMENT DES INCOHÉRENCES : Si tu détectes une incohérence (un acteur mentionné dans un use case mais absent de la section stakeholders, un flux référencé sans source, etc.), tu ne la corriges PAS. Tu ajoutes un warning de type "inconsistency" dans le champ "warnings" avec une description précise du problème.
+
+F3 — SIGNALEMENT DES MANQUES : Si une information normalement attendue au niveau opérationnel est absente (par exemple : aucun scénario décrit, aucun mode de fonctionnement, aucune exigence), tu ajoutes un warning de type "missing_info" sans inventer la donnée manquante.
+
+F4 — VOCABULAIRE EXACT : Tu utilises EXACTEMENT les noms, termes et formulations de l'utilisateur. Tu ne renommes pas les éléments, tu ne traduis pas, tu ne reformules pas les noms propres.
+
+F5 — TRAÇABILITÉ : Chaque élément du JSON doit provenir d'une section identifiable des réponses utilisateur.
+
+=== RÉPONSES DE L'UTILISATEUR ===
+
+[SECTION: system_mission]
+Le système BAS (Bleed Air System) est le système de prélèvement d'air du moteur Silvercrest. Sa mission est de prélever l'air chaud haute pression sur le compresseur du moteur (turbomachine) et de le distribuer aux systèmes avion qui en ont besoin : le dégivrage de la nacelle, la pressurisation et la climatisation de la cabine, le dégivrage des ailes, et la pressurisation des réservoirs carburant.
+
+Le périmètre du BAS inclut : les vannes de régulation (vanne NAI, vanne PCE), les échangeurs thermiques (ACAC), les capteurs (température, pression), le calculateur de régulation, et les ports d'interface (IP port côté moteur, Nacelle port, A/C pneumatic port).
+
+Sont hors périmètre (systèmes externes) : la turbomachine (moteur), l'avionique de bord (A/C avionics), le système pneumatique avion (A/C Pneumatic System), la nacelle, et l'environnement (source d'air ambiant et air tiède).
+
+[SECTION: lifecycle]
+Le BAS passe par les phases de vie suivantes :
+
+1. Concept évaluation : évaluation initiale du concept système.
+2. Développement : conception et développement du système. Transition vers Production après la revue CR/QR (S8).
+3. Production : se décompose en 4 sous-phases : Fabrication, Montage, Intégration et essais (couvre l'intégration avec le moteur), Stockage interne.
+4. Livraison : se décompose en 2 sous-phases : Stockage intermédiaire, Transport. Transition vers Montage final après livraison du moteur et du BAS.
+5. Montage final : intégration sur l'avion.
+6. Exploitation : se décompose en 2 sous-phases : Opération (fonctionnement normal en vol et au sol) et Maintenance LRU (remplacement des unités remplaçables en ligne). Transition vers Recyclage en fin de vie. Transition vers Maintenance quand l'avion n'est pas en service (A/C not in maintenance facility).
+7. Maintenance : maintenance lourde hors exploitation. Retour vers Exploitation après maintenance.
+8. Recyclage : fin de vie du système.
+
+[SECTION: stakeholders]
+Les acteurs qui interagissent avec le BAS sont :
+
+1. A/C Pneumatic System : système technique avion qui reçoit l'air régulé en pression et température (P,T) du BAS. Il est acteur des cas d'utilisation "Pressuriser les réservoirs", "Dégivrer les ailes", et "Pressuriser et tempérer la cabine".
+
+2. Nacelle : système technique qui reçoit l'air chaud du BAS pour le dégivrage. Acteur du cas d'utilisation "Dégivrer la nacelle".
+
+3. Turbomachine : le moteur Silvercrest qui fournit l'air chaud haute pression au BAS. Acteur des cas d'utilisation "Pressuriser les réservoirs", "Dégivrer les ailes", "Pressuriser et tempérer la cabine", et "Dégivrer la nacelle".
+
+4. EECS (Electronic Engine Control System) : système de contrôle électronique du moteur qui envoie les consignes de régulation (P,T) et la commande de dégivrage nacelle au BAS, et reçoit les données d'état (state data) et l'énergie. Acteur des cas d'utilisation "Pressuriser les réservoirs", "Dégivrer les ailes", "Pressuriser et tempérer la cabine", "Dégivrer la nacelle", et "Être informé de l'état du système".
+
+5. Operation maintenance operator : personne humaine qui réalise la maintenance opérationnelle. Acteur des cas d'utilisation "Être informé de l'état du système", "Diagnostiquer l'état", et "Réparer sous l'aile".
+
+[SECTION: external_systems]
+Les systèmes externes et leurs interfaces avec le BAS sont :
+
+1. A/C avionics (avionique de bord) :
+   - state data : flux information, bidirectionnel (le BAS envoie ses données d'état, l'avionique peut interroger)
+   - énergie : flux électrique, entrée vers le BAS (alimentation électrique)
+   - consigne (P,T) : flux information, entrée vers le BAS (consignes de pression et température)
+   - commande dégivrage nacelle : flux information, entrée vers le BAS
+
+2. Turbomachine (moteur Silvercrest) :
+   - air chaud haute pression : flux pneumatique, entrée vers le BAS (air prélevé sur le compresseur, Pmin, Tmax)
+
+3. Environnement :
+   - air tiède : flux pneumatique, sortie du BAS (air rejeté après échange thermique)
+   - air ambiant : flux pneumatique, entrée vers le BAS (source froide pour l'échangeur ACAC)
+
+4. A/C Pneumatic System (système pneumatique avion) :
+   - air régulé (P,T) : flux pneumatique, sortie du BAS (air régulé en pression et température vers l'avion)
+
+5. Nacelle :
+   - air chaud nacelle : flux pneumatique, sortie du BAS (air chaud pour le dégivrage de la nacelle)
+
+[SECTION: use_cases]
+Les cas d'utilisation du BAS sont :
+
+En phase d'exploitation (opération) :
+
+1. Pressuriser les réservoirs : acteurs = A/C Pneumatic System, Turbomachine, EECS. Le BAS fournit de l'air régulé pour pressuriser les réservoirs carburant.
+
+2. Dégivrer les ailes : acteurs = A/C Pneumatic System, Turbomachine, EECS. Le BAS fournit de l'air chaud pour le dégivrage des ailes via le système pneumatique avion.
+
+3. Pressuriser et tempérer la cabine : acteurs = A/C Pneumatic System, Turbomachine, EECS. Le BAS fournit de l'air régulé en pression et température pour la climatisation cabine.
+
+4. Dégivrer la nacelle : acteurs = Nacelle, Turbomachine, EECS, A/C Pneumatic System. Le BAS envoie de l'air chaud directement à la nacelle pour le dégivrage. Ce use case inclut la fonction de service "Envoyer de l'air chaud à la nacelle".
+
+5. Être informé de l'état du système : acteurs = EECS, Operation maintenance operator. Le BAS communique son état de fonctionnement. Ce use case inclut la fonction de service "Communiquer".
+
+En phase de maintenance :
+
+6. Diagnostiquer l'état : acteurs = Operation maintenance operator. Inclus dans "Maintenir en conditions opérationnelles".
+
+7. Réparer sous l'aile : acteurs = Operation maintenance operator. Réparation sur site sans dépose du système.
+
+Le use case "Maintenir en conditions opérationnelles" (acteurs = Operation maintenance operator, Maintenance facility) inclut "Diagnostiquer l'état" et "Réparer en atelier".
+
+[SECTION: operational_scenarios]
+Scénario 1 — Nominal alimentation air régulé :
+Participants : A/C Pneumatic System, A/C avionics, BAS, Turbomachine, Source Froide (Environnement).
+1. A/C avionics envoie "commande de démarrage pilote" au BAS.
+2. A/C avionics envoie "énergie" au BAS. Le BAS passe de l'état Éteint à En fonctionnement.
+3. La Turbomachine passe de l'état Éteint à En fonctionnement. A/C avionics envoie "énergie" à la Turbomachine.
+4. A/C avionics envoie "commande (P,T)" au BAS.
+5. La Turbomachine fournit "air chaud haute pression = Pmin, Tmax" au BAS.
+6. La Source Froide (Environnement) fournit "air ambiant source froide" au BAS.
+7. Le BAS exécute "Envoyer de l'air régulé à la cabine".
+8. Le BAS envoie "air régulé (P,T)" à l'A/C Pneumatic System.
+
+Scénario 2 — Nominal dégivrage nacelle :
+Participants : Pilot, A/C avionics, BAS, Nacelle, Turbomachine.
+1. Le BAS est en état Off. La Turbomachine est en état Running.
+2. A/C avionics envoie "énergie" au BAS (boucle quand BAS command active). Le BAS passe en Stand by.
+3. Le Pilot envoie "command de-icing" à l'A/C avionics.
+4. L'A/C avionics envoie "Nacelle de-icing demand" au BAS. La Nacelle est en état "Potentially iced".
+5. La Turbomachine fournit "hot air" au BAS.
+6. Le BAS envoie "air chaud nacelle" à la Nacelle (pendant 3 min). Le BAS exécute "Envoyer de l'air chaud à la nacelle".
+7. La Nacelle passe en état "De-iced".
+8. Le BAS envoie "state data" à l'A/C avionics.
+
+[SECTION: operating_modes]
+Le BAS a une structure de modes hiérarchique :
+
+Niveau 1 — Mode Off :
+- État initial du système.
+- Aucune fonction active.
+- Transition vers On quand le système reçoit de l'énergie.
+
+Niveau 1 — Mode On (état composite) :
+- Transition vers Off quand le système est mis hors tension.
+- Contient deux sous-modes :
+
+  Sous-mode Stand by :
+  - État initial dans On.
+  - Fonction active : Communicate the system state (communiquer l'état du système).
+  - Transition vers En fonctionnement quand une commande opérationnelle est reçue.
+
+  Sous-mode En fonctionnement :
+  - Fonctions actives : Envoyer de l'air chaud à la nacelle, Envoyer de l'air régulé à la cabine.
+  - Transition vers Stand by quand la commande opérationnelle cesse.
+  - Transition vers état final (arrêt) possible.
+
+=== RÈGLES MÉTIER ===
+
+R1 — DISTINCTION STAKEHOLDER / SYSTÈME EXTERNE : Un stakeholder est soit une PERSONNE/ORGANISATION, soit un SYSTÈME TECHNIQUE ACTIF qui est ACTEUR dans un cas d'utilisation (il initie des interactions, envoie des commandes, ou reçoit activement des services). Une entité physique passive (une vanne, un connecteur, une frontière) est un external_system, pas un stakeholder. Le champ "stakeholders" ne doit JAMAIS être vide si des entités interagissent activement avec le système.
+
+R2 — FORMAT DES STAKEHOLDERS : Chaque stakeholder doit avoir un name, un role, et un type parmi "human", "system", "organization".
+
+R3 — INTERFACES EXTERNES AVEC FLUX : Chaque système externe doit lister les flux échangés avec le système, en précisant le nom, la direction (in/out/inout), et le type de flux (pneumatic/electric/information/mechanical/thermal/data).
+
+R4 — DÉCOMPOSITION DES USE CASES : Si un use case est "Fournir/Envoyer X à Y" et que la description mentionne PLUSIEURS destinations distinctes, décompose en sous-use cases séparés par destination.
+
+R5 — SCÉNARIOS STRUCTURÉS : Chaque scénario doit avoir des steps structurés avec un order, un source (qui envoie), un target (qui reçoit), une action (description de l'échange), et optionnellement un flow_type.
+
+R6 — MODES AVEC TRANSITIONS : Chaque mode doit lister les fonctions actives. Les transitions entre modes doivent préciser from_mode, to_mode, et le trigger (événement déclencheur).
+
+R7 — LIFECYCLE : Les phases de vie doivent être extraites uniquement de la section lifecycle. Si la section est vide, laisser lifecycle_phases comme liste vide.
+
+R8 — EXIGENCES : Les exigences opérationnelles doivent être formulées avec la structure "condition d'application + ce que le système doit faire/être + paramètres mesurables". L'ID doit suivre le format REQ-OP-XXX. Ne les inventer que si l'utilisateur les mentionne explicitement.
+
+=== SCHÉMA JSON ATTENDU ===
+
+{
+  "system_name": "string — Nom exact du système tel que donné par l'utilisateur",
+  "description": "string — Description de la mission du système",
+  "system_boundaries": "string — Ce qui est IN et OUT du périmètre",
+  "lifecycle_phases": [
+    {
+      "name": "string — Nom de la phase",
+      "sub_phases": ["string"] ou null,
+      "description": "string" ou null
+    }
+  ],
+  "stakeholders": [
+    {
+      "name": "string — Nom exact de l'acteur",
+      "role": "string — Son rôle vis-à-vis du système",
+      "type": "human | system | organization"
+    }
+  ],
+  "external_interfaces": [
+    {
+      "system_name": "string — Nom du système externe",
+      "flows": [
+        {
+          "name": "string — Nom du flux",
+          "direction": "in | out | inout",
+          "flow_type": "pneumatic | electric | information | mechanical | thermal | data",
+          "description": "string" ou null
+        }
+      ]
+    }
+  ],
+  "use_cases": [
+    {
+      "name": "string — Verbe + complément",
+      "actors": ["string — Noms des acteurs impliqués"],
+      "includes": ["string — Noms des use cases inclus"] ou null,
+      "description": "string" ou null
+    }
+  ],
+  "operational_scenarios": [
+    {
+      "name": "string — Nom du scénario",
+      "description": "string",
+      "steps": [
+        {
+          "order": 1,
+          "source": "string — Qui envoie",
+          "target": "string — Qui reçoit",
+          "action": "string — Description de l'échange",
+          "flow_type": "pneumatic | electric | information | ..." ou null
+        }
+      ]
+    }
+  ],
+  "operating_modes": [
+    {
+      "name": "string — Nom du mode",
+      "description": "string" ou null,
+      "active_functions": ["string — Fonctions actives dans ce mode"],
+      "transitions": [
+        {
+          "from_mode": "string",
+          "to_mode": "string",
+          "trigger": "string — Événement déclencheur"
+        }
+      ] ou null
+    }
+  ],
+  "requirements": [
+    {
+      "id": "REQ-OP-XXX",
+      "text": "string — Texte structuré de l'exigence",
+      "satisfied_by": "string" ou null
+    }
+  ],
+  "warnings": [
+    {
+      "type": "inconsistency | missing_info | ambiguity",
+      "message": "string — Description du problème détecté",
+      "section": "string — section_id concernée",
+      "suggestion": "string — Suggestion pour l'utilisateur" ou null
+    }
+  ]
+}
+
+=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ===
+
+Exemple 1:
+package 'Turbojet Stage Analysis' {
+	private import Quantities::ScalarQuantityValue;
+	private import MeasurementReferences::DimensionOneValue;
+	private import ISQ::*;
+	
+	package 'Thermodynamic Functions' {
+	    calc def 'Ideal Gas Law' { in rho; in R_bar; in T;
+	    	return p = rho * R_bar * T;
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Density' { in rho_1; in p_1; in p_2; in gamma;
+	    	return rho_2 = rho_1 * (p_2 / p_1)^(1/gamma);
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Temperature' { in T_1; in p_1; in p_2; in gamma;
+	    	return T_2 = T_1 * (p_2 / p_1)**((gamma - 1) / gamma);
+	    }
+	    
+	    calc def 'Total Pressure' { in P_static; in rho; in V;
+	    	1/2 * rho * V^2 + P_static
+	    }
+	    
+	    // Showing explicit parameter typing
+	    calc def 'Total Temperature' { in T_static : TemperatureValue; in Cp : DimensionOneValue; in V : VolumeValue;
+	    	return : TemperatureValue = 1/(2 * Cp) * V^2 + T_static;
+	    }
+	    
+	    calc def 'Total Enthalpy' { in h_total; in h_static; in V;
+	    	return H_total = 1/2 * V^2 + h_static;
+	    }
+	}
+
+Exemple 2:
+e path-independent)
+	        */
+	        action 'Stage 1' :>> start;
+	        action 'Stage 2' :>> done;
+	    }
+	    
+	    action def 'Reversible Adiabatic Process' specializes 'Adiabatic Process';
+	}
+	
+	package 'Low-Pressure Compressor Analysis' {
+	    
+	    part 'Analysis Context' {
+	        private import 'Thermodynamic Functions'::*;
+	        
+	        part 'Inlet Gas' : 'Thermodynamics Structure'::'Moving Ideal Gas Parcel' {
+	        	// Explicit binding notation
+	        	calc 'Solve for Pressure1' : 'Ideal Gas Law';
+	        	bind 'Density' = 'Solve for Pressure1'.rho;
+	        	bind 'Specific Gas Constant' = 'Solve for Pressure1'.R_bar;
+	        	bind 'Static Temperature' = 'Solve for Pressure1'.T;
+	        	bind 'Static Pressure' = 'Solve for Pressure1'.p;	        	
+	        	
+	        	// Shorthand parameter binding notation
+	            calc 'Solve for Pressure2' : 'Ideal Gas Law' {
+	                in rho = 'Density';
+	                in R_bar = 'Specific Gas Constant';
+	                in T = 'Static Temperature';
+				}				
+				            
+	            // Invocation expression notation
+	            attribute :>> 'Static Pressure' = 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature');
+
+	            // Equation as a constraint (note "==")
+	            constraint { 'Static Pressure' == 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature') }
+	        }
+	    }
+	}	
+	
+}
+
+Exemple 3:
+eedRequirement;
+
+        objective maxSpeedAnalysisObjective {
+            require maxSpeedRequirement {
+                attribute :>> actualMaxSpeed = simulatedMaxSpeed;
+            }
+        }
+    }
+
+
+    part vehicle : Vehicle {
+        attribute :>> mass default 1000[kg];
+
+        /* airFrictionCoefficient [kg / m] = 1/2 * rho[kg/m^3] * Cd * S[m^2],
+         * where rho is air density, S is front projected area. */
+        attribute airFrictionCoefficient = 0.2;
+
+        attribute efficiency;
+
+        action vehicleBehavior : ContinuousStateSpaceDynamics {
+            in input : VehicleInput;
+            out output : VehicleOutput;
+            :>> stateSpace : VehicleState;
+        }
+        
+        part battery: Battery {
+            :>> baseVoltage = 300[V];
+            :>> capacity = 50['A⋅h'];
+            :>> socInit = 0.8;
+            :>> internalResistance = 1.8['Ω'];
+            action batteryBehavior : ContinuousStateSpaceDynamics {
+                in input : BatteryInput;
+                out output : BatteryOutput;
+                :>> stateSpace : BatteryState;
+            }
+        }
+
+        flow battery.batteryBehavior.output to motor.motorBehavior.input;
+
+        part motor: Motor {
+            :>> motR = 4['Ω'];
+            :>> motL = 0.2[H];
+
+            action motorBehavior : ContinuousStateSpaceDynamics {
+                in input : MotorInput;
+                out output : MotorOutput;
+                :>> stateSpace : MotorState;
+            }
+        }
+
+Exemple 4:
+deal Gas Parcel'::'Pressure';
+	        attribute 'Static Temperature' redefines 'Ideal Gas Parcel'::'Temperature';
+	        attribute 'Static Enthalpy' redefines 'Ideal Gas Parcel'::'Enthalpy';
+	    }
+	    
+	    action def 'Thermodynamic Process'; // need start and end shots to show beginning and end attributes
+	    
+	    action def 'Adiabatic Process' specializes 'Thermodynamic Process' {
+	        /*
+	        Thermodynamic process typically have their states defined at beginning and end
+	        of the process (since these starts are path-independent)
+	        */
+	        action 'Stage 1' :>> start;
+	        action 'Stage 2' :>> done;
+	    }
+	    
+	    action def 'Reversible Adiabatic Process' specializes 'Adiabatic Process';
+	}
+
+Exemple 5:
+kg] }
+        }
+
+        analysis smallEVAnalysis : VehicleAnalysis {
+            subject :>> vehicle :> vehicle_compact;
+            requirement :>> vehicleRequirement = smallEVRequirement;
+        }
+
+        requirement <C1> rangeRequirementSmall :> smallEVRequirement : RangeRequirement {
+            doc /* The small EVs must run longer than 130km */
+            attribute :>> requiredRange = 130[km];
+        }
+
+        analysis rangeAnalysisSmall :> smallEVAnalysis : RangeAnalysis {
+            requirement :>> rangeRequirement = rangeRequirementSmall;
+            return simulatedRange = vehicle.vehicleBehavior.output.distance;
+        }
+
+        requirement <C2> efficiencyRequirementSmall :> smallEVRequirement : EfficiencyRequirement {
+            doc /* The target efficiency of small EVs is 0.9. */
+            attribute :>> requiredEfficiency = 0.9;
+        }
+
+        analysis efficiencyAnalysisSmall :> smallEVAnalysis : EfficiencyAnalysis {
+            requirement :>> efficiencyRequirement = efficiencyRequirementSmall;
+
+            return simulatedEfficiency = vehicle.efficiency;
+        }
+
+        requirement <C3> maxSpeedRequirementSmall :> smallEVRequirement : MaxSpeedRequirement {
+            doc /* The target maximum speed of small EVs is 130 [km/h]. */
+            attribute :>> requiredMaxSpeed = 130 [km/h];
+        }
+
+=== TON RÉSULTAT ===
+Produis UNIQUEMENT le JSON conforme au schéma ci-dessus. Aucun commentaire, aucune explication, aucun markdown. Uniquement le JSON.

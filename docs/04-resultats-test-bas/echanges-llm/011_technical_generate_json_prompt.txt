@@ -1,0 +1,998 @@
+Tu es un ingénieur système expert en architecture technique et en SysML v2. Tu analyses les réponses structurées d'un utilisateur pour extraire le modèle d'architecture technique de son système. Tu disposes du modèle logique validé comme contexte.
+
+=== EXIGENCES DE FIDÉLITÉ (CRITIQUES) ===
+
+F1 — ZÉRO INVENTION : Tu ne génères que ce qui est EXPLICITEMENT décrit dans les réponses de l'utilisateur. Si une section est vide ou absente, tu laisses le champ correspondant comme liste vide []. Tu n'inventes JAMAIS d'éléments supplémentaires.
+
+F2 — SIGNALEMENT DES INCOHÉRENCES : Si tu détectes une incohérence (un acteur mentionné dans un use case mais absent de la section stakeholders, un flux référencé sans source, etc.), tu ne la corriges PAS. Tu ajoutes un warning de type "inconsistency" dans le champ "warnings" avec une description précise du problème.
+
+F3 — SIGNALEMENT DES MANQUES : Si une information normalement attendue au niveau opérationnel est absente (par exemple : aucun scénario décrit, aucun mode de fonctionnement, aucune exigence), tu ajoutes un warning de type "missing_info" sans inventer la donnée manquante.
+
+F4 — VOCABULAIRE EXACT : Tu utilises EXACTEMENT les noms, termes et formulations de l'utilisateur. Tu ne renommes pas les éléments, tu ne traduis pas, tu ne reformules pas les noms propres.
+
+F5 — TRAÇABILITÉ : Chaque élément du JSON doit provenir d'une section identifiable des réponses utilisateur.
+
+=== MODÈLE LOGIQUE VALIDÉ (CONTEXTE) ===
+
+{
+  "system_name": "BAS (Bleed Air System)",
+  "components": [
+    {
+      "name": "Calculateur",
+      "component_type": "calculateur numérique",
+      "description": "Traiter les commandes et les mesures pour réguler les vannes et communiquer l'état du système.",
+      "ports": [
+        {
+          "name": "state data",
+          "direction": "inout",
+          "flow_type": "information"
+        },
+        {
+          "name": "énergie",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "commande dégivrage nacelle",
+          "direction": "in",
+          "flow_type": "information"
+        },
+        {
+          "name": "consigne (P,T)",
+          "direction": "in",
+          "flow_type": "information"
+        },
+        {
+          "name": "mesure température air",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "mesure pression air",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "consigne ouverture vanne NAI",
+          "direction": "out",
+          "flow_type": "electric"
+        },
+        {
+          "name": "consigne ouverture vanne PCE",
+          "direction": "out",
+          "flow_type": "electric"
+        },
+        {
+          "name": "position vanne PCE",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ],
+      "allocated_functions": [
+        "Provide Feedback",
+        "Réguler la PRV",
+        "Réguler la vanne NAI",
+        "Réguler la vanne PCE",
+        "Déterminer l'état du système",
+        "Communiquer"
+      ],
+      "children": null
+    },
+    {
+      "name": "IP port",
+      "component_type": "port d'interface d'entrée",
+      "description": "Point de prélèvement de l'air chaud haute pression sur le compresseur du moteur.",
+      "ports": [
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Prélever l'air"
+      ],
+      "children": null
+    },
+    {
+      "name": "Vanne NAI",
+      "component_type": "vanne pneumatique",
+      "description": "Contrôler le passage de l'air chaud vers la nacelle pour le dégivrage.",
+      "ports": [
+        {
+          "name": "consigne ouverture vanne",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Laisser passer l'air"
+      ],
+      "children": null
+    },
+    {
+      "name": "Vanne PCE",
+      "component_type": "vanne pneumatique",
+      "description": "Contrôler le passage de l'air chaud vers l'échangeur PCE pour la régulation en pression et température.",
+      "ports": [
+        {
+          "name": "consigne ouverture vanne",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "position vanne PCE",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Actuated bleed select"
+      ],
+      "children": null
+    },
+    {
+      "name": "PCE",
+      "component_type": "échangeur thermique",
+      "description": "Transfert d'énergie thermique entre l'air chaud moteur et l'air ambiant pour réguler la température.",
+      "ports": [
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air ambiant",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air régulé T",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Transfert d'énergie thermique"
+      ],
+      "children": null
+    },
+    {
+      "name": "ACAC",
+      "component_type": "échangeur thermique",
+      "description": "Réguler la température de l'air chaud nacelle en mélangeant avec l'air ambiant.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air ambiant",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Réguler la température nacelle"
+      ],
+      "children": null
+    },
+    {
+      "name": "Filter",
+      "component_type": "filtre pneumatique",
+      "description": "Filtrer l'air régulé avant distribution vers le système pneumatique avion.",
+      "ports": [
+        {
+          "name": "air régulé (P,T)",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air régulé (P,T)",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Filtrer air"
+      ],
+      "children": null
+    },
+    {
+      "name": "PCE Air Temperature Sensor",
+      "component_type": "capteur de température",
+      "description": "Mesurer la température de l'air en sortie de l'ACAC/PCE côté avion.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "mesure température air",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ],
+      "allocated_functions": [
+        "Mesurer la température"
+      ],
+      "children": null
+    },
+    {
+      "name": "Air Pressure Sensor",
+      "component_type": "capteur de pression",
+      "description": "Mesurer la pression de l'air régulé en sortie du PCE.",
+      "ports": [
+        {
+          "name": "air régulé T",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "mesure pression air",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ],
+      "allocated_functions": [
+        "Mesurer la pression"
+      ],
+      "children": null
+    },
+    {
+      "name": "ACAC Air Temperature Sensor",
+      "component_type": "capteur de température",
+      "description": "Mesurer la température de l'air chaud nacelle en sortie de l'ACAC.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "mesure température air",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ],
+      "allocated_functions": [
+        "Mesurer la température"
+      ],
+      "children": null
+    },
+    {
+      "name": "Nacelle port",
+      "component_type": "port d'interface de sortie",
+      "description": "Fournir l'air chaud régulé à l'interface de la nacelle.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ],
+      "allocated_functions": [
+        "Fournir l'air à l'interface Nacelle"
+      ],
+      "children": null
+    }
+  ],
+  "connections": [
+    {
+      "from_component": "IP port",
+      "from_port": "air chaud haute pression",
+      "to_component": "Vanne NAI",
+      "to_port": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "item": "air chaud haute pression",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Calculateur",
+      "from_port": "consigne ouverture vanne NAI",
+      "to_component": "Vanne NAI",
+      "to_port": "consigne ouverture vanne",
+      "flow_type": "electric",
+      "item": "consigne ouverture vanne",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Vanne NAI",
+      "from_port": "air chaud nacelle",
+      "to_component": "ACAC",
+      "to_port": "air chaud nacelle",
+      "flow_type": "pneumatic",
+      "item": "air chaud nacelle",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "ACAC",
+      "from_port": "air chaud nacelle",
+      "to_component": "Nacelle port",
+      "to_port": "air chaud nacelle",
+      "flow_type": "pneumatic",
+      "item": "air chaud nacelle",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "ACAC",
+      "from_port": "air chaud nacelle",
+      "to_component": "ACAC Air Temperature Sensor",
+      "to_port": "air chaud nacelle",
+      "flow_type": "pneumatic",
+      "item": "air chaud nacelle",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "ACAC Air Temperature Sensor",
+      "from_port": "mesure température air",
+      "to_component": "Calculateur",
+      "to_port": "mesure température air",
+      "flow_type": "electric",
+      "item": "mesure température air",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "IP port",
+      "from_port": "air chaud haute pression",
+      "to_component": "Vanne PCE",
+      "to_port": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "item": "air chaud haute pression",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Calculateur",
+      "from_port": "consigne ouverture vanne PCE",
+      "to_component": "Vanne PCE",
+      "to_port": "consigne ouverture vanne",
+      "flow_type": "electric",
+      "item": "consigne ouverture vanne",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Calculateur",
+      "from_port": "position vanne PCE",
+      "to_component": "Vanne PCE",
+      "to_port": "position vanne PCE",
+      "flow_type": "electric",
+      "item": "position vanne PCE",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Vanne PCE",
+      "from_port": "air chaud haute pression",
+      "to_component": "PCE",
+      "to_port": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "item": "air chaud haute pression",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "PCE",
+      "from_port": "air régulé T",
+      "to_component": "Air Pressure Sensor",
+      "to_port": "air régulé T",
+      "flow_type": "pneumatic",
+      "item": "air régulé T",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "PCE",
+      "from_port": "air régulé T",
+      "to_component": "Filter",
+      "to_port": "air régulé (P,T)",
+      "flow_type": "pneumatic",
+      "item": "air régulé (P,T)",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Air Pressure Sensor",
+      "from_port": "mesure pression air",
+      "to_component": "Calculateur",
+      "to_port": "mesure pression air",
+      "flow_type": "electric",
+      "item": "mesure pression air",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "PCE Air Temperature Sensor",
+      "from_port": "mesure température air",
+      "to_component": "Calculateur",
+      "to_port": "mesure température air",
+      "flow_type": "electric",
+      "item": "mesure température air",
+      "connection_type": "flow",
+      "description": null
+    },
+    {
+      "from_component": "Filter",
+      "from_port": "air régulé (P,T)",
+      "to_component": "Environnement externe",
+      "to_port": "A/C pneumatic port",
+      "flow_type": "pneumatic",
+      "item": "air régulé (P,T)",
+      "connection_type": "interface",
+      "description": "Sortie système vers A/C pneumatic port"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "air chaud haute pression du moteur",
+      "to_component": "IP port",
+      "to_port": "air chaud haute pression",
+      "flow_type": "pneumatic",
+      "item": "air chaud haute pression",
+      "connection_type": "interface",
+      "description": "Entrée système depuis le moteur"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "air ambiant",
+      "to_component": "ACAC",
+      "to_port": "air ambiant",
+      "flow_type": "pneumatic",
+      "item": "air ambiant",
+      "connection_type": "interface",
+      "description": "Entrée système depuis l'environnement"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "air ambiant",
+      "to_component": "PCE",
+      "to_port": "air ambiant",
+      "flow_type": "pneumatic",
+      "item": "air ambiant",
+      "connection_type": "interface",
+      "description": "Entrée système depuis l'environnement"
+    },
+    {
+      "from_component": "ACAC",
+      "from_port": "air tiède",
+      "to_component": "Environnement externe",
+      "to_port": "environnement",
+      "flow_type": "pneumatic",
+      "item": "air tiède",
+      "connection_type": "interface",
+      "description": "Sortie système vers l'environnement"
+    },
+    {
+      "from_component": "PCE",
+      "from_port": "air tiède",
+      "to_component": "Environnement externe",
+      "to_port": "environnement",
+      "flow_type": "pneumatic",
+      "item": "air tiède",
+      "connection_type": "interface",
+      "description": "Sortie système vers l'environnement"
+    },
+    {
+      "from_component": "Nacelle port",
+      "from_port": "air chaud nacelle",
+      "to_component": "Environnement externe",
+      "to_port": "nacelle",
+      "flow_type": "pneumatic",
+      "item": "air chaud nacelle",
+      "connection_type": "interface",
+      "description": "Sortie système vers la nacelle"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "commande dégivrage nacelle",
+      "to_component": "Calculateur",
+      "to_port": "commande dégivrage nacelle",
+      "flow_type": "information",
+      "item": "commande dégivrage nacelle",
+      "connection_type": "interface",
+      "description": "Entrée système depuis l'avionique"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "consigne (P,T)",
+      "to_component": "Calculateur",
+      "to_port": "consigne (P,T)",
+      "flow_type": "information",
+      "item": "consigne (P,T)",
+      "connection_type": "interface",
+      "description": "Entrée système depuis l'avionique"
+    },
+    {
+      "from_component": "Environnement externe",
+      "from_port": "énergie",
+      "to_component": "Calculateur",
+      "to_port": "énergie",
+      "flow_type": "electric",
+      "item": "énergie",
+      "connection_type": "interface",
+      "description": "Entrée système d'alimentation"
+    },
+    {
+      "from_component": "Calculateur",
+      "from_port": "state data",
+      "to_component": "Environnement externe",
+      "to_port": "avionique",
+      "flow_type": "information",
+      "item": "state data",
+      "connection_type": "interface",
+      "description": "Sortie système vers l'avionique"
+    }
+  ],
+  "requirements": [],
+  "warnings": [
+    {
+      "type": "missing_info",
+      "message": "Aucune exigence logique explicite n'est fournie pour le BAS. Les exigences logiques devraient être définies lors de la phase de génération des exigences.",
+      "section": "requirements",
+      "suggestion": "Fournir les exigences logiques formalisées avec des identifiants REQ-LOG-XXX et les constituants qui les satisfont."
+    },
+    {
+      "type": "missing_info",
+      "message": "Le regroupement en sous-systèmes n'est pas explicitement défini dans le document. Deux groupes fonctionnels ont été identifiés mais ne sont pas formalisés dans la structure hiérarchique.",
+      "section": "logical_grouping",
+      "suggestion": "Clarifier si une structure hiérarchique de sous-systèmes est nécessaire et formaliser les regroupements logiques."
+    },
+    {
+      "type": "ambiguity",
+      "message": "Deux capteurs de température distincts (PCE Air Temperature Sensor et ACAC Air Temperature Sensor) produisent tous deux un flux 'mesure température air' vers le Calculateur. La distinction entre ces deux mesures n'est pas explicitement clarifiée dans les ports du Calculateur.",
+      "section": "connections",
+      "suggestion": "Clarifier si le Calculateur reçoit deux mesures de température distinctes ou si elles sont fusionnées. Envisager de renommer les ports du Calculateur pour distinguer les deux sources."
+    },
+    {
+      "type": "inconsistency",
+      "message": "La fonction 'Provide Feedback' est allouée au Calculateur mais n'existe pas dans le modèle fonctionnel validé. Elle semble être une variante de 'Communiquer'.",
+      "section": "function_allocation",
+      "suggestion": "Clarifier si 'Provide Feedback' est synonyme de 'Communiquer' ou s'il s'agit d'une fonction distincte."
+    },
+    {
+      "type": "inconsistency",
+      "message": "La fonction 'Reguler la PRV' est allouée au Calculateur mais n'existe pas dans le modèle fonctionnel validé. Aucune vanne PRV n'est mentionnée dans les constituants logiques.",
+      "section": "function_allocation",
+      "suggestion": "Clarifier le rôle de la PRV et son allocation dans l'architecture logique."
+    },
+    {
+      "type": "missing_info",
+      "message": "Le port 'air régulé T' du PCE et le port 'air régulé (P,T)' du Filter utilisent des noms légèrement différents pour le même flux. La cohérence de la nomenclature n'est pas garantie.",
+      "section": "connections",
+      "suggestion": "Standardiser la nomenclature des ports pour assurer la cohérence entre les constituants."
+    }
+  ]
+}
+
+=== RÉPONSES DE L'UTILISATEUR ===
+
+[SECTION: technical_components]
+Les constituants techniques implementant les constituants logiques du BAS sont :
+
+1. NAIV (Nacelle Anti-Ice Valve) : vanne pneumatique papillon.
+   Implemente le constituant logique : Vanne NAI.
+   Role : controler le flux d'air chaud vers le circuit de degivrage nacelle.
+
+2. PCEV (Pressure Control Exchange Valve) : vanne pneumatique de regulation.
+   Implemente le constituant logique : Vanne PCE.
+   Role : controler le flux d'air chaud vers l'echangeur PCE pour regulation pression/temperature.
+
+3. ACAC (Air Cooled Air Cooler) : echangeur thermique air-air.
+   Implemente le constituant logique : ACAC.
+   Role : refroidir l'air chaud nacelle en le melangeant avec l'air ambiant.
+
+4. PCE (Pressure Control Exchanger) : echangeur thermique de regulation pression.
+   Implemente le constituant logique : PCE.
+   Role : reguler la pression et la temperature de l'air preleve pour l'avion.
+
+5. EEC (Electronic Engine Controller) / Calculateur FADEC : calculateur numerique.
+   Implemente le constituant logique : Calculateur.
+   Role : traiter les commandes et mesures pour reguler les vannes NAIV et PCEV. Integre dans le calculateur moteur FADEC.
+
+6. IP port (Intermediate Pressure port) : piquage pneumatique sur le compresseur.
+   Implemente le constituant logique : IP port.
+   Role : point de prelevement de l'air chaud haute pression sur le compresseur du moteur.
+   Localisation : sur le carter compresseur, cote intermediaire pression.
+
+7. Nacelle anti-ice pneumatic port : interface pneumatique de sortie.
+   Implemente le constituant logique : Nacelle port.
+   Role : connecter le BAS au circuit de degivrage nacelle.
+
+8. Fan bleed port (by-pass duct) : piquage pneumatique sur le by-pass.
+   Role : prelevement d'air supplementaire cote fan. Visible sur le schema physique du BAS.
+
+9. Nacelle exhaust port : port d'echappement.
+   Role : evacuer l'air tiede vers l'exterieur apres echange thermique.
+
+10. SOV (Shut-Off Valve) : vanne d'arret de securite.
+    Role : isoler le BAS du systeme pneumatique avion. Situee a l'interface BAS/Aircraft.
+    Note : ce composant est cote avion (Aircraft), pas cote IPPS.
+
+11. Air Temperature Sensor (ACAC) : thermocouple.
+    Implemente le constituant logique : ACAC Air Temperature Sensor.
+    Role : mesurer la temperature de l'air en sortie ACAC.
+
+12. Air Temperature Sensor (PCE) : thermocouple.
+    Implemente le constituant logique : PCE Air Temperature Sensor.
+    Role : mesurer la temperature de l'air en sortie PCE.
+
+13. Air Pressure Sensor : capteur de pression.
+    Implemente le constituant logique : Air Pressure Sensor.
+    Role : mesurer la pression de l'air regule en sortie PCE.
+
+14. Filter : filtre pneumatique en ligne.
+    Implemente le constituant logique : Filter.
+    Role : filtrer l'air regule avant distribution vers le systeme pneumatique avion.
+
+15. Data exchange (I/O) : interface de communication donnees.
+    Role : echanger les donnees d'etat et les commandes avec l'avionique (state data, commandes, consignes).
+
+Le BAS est integre dans l'IPPS (Integrated Power Plant System) qui englobe le perimetre moteur. L'interface avec l'avion (Aircraft) se fait via le SOV, le Fan bleed port, et le Data exchange I/O.
+
+[SECTION: physical_connections]
+Connexions physiques entre les composants du BAS (deduites du schema page 18 et de l'architecture logique page 63) :
+
+Circuit pneumatique nacelle :
+1. IP port → NAIV : tuyauterie pneumatique haute temperature (air chaud HP)
+2. NAIV → ACAC : tuyauterie pneumatique (air chaud nacelle)
+3. ACAC → Nacelle anti-ice pneumatic port : tuyauterie pneumatique (air chaud nacelle regule)
+4. ACAC → Nacelle exhaust port : tuyauterie pneumatique (air tiede evacue)
+
+Circuit pneumatique avion :
+5. IP port → PCEV : tuyauterie pneumatique haute temperature (air chaud HP)
+6. PCEV → PCE : tuyauterie pneumatique (air chaud HP)
+7. PCE → Filter : tuyauterie pneumatique (air regule en temperature)
+8. Filter → SOV (interface Aircraft) : tuyauterie pneumatique (air regule P,T filtre)
+9. PCE → Nacelle exhaust port : tuyauterie pneumatique (air tiede evacue)
+
+Entrees air ambiant :
+10. Environnement → ACAC : prise d'air ambiant
+11. Environnement → PCE : prise d'air ambiant
+
+Capteurs :
+12. ACAC Air Temperature Sensor → EEC : cablage electrique (mesure temperature)
+13. PCE Air Temperature Sensor → EEC : cablage electrique (mesure temperature)
+14. Air Pressure Sensor → EEC : cablage electrique (mesure pression)
+
+Commande vannes :
+15. EEC → NAIV : cablage electrique (consigne ouverture vanne)
+16. EEC → PCEV : cablage electrique (consigne ouverture vanne + position)
+
+Interface avionique :
+17. Data exchange (I/O) ↔ EEC : bus de donnees (state data, commandes, consignes P,T, energie)
+
+Note : les types de cablage et bus ne sont pas precises dans le document (ARINC 429, CAN, etc.). Les materiaux des tuyauteries ne sont pas precises non plus.
+
+[SECTION: technology_choices]
+Le document ne fournit pas de justification detaillee des choix technologiques. Les informations disponibles sont :
+
+1. Architecture IPPS (Integrated Power Plant System) : le BAS est integre dans l'ensemble IPPS qui englobe moteur + nacelle + systemes moteur. Cette architecture est choisie car le BAS est un systeme moteur (pas un systeme avion).
+
+2. Calculateur integre au FADEC (EEC) : le calculateur du BAS est integre dans le calculateur moteur (Electronic Engine Controller) plutot qu'etre un calculateur independant. Justification : reduction du nombre d'equipements, simplification des interfaces.
+
+3. Double echangeur (ACAC + PCE) : deux echangeurs separes pour les deux chaines fonctionnelles (nacelle et avion). L'ACAC traite la chaine nacelle, le PCE traite la chaine avion.
+
+4. Prelevement IP (Intermediate Pressure) : l'air est preleve au stade de pression intermediaire du compresseur (IP port), pas au stade haute pression (HP port est visible sur le schema mais le BAS utilise principalement le IP port).
+
+Note : le document ne fournit pas de references industrielles, de specifications de materiaux, ni de justifications formelles des choix technologiques.
+
+[SECTION: technical_requirements]
+Le document ne fournit pas d'exigences techniques explicites pour le BAS.
+
+Note : cette section est volontairement laissee incomplete car le document BAS ne contient pas d'exigences techniques formalisees. Les exigences techniques devraient etre definies dans un document de specification (TND, AdB) qui n'est pas inclus dans le support de formation.
+
+=== RÈGLES MÉTIER ===
+
+R1 — ALLOCATION LOGIQUE→TECHNIQUE : Chaque constituant technique doit préciser quel constituant logique il implémente via le champ "implements". Si l'allocation n'est pas précisée, ajouter un warning "missing_info".
+
+R2 — COUVERTURE : Chaque constituant logique du niveau précédent devrait être implémenté par au moins un constituant technique. Si des constituants logiques ne sont pas couverts, ajouter un warning "missing_info".
+
+R3 — CONNEXIONS PHYSIQUES : Chaque connexion doit préciser le medium physique (tuyauterie, câblage, bus de données, etc.).
+
+R4 — CHOIX TECHNOLOGIQUES : Les justifications doivent être factuelles et basées sur ce que l'utilisateur a écrit. Ne pas inventer de justifications.
+
+R5 — EXIGENCES TECHNIQUES : ID au format REQ-TECH-XXX, avec des performances mesurables si l'utilisateur les a précisées.
+
+=== SCHÉMA JSON ATTENDU ===
+
+{
+  "system_name": "string",
+  "technical_components": [
+    {
+      "name": "string — Nom réel du composant",
+      "reference": "string — Référence/part number" ou null,
+      "technology_type": "string — Type technologique",
+      "implements": "string — Nom du constituant logique implémenté",
+      "description": "string" ou null,
+      "ports": [
+        {"name": "string", "direction": "in | out | inout", "flow_type": "..."}
+      ]
+    }
+  ],
+  "physical_connections": [
+    {
+      "from_component": "string",
+      "to_component": "string",
+      "medium": "string — tuyauterie | câblage | bus de données | ...",
+      "description": "string" ou null,
+      "flow_type": "pneumatic | electric | ..."
+    }
+  ],
+  "technology_choices": [
+    {
+      "component": "string",
+      "technology": "string",
+      "justification": "string"
+    }
+  ],
+  "requirements": [
+    {"id": "REQ-TECH-XXX", "text": "string", "satisfied_by": "string" ou null}
+  ],
+  "warnings": [
+    {"type": "inconsistency | missing_info | ambiguity", "message": "string", "section": "string", "suggestion": "string" ou null}
+  ]
+}
+
+=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ===
+
+Exemple 1:
+e path-independent)
+	        */
+	        action 'Stage 1' :>> start;
+	        action 'Stage 2' :>> done;
+	    }
+	    
+	    action def 'Reversible Adiabatic Process' specializes 'Adiabatic Process';
+	}
+	
+	package 'Low-Pressure Compressor Analysis' {
+	    
+	    part 'Analysis Context' {
+	        private import 'Thermodynamic Functions'::*;
+	        
+	        part 'Inlet Gas' : 'Thermodynamics Structure'::'Moving Ideal Gas Parcel' {
+	        	// Explicit binding notation
+	        	calc 'Solve for Pressure1' : 'Ideal Gas Law';
+	        	bind 'Density' = 'Solve for Pressure1'.rho;
+	        	bind 'Specific Gas Constant' = 'Solve for Pressure1'.R_bar;
+	        	bind 'Static Temperature' = 'Solve for Pressure1'.T;
+	        	bind 'Static Pressure' = 'Solve for Pressure1'.p;	        	
+	        	
+	        	// Shorthand parameter binding notation
+	            calc 'Solve for Pressure2' : 'Ideal Gas Law' {
+	                in rho = 'Density';
+	                in R_bar = 'Specific Gas Constant';
+	                in T = 'Static Temperature';
+				}				
+				            
+	            // Invocation expression notation
+	            attribute :>> 'Static Pressure' = 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature');
+
+	            // Equation as a constraint (note "==")
+	            constraint { 'Static Pressure' == 'Ideal Gas Law'('Density', 'Specific Gas Constant', 'Static Temperature') }
+	        }
+	    }
+	}	
+	
+}
+
+Exemple 2:
+package 'Turbojet Stage Analysis' {
+	private import Quantities::ScalarQuantityValue;
+	private import MeasurementReferences::DimensionOneValue;
+	private import ISQ::*;
+	
+	package 'Thermodynamic Functions' {
+	    calc def 'Ideal Gas Law' { in rho; in R_bar; in T;
+	    	return p = rho * R_bar * T;
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Density' { in rho_1; in p_1; in p_2; in gamma;
+	    	return rho_2 = rho_1 * (p_2 / p_1)^(1/gamma);
+	    }
+	    
+	    calc def 'Reversible Adiabatic Compression Temperature' { in T_1; in p_1; in p_2; in gamma;
+	    	return T_2 = T_1 * (p_2 / p_1)**((gamma - 1) / gamma);
+	    }
+	    
+	    calc def 'Total Pressure' { in P_static; in rho; in V;
+	    	1/2 * rho * V^2 + P_static
+	    }
+	    
+	    // Showing explicit parameter typing
+	    calc def 'Total Temperature' { in T_static : TemperatureValue; in Cp : DimensionOneValue; in V : VolumeValue;
+	    	return : TemperatureValue = 1/(2 * Cp) * V^2 + T_static;
+	    }
+	    
+	    calc def 'Total Enthalpy' { in h_total; in h_static; in V;
+	    	return H_total = 1/2 * V^2 + h_static;
+	    }
+	}
+
+Exemple 3:
+package ConnectionTest {
+	
+	part p {
+		part x {
+			part x1;
+		}
+	}
+	
+	part def P {
+		part y;
+
+		connect p to y;
+		
+		part p1 :> p;
+	
+		connect p1.x to y;
+		connect p1.x.x1 to y;
+	}
+
+	abstract connection def C {
+		part p;
+		end end1;
+		end end2;
+		end end3;
+	}
+	
+	part d1;
+	part d2;
+	part d3;
+	part d4;
+	
+	connection bus : C connect (d1, d2, d3, d4);
+	
+	connection : C {
+	    end :>> end1 ::> d1;
+	    end end2 ::> d2;
+	    end end3 ::> d3;
+	}
+	
+	connection {
+		part q;
+		end ref end1 ::> d1 :> q;
+		end end2 ::> d2;
+	}
+	
+	abstract flow def F;
+	
+	message : F from p to p;
+	
+	part def A {
+	    ref b : B;
+	}
+	
+	part def B;
+	
+	connection def AB {
+	    end [1] item a : A {
+	    	@M;
+	    }
+	    end b : B;
+	}
+	
+	metadata def M;
+}
+
+Exemple 4:
+scriptionPort;
+			
+			perform action consumerBehavior {
+				action subscribe send new Subscribe(myTopic, consumer_2) to server_2;
+				then action delivery accept Deliver via consumer_2;
+			}
+		}
+		
+	}
+	
+	part realization_2 : PubSubSequence {
+		part :>> producer :> producer_2;
+		part :>> server :> server_2;
+		part :>> consumer :> consumer_2;
+
+		flow :>> publish_message: Transfers::MessageTransfer {
+ 			end :>> source ::> producer.publicationPort;
+ 			end :>> target ::> server.publicationPort;
+ 		}
+		flow :>> subscribe_message: Transfers::MessageTransfer {
+ 			end :>> source ::> consumer.subscriptionPort;
+ 			end :>> target ::> server.subscriptionPort;
+ 		}
+		flow :>> deliver_message: Transfers::MessageTransfer {
+ 			end :>> source ::> server;
+ 			end :>> target ::> consumer;
+ 		}
+ 		
+ 		/* Binding sent/accept messages to specification model messages. */
+		  /* Sends */
+ 		bind producer_2.producerBehavior.publish.sentMessage = publish_message;
+ 		bind consumer_2.consumerBehavior.subscribe.sentMessage = subscribe_message;
+ 		bind server_2.serverBehavior.delivering.effect.sentMessage = deliver_message;
+ 		  /* Accepts */
+ 		bind consumer_2.consumerBehavior.delivery.acceptedMessage = subscribe_message;
+ 		bind server_2.serverBehavior.subscribing.accepter.acceptedMessage = subscribe_message;
+ 		bind server_2.serverBehavior.delivering.accepter.acceptedMessage = publish_message;
+	}
+}
+
+Exemple 5:
+package 'Interface Decomposition Example' {
+	
+	port def SpigotBank;
+	port def Spigot;
+	
+	port def Faucet;
+	port def FaucetInlet;
+	
+	interface def WaterDelivery {
+		end [1] port suppliedBy : SpigotBank {
+			port hot : Spigot;
+			port cold : Spigot;
+		}
+		end [1..*] port deliveredTo : Faucet {
+			port hot : FaucetInlet;
+			port cold : FaucetInlet;
+		}
+		
+		connect suppliedBy.hot to deliveredTo.hot;
+		connect suppliedBy.cold to deliveredTo.cold;
+	}
+	
+}
+
+=== TON RÉSULTAT ===
+Produis UNIQUEMENT le JSON conforme au schéma ci-dessus. Aucun commentaire, aucune explication, aucun markdown. Uniquement le JSON.

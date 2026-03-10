@@ -1,0 +1,549 @@
+```json
+{
+  "system_name": "BAS (Bleed Air System)",
+  "technical_components": [
+    {
+      "name": "NAIV",
+      "reference": null,
+      "technology_type": "vanne pneumatique papillon",
+      "implements": "Vanne NAI",
+      "description": "Contrôler le flux d'air chaud vers le circuit de dégivrage nacelle.",
+      "ports": [
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "consigne ouverture vanne",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "PCEV",
+      "reference": null,
+      "technology_type": "vanne pneumatique de régulation",
+      "implements": "Vanne PCE",
+      "description": "Contrôler le flux d'air chaud vers l'échangeur PCE pour régulation pression/température.",
+      "ports": [
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "consigne ouverture vanne",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "position vanne PCE",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "ACAC",
+      "reference": null,
+      "technology_type": "échangeur thermique air-air",
+      "implements": "ACAC",
+      "description": "Refroidir l'air chaud nacelle en le mélangeant avec l'air ambiant.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air ambiant",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "PCE",
+      "reference": null,
+      "technology_type": "échangeur thermique de régulation pression",
+      "implements": "PCE",
+      "description": "Réguler la pression et la température de l'air prélevé pour l'avion.",
+      "ports": [
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air ambiant",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air régulé T",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "EEC",
+      "reference": null,
+      "technology_type": "calculateur numérique FADEC",
+      "implements": "Calculateur",
+      "description": "Traiter les commandes et mesures pour réguler les vannes NAIV et PCEV. Intégré dans le calculateur moteur FADEC.",
+      "ports": [
+        {
+          "name": "state data",
+          "direction": "inout",
+          "flow_type": "information"
+        },
+        {
+          "name": "énergie",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "commande dégivrage nacelle",
+          "direction": "in",
+          "flow_type": "information"
+        },
+        {
+          "name": "consigne (P,T)",
+          "direction": "in",
+          "flow_type": "information"
+        },
+        {
+          "name": "mesure température air",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "mesure pression air",
+          "direction": "in",
+          "flow_type": "electric"
+        },
+        {
+          "name": "consigne ouverture vanne NAIV",
+          "direction": "out",
+          "flow_type": "electric"
+        },
+        {
+          "name": "consigne ouverture vanne PCEV",
+          "direction": "out",
+          "flow_type": "electric"
+        },
+        {
+          "name": "position vanne PCEV",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ]
+    },
+    {
+      "name": "IP port",
+      "reference": null,
+      "technology_type": "piquage pneumatique sur compresseur",
+      "implements": "IP port",
+      "description": "Point de prélèvement de l'air chaud haute pression sur le compresseur du moteur. Localisation : sur le carter compresseur, côté intermédiaire pression.",
+      "ports": [
+        {
+          "name": "air chaud haute pression",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud haute pression",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "Nacelle anti-ice pneumatic port",
+      "reference": null,
+      "technology_type": "interface pneumatique de sortie",
+      "implements": "Nacelle port",
+      "description": "Connecter le BAS au circuit de dégivrage nacelle.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air chaud nacelle",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "Fan bleed port",
+      "reference": null,
+      "technology_type": "piquage pneumatique sur by-pass",
+      "implements": null,
+      "description": "Prélèvement d'air supplémentaire côté fan. Visible sur le schéma physique du BAS.",
+      "ports": [
+        {
+          "name": "air ambiant",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "Nacelle exhaust port",
+      "reference": null,
+      "technology_type": "port d'échappement",
+      "implements": null,
+      "description": "Évacuer l'air tiède vers l'extérieur après échange thermique.",
+      "ports": [
+        {
+          "name": "air tiède",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air tiède",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "SOV",
+      "reference": null,
+      "technology_type": "vanne d'arrêt de sécurité",
+      "implements": null,
+      "description": "Isoler le BAS du système pneumatique avion. Située à l'interface BAS/Aircraft. Composant côté avion (Aircraft), pas côté IPPS.",
+      "ports": [
+        {
+          "name": "air régulé (P,T)",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air régulé (P,T)",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "Air Temperature Sensor (ACAC)",
+      "reference": null,
+      "technology_type": "thermocouple",
+      "implements": "ACAC Air Temperature Sensor",
+      "description": "Mesurer la température de l'air en sortie ACAC.",
+      "ports": [
+        {
+          "name": "air chaud nacelle",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "mesure température air",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ]
+    },
+    {
+      "name": "Air Temperature Sensor (PCE)",
+      "reference": null,
+      "technology_type": "thermocouple",
+      "implements": "PCE Air Temperature Sensor",
+      "description": "Mesurer la température de l'air en sortie PCE.",
+      "ports": [
+        {
+          "name": "air régulé T",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "mesure température air",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ]
+    },
+    {
+      "name": "Air Pressure Sensor",
+      "reference": null,
+      "technology_type": "capteur de pression",
+      "implements": "Air Pressure Sensor",
+      "description": "Mesurer la pression de l'air régulé en sortie PCE.",
+      "ports": [
+        {
+          "name": "air régulé T",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "mesure pression air",
+          "direction": "out",
+          "flow_type": "electric"
+        }
+      ]
+    },
+    {
+      "name": "Filter",
+      "reference": null,
+      "technology_type": "filtre pneumatique en ligne",
+      "implements": "Filter",
+      "description": "Filtrer l'air régulé avant distribution vers le système pneumatique avion.",
+      "ports": [
+        {
+          "name": "air régulé (P,T)",
+          "direction": "in",
+          "flow_type": "pneumatic"
+        },
+        {
+          "name": "air régulé (P,T)",
+          "direction": "out",
+          "flow_type": "pneumatic"
+        }
+      ]
+    },
+    {
+      "name": "Data exchange (I/O)",
+      "reference": null,
+      "technology_type": "interface de communication données",
+      "implements": null,
+      "description": "Échanger les données d'état et les commandes avec l'avionique (state data, commandes, consignes).",
+      "ports": [
+        {
+          "name": "state data",
+          "direction": "inout",
+          "flow_type": "information"
+        },
+        {
+          "name": "commande dégivrage nacelle",
+          "direction": "in",
+          "flow_type": "information"
+        },
+        {
+          "name": "consigne (P,T)",
+          "direction": "in",
+          "flow_type": "information"
+        },
+        {
+          "name": "énergie",
+          "direction": "in",
+          "flow_type": "electric"
+        }
+      ]
+    }
+  ],
+  "physical_connections": [
+    {
+      "from_component": "IP port",
+      "to_component": "NAIV",
+      "medium": "tuyauterie pneumatique",
+      "description": "Air chaud haute pression",
+      "flow_type": "pneumatic"
+    },
+    {
+      "from_component": "NAIV",
+      "to_component": "ACAC",
+      "medium": "tuyauterie pneumatique",
+      "description": "Air chaud nacelle",
+      "flow_type": "pneumatic"
+    },
+    {
+      "from_component": "ACAC",
+      "to_component": "Nacelle anti-ice pneumatic port",
+      "medium": "tuyauterie pneumatique",
+      "description": "Air chaud nacelle régulé",
+      "flow_type": "pneumatic"
+    },
+    {
+      "from_component": "ACAC",
+      "to_component": "Nacelle exhaust port",
+      "medium": "tuyauterie pneumatique",
+      "description": "Air tiède évacué",
+      "flow_type": "pneumatic"
+    },
+    {
+      "from_component": "IP port",
+      "to_component": "PCEV",
+      "medium": "tuyauterie pneumatique",
+      "description": "Air chaud haute pression",
+      "flow_type": "pneumatic"
+    },
+    {
+      "from_component": "PCEV",
+      "to_component": "PCE",
+      "medium": "tuyauterie pneumatique",
+      "description": "Air chaud haute pression",
+      "flow_type": "pneumatic"
+    },
+    {
+      "from_component": "PCE",
+      "to_component": "Filter",
+      "medium": "tuyauterie pneumatique",
+      "description": "Air régulé en température",
+      "flow_type": "pneumatic"
+    },
+    {
+      "from_component": "Filter",
+      "to_component": "SOV",
+      "medium": "tuyauterie pneumatique",
+      "description": "Air régulé (P,T) filtré",
+      "flow_type": "pneumatic"
+    },
+    {
+      "from_component": "PCE",
+      "to_component": "Nacelle exhaust port",
+      "medium": "tuyauterie pneumatique",
+      "description": "Air tiède évacué",
+      "flow_type": "pneumatic"
+    },
+    {
+      "from_component": "Fan bleed port",
+      "to_component": "ACAC",
+      "medium": "tuyauterie pneumatique",
+      "description": "Prise d'air ambiant",
+      "flow_type": "pneumatic"
+    },
+    {
+      "from_component": "Fan bleed port",
+      "to_component": "PCE",
+      "medium": "tuyauterie pneumatique",
+      "description": "Prise d'air ambiant",
+      "flow_type": "pneumatic"
+    },
+    {
+      "from_component": "Air Temperature Sensor (ACAC)",
+      "to_component": "EEC",
+      "medium": "câblage électrique",
+      "description": "Mesure température",
+      "flow_type": "electric"
+    },
+    {
+      "from_component": "Air Temperature Sensor (PCE)",
+      "to_component": "EEC",
+      "medium": "câblage électrique",
+      "description": "Mesure température",
+      "flow_type": "electric"
+    },
+    {
+      "from_component": "Air Pressure Sensor",
+      "to_component": "EEC",
+      "medium": "câblage électrique",
+      "description": "Mesure pression",
+      "flow_type": "electric"
+    },
+    {
+      "from_component": "EEC",
+      "to_component": "NAIV",
+      "medium": "câblage électrique",
+      "description": "Consigne ouverture vanne",
+      "flow_type": "electric"
+    },
+    {
+      "from_component": "EEC",
+      "to_component": "PCEV",
+      "medium": "câblage électrique",
+      "description": "Consigne ouverture vanne + position",
+      "flow_type": "electric"
+    },
+    {
+      "from_component": "Data exchange (I/O)",
+      "to_component": "EEC",
+      "medium": "bus de données",
+      "description": "State data, commandes, consignes (P,T), énergie",
+      "flow_type": "information"
+    }
+  ],
+  "technology_choices": [
+    {
+      "component": "EEC",
+      "technology": "Calculateur intégré au FADEC",
+      "justification": "Le calculateur du BAS est intégré dans le calculateur moteur (Electronic Engine Controller) plutôt qu'être un calculateur indépendant. Justification : réduction du nombre d'équipements, simplification des interfaces."
+    },
+    {
+      "component": "ACAC et PCE",
+      "technology": "Double échangeur thermique",
+      "justification": "Deux échangeurs séparés pour les deux chaînes fonctionnelles (nacelle et avion). L'ACAC traite la chaîne nacelle, le PCE traite la chaîne avion."
+    },
+    {
+      "component": "IP port",
+      "technology": "Prélèvement à pression intermédiaire",
+      "justification": "L'air est prélevé au stade de pression intermédiaire du compresseur (IP port), pas au stade haute pression."
+    },
+    {
+      "component": "BAS",
+      "technology": "Architecture IPPS",
+      "justification": "Le BAS est intégré dans l'ensemble IPPS (Integrated Power Plant System) qui englobe moteur + nacelle + systèmes moteur. Cette architecture est choisie car le BAS est un système moteur (pas un système avion)."
+    }
+  ],
+  "requirements": [],
+  "warnings": [
+    {
+      "type": "missing_info",
+      "message": "Aucune exigence technique explicite n'est fournie pour le BAS. Le document ne contient pas d'exigences techniques formalisées.",
+      "section": "requirements",
+      "suggestion": "Les exigences techniques devraient être définies dans un document de spécification (TND, AdB) qui n'est pas inclus dans le support de formation."
+    },
+    {
+      "type": "missing_info",
+      "message": "Les composants Fan bleed port, Nacelle exhaust port, SOV et Data exchange (I/O) n'implémentent pas explicitement de constituants logiques du modèle logique validé.",
+      "section": "technical_components",
+      "suggestion": "Clarifier si ces composants implémentent des constituants logiques existants ou s'ils représentent des éléments supplémentaires non couverts par le modèle logique."
+    },
+    {
+      "type": "missing_info",
+      "message": "Les types de câblage et bus de données ne sont pas précisés (ARINC 429, CAN, etc.).",
+      "section": "physical_connections",
+      "suggestion": "Spécifier les protocoles de communication utilisés pour les interfaces de données."
+    },
+    {
+      "type": "missing_info",
+      "message": "Les matériaux des tuyauteries pneumatiques ne sont pas précisés.",
+      "section": "physical_connections",
+      "suggestion": "Spécifier les matériaux et les spécifications des tuyauteries (acier inoxydable, titane, etc.)."
+    },
+    {
+      "type": "ambiguity",
+      "message": "Deux capteurs de température distincts (Air Temperature Sensor (ACAC) et Air Temperature Sensor (PCE)) produisent tous deux un flux 'mesure température air' vers l'EEC. La distinction entre ces deux mesures n'est pas explicitement clarifiée dans les ports de l'EEC.",
+      "section": "physical_connections",
+      "suggestion": "Clarifier si l'EEC reçoit deux mesures de température distinctes ou si elles sont fusionnées. Envisager de renommer les ports de l'EEC pour distinguer les deux sources."
+    },
+    {
+      "type": "missing_info",
+      "message": "Les références/part numbers des composants techniques ne sont pas fournis.",
+      "section": "technical_components",
+      "suggestion": "Ajouter les références commerciales ou les part numbers des composants pour la traçabilité."
+    }
+  ]
+}
+```

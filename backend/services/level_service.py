@@ -20,10 +20,11 @@ from services.rag_service import RAGService
 from services.state_service import StateService
 from services.sysml_validator import SysMLv2Validator
 
+from prompts._shared import extract_identifiers_from_sysml, merge_identifiers, build_naming_constraint_block
 from prompts.operational_prompt import build_operational_json_prompt, get_operational_sysml_prompts
-from prompts.functional_prompt import build_functional_json_prompt, build_functional_sysml_prompt
-from prompts.logical_prompt import build_logical_json_prompt, build_logical_sysml_prompt
-from prompts.technical_prompt import build_technical_json_prompt, build_technical_sysml_prompt
+from prompts.functional_prompt import build_functional_json_prompt, get_functional_sysml_prompts
+from prompts.logical_prompt import build_logical_json_prompt, get_logical_sysml_prompts
+from prompts.technical_prompt import build_technical_json_prompt, get_technical_sysml_prompts
 
 logger = logging.getLogger(__name__)
 
@@ -498,65 +499,67 @@ class LevelService:
         Returns:
             (sysml_code: str, exchange: dict)
         """
-        if level == "operational":
-            return self._generate_sysml_operational(json_model, rag_examples)
-
-        json_str = json.dumps(json_model, indent=2, ensure_ascii=False)
-
-        if level == "functional":
-            prompt = build_functional_sysml_prompt(json_str, rag_examples)
-        elif level == "logical":
-            prompt = build_logical_sysml_prompt(json_str, rag_examples)
-        elif level == "technical":
-            prompt = build_technical_sysml_prompt(json_str, rag_examples)
-        else:
-            raise ValueError(f"Niveau non supporté : {level}")
-
-        exchange = {
-            "id": str(uuid.uuid4()),
-            "timestamp": datetime.now().isoformat(),
-            "operation": "generate_sysml",
-            "prompt_sent": prompt,
-            "llm_response_raw": "",
-            "llm_model": self.llm.get_model_name(),
-            "sysml_code": "",
-            "success": True,
-            "error_message": "",
+        prompts_fn_map = {
+            "operational": get_operational_sysml_prompts,
+            "functional": get_functional_sysml_prompts,
+            "logical": get_logical_sysml_prompts,
+            "technical": get_technical_sysml_prompts,
         }
 
-        try:
-            response = self.llm.generate(prompt, temperature=0.05, max_tokens=8192)
-            exchange["llm_response_raw"] = response
-        except Exception as e:
-            exchange["success"] = False
-            exchange["error_message"] = str(e)
-            raise
+        get_prompts_fn = prompts_fn_map.get(level)
+        if get_prompts_fn is None:
+            raise ValueError(f"Niveau non supporté : {level}")
 
-        sysml_code = self._clean_sysml_code(response)
-        exchange["sysml_code"] = sysml_code
+        return self._generate_sysml_multi(json_model, rag_examples, level, get_prompts_fn)
 
-        return sysml_code, exchange
-
-    def _generate_sysml_operational(
+    def _generate_sysml_multi(
         self,
         json_model: dict,
         rag_examples: List[str],
+        level: str,
+        get_prompts_fn,
     ) -> tuple:
         """
-        Génère le code SysML v2 opérationnel en 5 appels LLM (un par diagramme).
+        Génère le code SysML v2 en N appels LLM séquentiels (un par diagramme),
+        avec extraction d'identifiants et injection de contraintes de nommage
+        pour assurer la cohérence entre packages du même niveau.
+
+        Logique :
+          1. Générer le 1er diagramme sans contrainte de nommage.
+          2. Extraire les identifiants du code généré.
+          3. Construire un bloc de contrainte de nommage.
+          4. Régénérer le prompt du diagramme suivant AVEC la contrainte.
+          5. Répéter pour chaque diagramme.
+
+        Args:
+            json_model: modèle JSON du niveau
+            rag_examples: exemples RAG
+            level: nom du niveau (pour les logs)
+            get_prompts_fn: fonction qui retourne [(diagram_type, prompt), ...]
 
         Returns:
             (sysml_code: str, exchange: dict)
         """
-        diagram_prompts = get_operational_sysml_prompts(json_model, rag_examples)
+        # Obtenir la liste des types de diagrammes (sans contrainte, juste pour connaître le nombre)
+        initial_prompts = get_prompts_fn(json_model, rag_examples)
+        total = len(initial_prompts)
 
         all_code_parts = []
         all_raw_responses = []
         all_prompts = []
         errors = []
+        accumulated_identifiers: dict = {}
 
-        for i, (diagram_type, prompt) in enumerate(diagram_prompts, 1):
-            logger.info(f"SysML [{i}/5] : Génération du diagramme {diagram_type}...")
+        for i in range(total):
+            # Régénérer les prompts avec la contrainte de nommage accumulée
+            naming_constraint = build_naming_constraint_block(accumulated_identifiers)
+            current_prompts = get_prompts_fn(json_model, rag_examples, naming_constraint=naming_constraint)
+            diagram_type, prompt = current_prompts[i]
+
+            logger.info(f"SysML {level} [{i+1}/{total}] : Génération du diagramme {diagram_type}...")
+            if naming_constraint:
+                logger.info(f"SysML {level} [{i+1}/{total}] : Contrainte de nommage injectée ({len(accumulated_identifiers)} catégories)")
+
             all_prompts.append(f"--- {diagram_type} ---\n{prompt}")
             try:
                 response = self.llm.generate(prompt, temperature=0.05, max_tokens=8192)
@@ -564,11 +567,17 @@ class LevelService:
                 code = self._clean_sysml_code(response)
                 if code:
                     all_code_parts.append(f"// ===== {diagram_type.upper()} =====\n\n{code}")
-                    logger.info(f"SysML [{i}/5] : {diagram_type} OK ({len(code)} chars)")
+                    logger.info(f"SysML {level} [{i+1}/{total}] : {diagram_type} OK ({len(code)} chars)")
+
+                    # Extraire les identifiants et les accumuler
+                    new_ids = extract_identifiers_from_sysml(code)
+                    if new_ids:
+                        accumulated_identifiers = merge_identifiers(accumulated_identifiers, new_ids)
+                        logger.info(f"SysML {level} [{i+1}/{total}] : Identifiants extraits — {', '.join(f'{k}: {len(v)}' for k, v in new_ids.items())}")
                 else:
-                    logger.warning(f"SysML [{i}/5] : {diagram_type} — réponse vide")
+                    logger.warning(f"SysML {level} [{i+1}/{total}] : {diagram_type} — réponse vide")
             except Exception as e:
-                logger.error(f"SysML [{i}/5] : {diagram_type} ERREUR: {e}")
+                logger.error(f"SysML {level} [{i+1}/{total}] : {diagram_type} ERREUR: {e}")
                 errors.append(f"{diagram_type}: {e}")
 
         sysml_code = "\n\n".join(all_code_parts)
@@ -584,6 +593,7 @@ class LevelService:
             "success": len(errors) == 0,
             "error_message": "; ".join(errors) if errors else "",
             "diagram_count": len(all_code_parts),
+            "accumulated_identifiers": accumulated_identifiers,
         }
 
         if errors and not all_code_parts:

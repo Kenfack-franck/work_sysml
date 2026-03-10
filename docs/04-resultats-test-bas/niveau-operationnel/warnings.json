@@ -1,0 +1,26 @@
+[
+  {
+    "type": "inconsistency",
+    "message": "The actor 'Maintenance facility' is mentioned in the use case 'Maintenir en conditions opérationnelles' but is not defined in the 'stakeholders' section.",
+    "section": "use_cases",
+    "suggestion": "Define 'Maintenance facility' in the 'stakeholders' section with its role and type, or remove it from the use case actors if it's not an active participant."
+  },
+  {
+    "type": "inconsistency",
+    "message": "The use case 'Maintenir en conditions opérationnelles' includes 'Réparer en atelier', but 'Réparer en atelier' is not defined as a standalone use case or further described. 'Réparer sous l'aile' is defined instead.",
+    "section": "use_cases",
+    "suggestion": "Clarify if 'Réparer en atelier' is a distinct use case, a sub-activity of 'Réparer sous l'aile', or if there's a typo. If it's a distinct use case, define it explicitly."
+  },
+  {
+    "type": "missing_info",
+    "message": "No explicit operational requirements (e.g., REQ-OP-XXX) were found in the user's response.",
+    "section": "requirements",
+    "suggestion": "Provide a dedicated section for operational requirements, following the specified format (ID, text, satisfied_by)."
+  },
+  {
+    "type": "ambiguity",
+    "message": "The operating modes are described with a hierarchical structure (Mode On contains Stand by and En fonctionnement), but the JSON schema represents modes as a flat list. The hierarchy is not fully captured.",
+    "section": "operating_modes",
+    "suggestion": "Consider if the flat representation is sufficient or if a more complex schema supporting mode hierarchy is needed for future analysis."
+  }
+]

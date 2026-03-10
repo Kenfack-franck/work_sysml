@@ -1,0 +1,38 @@
+[
+  {
+    "type": "missing_info",
+    "message": "Aucune exigence technique explicite n'est fournie pour le BAS. Le document ne contient pas d'exigences techniques formalisées.",
+    "section": "requirements",
+    "suggestion": "Les exigences techniques devraient être définies dans un document de spécification (TND, AdB) qui n'est pas inclus dans le support de formation."
+  },
+  {
+    "type": "missing_info",
+    "message": "Les composants Fan bleed port, Nacelle exhaust port, SOV et Data exchange (I/O) n'implémentent pas explicitement de constituants logiques du modèle logique validé.",
+    "section": "technical_components",
+    "suggestion": "Clarifier si ces composants implémentent des constituants logiques existants ou s'ils représentent des éléments supplémentaires non couverts par le modèle logique."
+  },
+  {
+    "type": "missing_info",
+    "message": "Les types de câblage et bus de données ne sont pas précisés (ARINC 429, CAN, etc.).",
+    "section": "physical_connections",
+    "suggestion": "Spécifier les protocoles de communication utilisés pour les interfaces de données."
+  },
+  {
+    "type": "missing_info",
+    "message": "Les matériaux des tuyauteries pneumatiques ne sont pas précisés.",
+    "section": "physical_connections",
+    "suggestion": "Spécifier les matériaux et les spécifications des tuyauteries (acier inoxydable, titane, etc.)."
+  },
+  {
+    "type": "ambiguity",
+    "message": "Deux capteurs de température distincts (Air Temperature Sensor (ACAC) et Air Temperature Sensor (PCE)) produisent tous deux un flux 'mesure température air' vers l'EEC. La distinction entre ces deux mesures n'est pas explicitement clarifiée dans les ports de l'EEC.",
+    "section": "physical_connections",
+    "suggestion": "Clarifier si l'EEC reçoit deux mesures de température distinctes ou si elles sont fusionnées. Envisager de renommer les ports de l'EEC pour distinguer les deux sources."
+  },
+  {
+    "type": "missing_info",
+    "message": "Les références/part numbers des composants techniques ne sont pas fournis.",
+    "section": "technical_components",
+    "suggestion": "Ajouter les références commerciales ou les part numbers des composants pour la traçabilité."
+  }
+]

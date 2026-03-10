@@ -57,17 +57,20 @@ def create_llm(
         
         return GeminiLLM(api_keys=keys, model_name=selected_model)
 
-    # === Ajouter ici les futurs fournisseurs ===
-    # elif provider == "openai":
-    #     from services.llm_openai import OpenAILLM
-    #     return OpenAILLM(api_key=kwargs["api_key"], model=kwargs.get("model"))
-    #
-    # elif provider == "ollama":
-    #     from services.llm_ollama import OllamaLLM
-    #     return OllamaLLM(model=kwargs.get("model", "llama3"))
+    elif provider == "claude":
+        from services.llm_claude import ClaudeLLM
+
+        if not api_key:
+            raise ValueError(
+                "Clé API Anthropic manquante. "
+                "Configurez ANTHROPIC_API_KEY dans .env"
+            )
+
+        selected_model = model_name or model or "claude-haiku-4-5-20251001"
+        return ClaudeLLM(api_key=api_key, model=selected_model)
 
     else:
-        supported = ["gemini"]
+        supported = ["gemini", "claude"]
         raise ValueError(
             f"Fournisseur LLM '{provider}' non supporté. "
             f"Options disponibles : {supported}"

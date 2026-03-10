@@ -1,0 +1,445 @@
+--- logical_breakdown ---
+package 'BAS (Bleed Air System) - Logical Breakdown' {
+
+    part def Calculateur {
+        doc /* Fonctions allouees : Provide Feedback, Reguler la PRV, Reguler la vanne NAI, Reguler la vanne PCE, Determiner l'etat du systeme, Communiquer */
+    }
+
+    part def IPPort {
+        doc /* Fonction allouee : Prelever l'air */
+    }
+
+    part def VanneNAI {
+        doc /* Fonction allouee : Laisser passer l'air */
+    }
+
+    part def VannePCE {
+        doc /* Fonction allouee : Actuated bleed select */
+    }
+
+    part def PCE {
+        doc /* Fonction allouee : Transfert d'energie thermique */
+    }
+
+    part def ACAC {
+        doc /* Fonction allouee : Reguler la temperature nacelle */
+    }
+
+    part def Filter {
+        doc /* Fonction allouee : Filtrer air */
+    }
+
+    part def PCEAirTemperatureSensor {
+        doc /* Fonction allouee : Mesurer la temperature */
+    }
+
+    part def AirPressureSensor {
+        doc /* Fonction allouee : Mesurer la pression */
+    }
+
+    part def ACACTemperatureSensor {
+        doc /* Fonction allouee : Mesurer la temperature */
+    }
+
+    part def NacellePort {
+        doc /* Fonction allouee : Fournir l'air a l'interface Nacelle */
+    }
+
+    part def BASSystem {
+        part calculateur : Calculateur;
+        part ipPort : IPPort;
+        part vanneNAI : VanneNAI;
+        part vannePCE : VannePCE;
+        part pce : PCE;
+        part acac : ACAC;
+        part filter : Filter;
+        part pceAirTemperatureSensor : PCEAirTemperatureSensor;
+        part airPressureSensor : AirPressureSensor;
+        part acacTemperatureSensor : ACACTemperatureSensor;
+        part nacellePort : NacellePort;
+    }
+
+}
+
+--- logical_architecture ---
+```sysml
+package 'BAS (Bleed Air System) - Logical Architecture' {
+
+    port def ControlPort {
+        attribute command;
+        attribute feedback;
+    }
+
+    port def PneumaticPort {
+        attribute airFlow;
+    }
+
+    port def ElectricPort {
+        attribute signal;
+    }
+
+    port def InformationPort {
+        attribute data;
+    }
+
+    part def Calculateur {
+        port stateDataInOut : InformationPort;
+        port energieIn : ElectricPort;
+        port commandeDegivragNacelleIn : InformationPort;
+        port consignePTIn : InformationPort;
+        port mesureTemperatureAirIn : ElectricPort;
+        port mesurePressionAirIn : ElectricPort;
+        port consigneOuvertureVanneNAIOut : ElectricPort;
+        port consigneOuvertureVannePCEOut : ElectricPort;
+        port positionVannePCEOut : ElectricPort;
+    }
+
+    part def IPPort {
+        port airChaudHautePressionIn : PneumaticPort;
+        port airChaudHautePressionOut : PneumaticPort;
+    }
+
+    part def VanneNAI {
+        port consigneOuvertureVanneIn : ElectricPort;
+        port airChaudHautePressionIn : PneumaticPort;
+        port airChaudNacelleOut : PneumaticPort;
+    }
+
+    part def VannePCE {
+        port consigneOuvertureVanneIn : ElectricPort;
+        port positionVannePCEIn : ElectricPort;
+        port airChaudHautePressionIn : PneumaticPort;
+        port airChaudHautePressionOut : PneumaticPort;
+    }
+
+    part def PCE {
+        port airChaudHautePressionIn : PneumaticPort;
+        port airAmbiantIn : PneumaticPort;
+        port airReguleTOut : PneumaticPort;
+        port airTiedeOut : PneumaticPort;
+    }
+
+    part def ACAC {
+        port airChaudNacelleIn : PneumaticPort;
+        port airAmbiantIn : PneumaticPort;
+        port airChaudNacelleOut : PneumaticPort;
+        port airTiedeOut : PneumaticPort;
+    }
+
+    part def Filter {
+        port airRegulePTIn : PneumaticPort;
+        port airRegulePTOut : PneumaticPort;
+    }
+
+    part def PCEAirTemperatureSensor {
+        port airChaudNacelleIn : PneumaticPort;
+        port mesureTemperatureAirOut : ElectricPort;
+    }
+
+    part def AirPressureSensor {
+        port airReguleTIn : PneumaticPort;
+        port mesurePressionAirOut : ElectricPort;
+    }
+
+    part def ACACTemperatureSensor {
+        port airChaudNacelleIn : PneumaticPort;
+        port mesureTemperatureAirOut : ElectricPort;
+    }
+
+    part def NacellePort {
+        port airChaudNacelleIn : PneumaticPort;
+        port airChaudNacelleOut : PneumaticPort;
+    }
+
+    part def BASSystem {
+        part calculateur : Calculateur;
+        part ipPort : IPPort;
+        part vanneNAI : VanneNAI;
+        part vannePCE : VannePCE;
+        part pce : PCE;
+        part acac : ACAC;
+        part filter : Filter;
+        part pceAirTemperatureSensor : PCEAirTemperatureSensor;
+        part airPressureSensor : AirPressureSensor;
+        part acacAirTemperatureSensor : ACACTemperatureSensor;
+        part nacellePort : NacellePort;
+    }
+
+}
+```
+
+--- logical_sequences ---
+```sysml
+package 'BAS (Bleed Air System) - Logical Sequences' {
+
+    item def AirChaudHautePression;
+    item def ConsigneOuvertureVanne;
+    item def AirChaudNacelle;
+    item def MesureTemperatureAir;
+    item def PositionVannePC;
+    item def AirReguleT;
+    item def MesurePressionAir;
+    item def AirTiede;
+    item def CommandeDegrivageNacelle;
+    item def ConsignePT;
+    item def Energie;
+    item def StateData;
+    item def AirAmbiant;
+
+    occurrence def NominalOperationSequence {
+        doc /* Sequence nominale de fonctionnement du BAS :
+               1. Calculateur envoie consigne ouverture vanne NAI a Vanne NAI
+               2. Vanne NAI reçoit air chaud haute pression depuis IP port
+               3. Air chaud passe par Vanne NAI vers ACAC
+               4. ACAC reçoit air ambiant et refroidit l'air chaud
+               5. ACAC Air Temperature Sensor mesure temperature et envoie a Calculateur
+               6. Calculateur envoie consigne ouverture vanne PCE a Vanne PCE
+               7. Vanne PCE reçoit air chaud haute pression depuis IP port
+               8. Air chaud passe par Vanne PCE vers PCE
+               9. PCE reçoit air ambiant et regule la pression
+               10. Air Pressure Sensor mesure pression et envoie a Calculateur
+               11. PCE Air Temperature Sensor mesure temperature et envoie a Calculateur
+               12. Air regulé sort par Filter vers environnement externe
+               13. Air chaud nacelle sort par Nacelle port vers environnement externe */
+        part calculateur;
+        part ipPort;
+        part vanneNAI;
+        part vannePCE;
+        part pce;
+        part acac;
+        part filter;
+        part pceAirTemperatureSensor;
+        part airPressureSensor;
+        part acacAirTemperatureSensor;
+        part nacellePort;
+    }
+
+    occurrence def DegradedSequence {
+        doc /* Sequence degradee en cas de defaut :
+               1. Air Pressure Sensor detecte une pression anormale
+               2. Sensor envoie mesure pression air a Calculateur
+               3. Calculateur detecte l'anomalie
+               4. Calculateur envoie consigne fermeture vanne NAI
+               5. Calculateur envoie consigne fermeture vanne PCE
+               6. Vannes se ferment et isolent le systeme
+               7. Calculateur envoie state data a environnement externe */
+        part calculateur;
+        part airPressureSensor;
+        part vanneNAI;
+        part vannePCE;
+    }
+
+    occurrence def ACACAirCoolingSequence {
+        doc /* Sequence de refroidissement par ACAC :
+               1. ACAC reçoit air chaud nacelle depuis Vanne NAI
+               2. ACAC reçoit air ambiant depuis environnement externe
+               3. ACAC refroidit l'air chaud avec l'air ambiant
+               4. ACAC Air Temperature Sensor mesure la temperature de sortie
+               5. Sensor envoie mesure temperature air a Calculateur
+               6. Air tiede sort vers environnement externe
+               7. Air chaud nacelle sort vers Nacelle port */
+        part acac;
+        part acacAirTemperatureSensor;
+        part calculateur;
+        part nacellePort;
+    }
+
+    occurrence def PCEPressureRegulationSequence {
+        doc /* Sequence de regulation de pression par PCE :
+               1. PCE reçoit air chaud haute pression depuis Vanne PCE
+               2. PCE reçoit air ambiant depuis environnement externe
+               3. PCE regule la pression de l'air chaud
+               4. Air regulé sort vers Air Pressure Sensor et Filter
+               5. Air Pressure Sensor mesure la pression regulee
+               6. Sensor envoie mesure pression air a Calculateur
+               7. PCE Air Temperature Sensor mesure la temperature
+               8. Sensor envoie mesure temperature air a Calculateur
+               9. Air tiede sort vers environnement externe */
+        part pce;
+        part airPressureSensor;
+        part pceAirTemperatureSensor;
+        part filter;
+        part calculateur;
+    }
+
+    occurrence def ControlSequence {
+        doc /* Sequence de controle par Calculateur :
+               1. Calculateur reçoit commande degivrage nacelle depuis environnement externe
+               2. Calculateur reçoit consigne P,T depuis environnement externe
+               3. Calculateur reçoit energie depuis environnement externe
+               4. Calculateur reçoit mesure temperature air depuis ACAC Air Temperature Sensor
+               5. Calculateur reçoit mesure pression air depuis Air Pressure Sensor
+               6. Calculateur reçoit mesure temperature air depuis PCE Air Temperature Sensor
+               7. Calculateur calcule les consignes de commande
+               8. Calculateur envoie consigne ouverture vanne NAI a Vanne NAI
+               9. Calculateur envoie consigne ouverture vanne PCE a Vanne PCE
+               10. Calculateur envoie position vanne PCE a Vanne PCE
+               11. Calculateur envoie state data a environnement externe */
+        part calculateur;
+        part vanneNAI;
+        part vannePCE;
+        part acacAirTemperatureSensor;
+        part airPressureSensor;
+        part pceAirTemperatureSensor;
+    }
+
+}
+```
+
+--- logical_modes ---
+package 'BAS (Bleed Air System) - Logical Modes' {
+
+    attribute def PowerOnSignal;
+    attribute def PowerOffSignal;
+    attribute def FaultDetected;
+    attribute def FaultCleared;
+    attribute def RegulationCommand;
+    attribute def SensorReading;
+    attribute def SystemHealthStatus;
+
+    state def CalculatorStates {
+        entry; then Idle;
+
+        state Idle;
+        transition Activate
+            first Idle
+            accept PowerOnSignal
+            then Active;
+
+        state Active {
+            doc /* Calculateur regule activement le systeme */
+        }
+        transition Deactivate
+            first Active
+            accept PowerOffSignal
+            then Idle;
+
+        transition Fault
+            first Active
+            accept FaultDetected
+            then Degraded;
+
+        state Degraded;
+        transition Recover
+            first Degraded
+            accept FaultCleared
+            then Active;
+    }
+
+    state def VanneNAIStates {
+        entry; then Closed;
+
+        state Closed;
+        transition Open
+            first Closed
+            accept RegulationCommand
+            then Open;
+
+        state Open;
+        transition Close
+            first Open
+            accept RegulationCommand
+            then Closed;
+    }
+
+    state def VannePCEStates {
+        entry; then Closed;
+
+        state Closed;
+        transition Open
+            first Closed
+            accept RegulationCommand
+            then Open;
+
+        state Open;
+        transition Close
+            first Open
+            accept RegulationCommand
+            then Closed;
+    }
+
+    state def PCEStates {
+        entry; then Standby;
+
+        state Standby;
+        transition Activate
+            first Standby
+            accept PowerOnSignal
+            then Regulating;
+
+        state Regulating {
+            doc /* PCE regule la pression de lair */
+        }
+        transition Deactivate
+            first Regulating
+            accept PowerOffSignal
+            then Standby;
+    }
+
+    state def ACACStates {
+        entry; then Standby;
+
+        state Standby;
+        transition Activate
+            first Standby
+            accept PowerOnSignal
+            then Cooling;
+
+        state Cooling {
+            doc /* ACAC refroidit lair */
+        }
+        transition Deactivate
+            first Cooling
+            accept PowerOffSignal
+            then Standby;
+    }
+
+    state def FilterStates {
+        entry; then Clean;
+
+        state Clean;
+        transition Clogging
+            first Clean
+            accept FaultDetected
+            then Clogged;
+
+        state Clogged;
+        transition Maintenance
+            first Clogged
+            accept FaultCleared
+            then Clean;
+    }
+
+    state def IPPortStates {
+        entry; then Closed;
+
+        state Closed;
+        transition Open
+            first Closed
+            accept PowerOnSignal
+            then Open;
+
+        state Open;
+        transition Close
+            first Open
+            accept PowerOffSignal
+            then Closed;
+    }
+
+    state def NacellePortStates {
+        entry; then Closed;
+
+        state Closed;
+        transition Open
+            first Closed
+            accept PowerOnSignal
+            then Open;
+
+        state Open;
+        transition Close
+            first Open
+            accept PowerOffSignal
+            then Closed;
+    }
+
+}

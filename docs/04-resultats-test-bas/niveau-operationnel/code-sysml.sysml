@@ -1,0 +1,345 @@
+// ===== LIFECYCLE =====
+
+package 'BAS (Bleed Air System) - Lifecycle' {
+
+    attribute def StartDevelopment;
+    attribute def StartProduction;
+    attribute def Deliver;
+    attribute def StartOperation;
+    attribute def EndOfLife;
+    attribute def StartMaintenance;
+    attribute def EndMaintenance;
+
+    state def SystemLifecycle {
+        entry; then ConceptEvaluation;
+
+        state ConceptEvaluation;
+        transition StartDev
+            first ConceptEvaluation
+            accept StartDevelopment
+            then Developpement;
+
+        state Developpement;
+        transition StartProd
+            first Developpement
+            accept StartProduction
+            then Production;
+
+        state Production {
+            entry; then Fabrication;
+            state Fabrication;
+            state Montage;
+            transition FabricationToMontage
+                first Fabrication
+                then Montage;
+            state IntegrationEtEssais;
+            transition MontageToIntegrationEtEssais
+                first Montage
+                then IntegrationEtEssais;
+            state StockageInterne;
+            transition IntegrationEtEssaisToStockageInterne
+                first IntegrationEtEssais
+                then StockageInterne;
+        }
+        transition DeliverTransition
+            first Production
+            accept Deliver
+            then Livraison;
+
+        state Livraison {
+            entry; then StockageIntermediaire;
+            state StockageIntermediaire;
+            state Transport;
+            transition StockageIntermediaireToTransport
+                first StockageIntermediaire
+                then Transport;
+        }
+        transition FinalAssembly
+            first Livraison
+            accept StartOperation
+            then MontageFinal;
+
+        state MontageFinal;
+        transition StartOp
+            first MontageFinal
+            accept StartOperation
+            then Exploitation;
+
+        state Exploitation {
+            entry; then Operation;
+            state Operation;
+            state MaintenanceLRU;
+            transition OperationToMaintenanceLRU
+                first Operation
+                then MaintenanceLRU;
+        }
+        transition ToMaintenance
+            first Exploitation
+            accept StartMaintenance
+            then Maintenance;
+
+        state Maintenance;
+        transition FromMaintenance
+            first Maintenance
+            accept EndMaintenance
+            then Exploitation;
+
+        transition EndLife
+            first Exploitation
+            accept EndOfLife
+            then Recyclage;
+
+        state Recyclage;
+    }
+}
+
+// ===== USE_CASES =====
+
+package 'BAS (Bleed Air System) - Use Cases' {
+
+    part def BAS {}
+
+    part def ACPneumaticSystem {
+        doc /* système technique avion qui reçoit l'air régulé en pression et température (P,T) du BAS. */
+    }
+    part def Nacelle {
+        doc /* système technique qui reçoit l'air chaud du BAS pour le dégivrage. */
+    }
+    part def Turbomachine {
+        doc /* le moteur Silvercrest qui fournit l'air chaud haute pression au BAS. */
+    }
+    part def EECS {
+        doc /* système de contrôle électronique du moteur qui envoie les consignes de régulation (P,T) et la commande de dégivrage nacelle au BAS, et reçoit les données d'état (state data) et l'énergie. */
+    }
+    part def OperationMaintenanceOperator {
+        doc /* personne humaine qui réalise la maintenance opérationnelle. */
+    }
+    part def ACAvionics {
+        doc /* Système de contrôle avionique qui envoie des commandes et de l'énergie au BAS, et reçoit des données d'état. */
+    }
+    part def Pilot {
+        doc /* Personne humaine qui envoie des commandes de dégivrage. */
+    }
+
+    use case def PressuriserLesReservoirs {
+        doc /* Le BAS fournit de l'air régulé pour pressuriser les réservoirs carburant. */
+        subject system : BAS;
+        actor acPneumaticSystem : ACPneumaticSystem;
+        actor turbomachine : Turbomachine;
+        actor eecs : EECS;
+    }
+
+    use case def DegivrerLesAiles {
+        doc /* Le BAS fournit de l'air chaud pour le dégivrage des ailes via le système pneumatique avion. */
+        subject system : BAS;
+        actor acPneumaticSystem : ACPneumaticSystem;
+        actor turbomachine : Turbomachine;
+        actor eecs : EECS;
+    }
+
+    use case def PressuriserEtTempererLaCabine {
+        doc /* Le BAS fournit de l'air régulé en pression et température pour la climatisation cabine. */
+        subject system : BAS;
+        actor acPneumaticSystem : ACPneumaticSystem;
+        actor turbomachine : Turbomachine;
+        actor eecs : EECS;
+    }
+
+    use case def DegivrerLaNacelle {
+        doc /* Le BAS envoie de l'air chaud directement à la nacelle pour le dégivrage. */
+        subject system : BAS;
+        actor nacelle : Nacelle;
+        actor turbomachine : Turbomachine;
+        actor eecs : EECS;
+        actor acPneumaticSystem : ACPneumaticSystem;
+    }
+
+    use case def EtreInformeDeLEtatDuSysteme {
+        doc /* Le BAS communique son état de fonctionnement. */
+        subject system : BAS;
+        actor eecs : EECS;
+        actor operationMaintenanceOperator : OperationMaintenanceOperator;
+    }
+
+    use case def DiagnostiquerLEtat {
+        doc /* Inclus dans "Maintenir en conditions opérationnelles". */
+        subject system : BAS;
+        actor operationMaintenanceOperator : OperationMaintenanceOperator;
+    }
+
+    use case def ReparerSousLAile {
+        doc /* Réparation sur site sans dépose du système. */
+        subject system : BAS;
+        actor operationMaintenanceOperator : OperationMaintenanceOperator;
+    }
+
+    use case def MaintenirEnConditionsOperationnelles {
+        subject system : BAS;
+        actor operationMaintenanceOperator : OperationMaintenanceOperator;
+        include use case DiagnostiquerLEtat;
+    }
+}
+
+// ===== CONTEXT =====
+
+package 'BAS (Bleed Air System) - Context' {
+
+    port def ACAvionicsPort {
+        attribute stateData;
+        attribute Energie;
+        attribute ConsignePT;
+        attribute CommandeDegivrageNacelle;
+    }
+
+    port def TurbomachinePort {
+        attribute AirChaudHautePression;
+    }
+
+    port def EnvironnementPort {
+        attribute AirTiede;
+        attribute AirAmbiant;
+    }
+
+    port def ACPneumaticSystemPort {
+        attribute AirRegulePT;
+    }
+
+    port def NacellePort {
+        attribute AirChaudNacelle;
+    }
+
+    part def MainSystem {
+        port acAvionics : ACAvionicsPort;
+        port turbomachine : TurbomachinePort;
+        port environnement : EnvironnementPort;
+        port acPneumaticSystem : ACPneumaticSystemPort;
+        port nacelle : NacellePort;
+    }
+
+    part def ACAvionics {
+        port systemPort : ACAvionicsPort;
+    }
+
+    part def Turbomachine {
+        port systemPort : TurbomachinePort;
+    }
+
+    part def Environnement {
+        port systemPort : EnvironnementPort;
+    }
+
+    part def ACPneumaticSystem {
+        port systemPort : ACPneumaticSystemPort;
+    }
+
+    part def Nacelle {
+        port systemPort : NacellePort;
+    }
+
+    part 'System Context' {
+        part system : MainSystem;
+        part acAvionics : ACAvionics;
+        part turbomachine : Turbomachine;
+        part environnement : Environnement;
+        part acPneumaticSystem : ACPneumaticSystem;
+        part nacelle : Nacelle;
+    }
+}
+
+// ===== SEQUENCES =====
+
+package 'BAS (Bleed Air System) - Operational Sequences' {
+
+    item def CommandeDeDemarragePilote;
+    item def Energie;
+    item def CommandePT;
+    item def AirChaudHautePressionPminTmax;
+    item def AirAmbiantSourceFroide;
+    item def AirRegulePT;
+    item def CommandDeIcing;
+    item def NacelleDeIcingDemand;
+    item def HotAir;
+    item def AirChaudNacelle;
+    item def StateData;
+
+    occurrence def NominalAlimentationAirRegule {
+        doc /* Scenario nominal :
+               1. AcAvionics envoie CommandeDeDemarragePilote a Bas.
+               2. AcAvionics envoie Energie a Bas. Le Bas passe de l'etat Eteint a EnFonctionnement.
+               3. AcAvionics envoie Energie a Turbomachine. La Turbomachine passe de l'etat Eteint a EnFonctionnement.
+               4. AcAvionics envoie CommandePT a Bas.
+               5. Turbomachine fournit AirChaudHautePressionPminTmax a Bas.
+               6. SourceFroideEnvironnement fournit AirAmbiantSourceFroide a Bas.
+               7. Bas execute EnvoyerDeLAirReguleALaCabine.
+               8. Bas envoie AirRegulePT a AcPneumaticSystem. */
+        part acAvionics;
+        part bas;
+        part turbomachine;
+        part sourceFroideEnvironnement;
+        part acPneumaticSystem;
+    }
+
+    occurrence def NominalDegivrageNacelle {
+        doc /* Le Bas est en etat Off. La Turbomachine est en etat Running. La Nacelle est en etat PotentiallyIced. La Nacelle passe en etat DeIced.
+               1. AcAvionics envoie Energie (boucle quand Bas command active) a Bas. Le Bas passe en StandBy.
+               2. Pilot envoie CommandDeIcing a AcAvionics.
+               3. AcAvionics envoie NacelleDeIcingDemand a Bas.
+               4. Turbomachine fournit HotAir a Bas.
+               5. Bas envoie AirChaudNacelle (pendant 3 min) a Nacelle. Le Bas execute EnvoyerDeLAirChaudALaNacelle.
+               6. Bas envoie StateData a AcAvionics. */
+        part acAvionics;
+        part bas;
+        part pilot;
+        part turbomachine;
+        part nacelle;
+    }
+}
+
+// ===== MODES =====
+
+package 'BAS (Bleed Air System) - Operating Modes' {
+
+    attribute def PowerOnSignal;
+    attribute def PowerOffSignal;
+    attribute def StartOperationSignal;
+    attribute def StopOperationSignal;
+
+    action def CommunicateSystemState;
+    action def EnvoyerAirChaudNacelle;
+    action def EnvoyerAirReguleCabine;
+
+    state def SystemModes {
+        entry; then ModeOff;
+
+        state ModeOff;
+        transition PowerOn
+            first ModeOff
+            accept PowerOnSignal
+            then ModeOn;
+
+        state ModeOn {
+            entry; then Standby;
+
+            state Standby {
+                entry action : CommunicateSystemState;
+            }
+            transition StartOp
+                first Standby
+                accept StartOperationSignal
+                then EnFonctionnement;
+
+            state EnFonctionnement {
+                do action : EnvoyerAirChaudNacelle;
+                do action : EnvoyerAirReguleCabine;
+            }
+            transition StopOp
+                first EnFonctionnement
+                accept StopOperationSignal
+                then Standby;
+        }
+        transition PowerOff
+            first ModeOn
+            accept PowerOffSignal
+            then ModeOff;
+    }
+}

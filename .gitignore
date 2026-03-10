@@ -1,87 +1,59 @@
-# Python
+# === Environnement Python ===
+.venv/
+venv/
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
+*.pyo
 *.egg-info/
-.installed.cfg
 *.egg
+dist/
+build/
 
-# Virtual environments
-venv/
-ENV/
-env/
-.venv
+# === Secrets ===
+.env
+.env.local
+.env.*.local
 
-# IDE
+# === Donnees runtime (regenerees au demarrage) ===
+data/state/
+data/chroma/
+data/logs/
+backend/data/
+
+# === Fichiers temporaires ===
+.sysagent.pids
+*.log
+*.tmp
+*.bak
+
+# === OS ===
+.DS_Store
+Thumbs.db
+.directory
+
+# === IDE ===
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# Data directories
-backend/data/chroma/
-backend/data/state/
-data/
-
-# Pytest
+# === Tests ===
 .pytest_cache/
 .coverage
 htmlcov/
-*.cover
 .hypothesis/
 
-# Logs
-*.log
-logs/
-
-# Docker
-*.pid
-*.seed
-*.log
-
-# OS
-.DS_Store
-Thumbs.db
-.directory
-
-# Streamlit
+# === Streamlit ===
 .streamlit/
 
-# Jupyter
+# === Jupyter ===
 .ipynb_checkpoints/
 *.ipynb
 
-# Temporary files
-*.tmp
-*.bak
-*.swp
-
-# Experiment results (generated data, not source code)
-experiments/results/
-
-# SysML-v2-Release repo (mounted as Docker volume, not part of this project)
+# === Depot externe (monte en volume Docker) ===
 SysML-v2-Release/
 
-# Livrables binaires et archives (à conserver hors du repo)
-LIVRABLES_v1.zip
+# === Anciens livrables (remplaces par docs/) ===
 LIVRABLES_v1/
+LIVRABLES_v1.zip

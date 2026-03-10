@@ -1,17 +1,22 @@
 """
 Prompts pour le niveau FONCTIONNEL (Functional).
 
-Deux fonctions :
-  - build_functional_json_prompt  : sections utilisateur → JSON FunctionalModel
-  - build_functional_sysml_prompt : JSON FunctionalModel  → code SysML v2
+Fonctions :
+  - build_functional_json_prompt           : sections utilisateur → JSON FunctionalModel
+  - build_functional_breakdown_sysml_prompt : JSON → code SysML v2 (Functional Breakdown)
+  - build_functional_behaviour_sysml_prompt : JSON → code SysML v2 (Functional Behaviour)
+  - build_functional_modes_sysml_prompt     : JSON → code SysML v2 (Functional Modes)
+  - get_functional_sysml_prompts            : JSON → [(diagram_type, prompt), ...] x3
 """
 
 import json
 from typing import List, Optional
 
+from prompts._shared import build_sysml_prompt
+
 
 # ============================================================================
-# Blocs de texte réutilisables
+# Blocs de texte réutilisables (prompt JSON uniquement)
 # ============================================================================
 
 _FIDELITY_RULES = """\
@@ -100,96 +105,6 @@ _JSON_SCHEMA = """\
     }
   ]
 }"""
-
-_SYSML_SYNTAX_RULES = """\
-=== RÈGLES DE SYNTAXE SysML v2 (OBLIGATOIRES) ===
-
-RÈGLE S1 — PACKAGE : Tout le code doit être dans un package nommé '{{system_name}} - Functional'.
-
-RÈGLE S2 — ITEM DEFINITIONS : Chaque type de flux échangé entre fonctions doit avoir un item def. Nommer en PascalCase sans espaces ni accents.
-
-RÈGLE S3 — ACTION DEFINITIONS (Fonctions) :
-Chaque fonction est modélisée comme une action def.
-Syntaxe :
-  action def 'NomFonction' {{
-    doc /* Description de la fonction */
-    in nomEntree : TypeFlux;
-    out nomSortie : TypeFlux;
-  }}
-
-RÈGLE S4 — DÉCOMPOSITION FONCTIONNELLE :
-Les sous-fonctions sont des actions imbriquées dans l'action parente.
-Les flux entre sous-fonctions utilisent 'flow'.
-Syntaxe :
-  action def 'FonctionParente' {{
-    in entreeParente : TypeFlux;
-    out sortieParente : TypeFlux;
-
-    action sousFonction1 : SousFonction1Def {{
-      in entree;
-      out sortie;
-    }}
-    flow sousFonction1.sortie to sousFonction2.entree;
-    action sousFonction2 : SousFonction2Def {{
-      in entree;
-      out sortie;
-    }}
-    bind sousFonction1.entree = entreeParente;
-    bind sousFonction2.sortie = sortieParente;
-  }}
-
-RÈGLE S5 — ALLOCATION CONSTITUANT::FONCTION (Functional Behavior Diagram) :
-Si une fonction feuille a un champ allocated_to non null, documenter l'allocation :
-  action def 'NomFonction' {{
-    doc /* Allouée à : NomConstituant */
-  }}
-Et dans une section séparée, déclarer l'allocation :
-  part def NomConstituant {{
-    perform action nomFonction : NomFonctionDef;
-  }}
-
-RÈGLE S6 — CHAÎNES FONCTIONNELLES :
-Chaque chaîne fonctionnelle est modélisée comme une action def englobante contenant les sous-actions dans l'ordre, avec les flows entre elles et les binds vers les entrées/sorties système.
-
-RÈGLE S7 — MODES (State Def) :
-Les modes sont modélisés avec state def, chaque mode contenant des 'perform action' pour les fonctions actives.
-Syntaxe :
-  state def 'SystemeModes' {{
-    state modeOff {{
-      // aucune fonction active
-    }}
-    state modeOperationnel {{
-      perform action fonctionA;
-      perform action fonctionB;
-    }}
-    transition modeOff then modeStandby if triggerDemarrage;
-  }}
-
-RÈGLE S8 — SUCCESSIONS :
-Si un ordre d'exécution est spécifié entre fonctions, utiliser 'first ... then ...' ou le raccourci 'then action'.
-
-RÈGLE S9 — COMMENTAIRES DE SECTION :
-Séparer les grandes parties du code avec des commentaires :
-  // ========================================
-  // SECTION : Item Definitions
-  // ========================================
-
-RÈGLE S10 — IDENTIFIANTS :
-Les identifiants avec espaces ou caractères spéciaux doivent être entourés de guillemets simples."""
-
-_SYSML_CODE_STRUCTURE = """\
-=== STRUCTURE DU CODE SysML v2 À PRODUIRE ===
-
-Le code doit suivre cette organisation :
-
-1. package '{{system_name}} - Functional' {{
-2.   // Item definitions (types de flux fonctionnels)
-3.   // Action definitions (fonctions élémentaires)
-4.   // Action definitions composites (fonctions de service décomposées)
-5.   // Functional chains (actions englobantes)
-6.   // Part definitions avec perform (allocation Constituant::Fonction)
-7.   // State definitions (modes fonctionnels)
-8. }}"""
 
 # Liste ordonnée des 5 sections fonctionnelles
 _FUNCTIONAL_SECTIONS = [
@@ -286,65 +201,305 @@ def build_functional_json_prompt(
 
 
 # ============================================================================
-# FONCTION 2 — Prompt SysML v2 (JSON FunctionalModel → code SysML v2)
+# Templates de syntaxe validés (compatibles SysON)
 # ============================================================================
 
-def build_functional_sysml_prompt(
-    json_model: str,
+_TEMPLATE_FUNCTIONAL_BREAKDOWN = """\
+=== TEMPLATE DE SYNTAXE : FUNCTIONAL BREAKDOWN (compatible SysON) ===
+
+package 'SystemName - Functional Breakdown' {
+
+    // Types des items echanges
+    item def Scene;
+    item def Image;
+    item def Picture;
+
+    // Definitions des fonctions feuilles
+    action def Focus {
+        doc /* Description de la sous-fonction */
+        in scene : Scene;
+        out image : Image;
+    }
+
+    action def Shoot {
+        doc /* Description */
+        in image : Image;
+        out picture : Picture;
+    }
+
+    // Fonction composite avec decomposition
+    action def TakePicture {
+        doc /* Fonction de service principale */
+        in scene : Scene;
+        out picture : Picture;
+
+        // Sous-actions
+        action focus : Focus {
+            in scene;
+            out image;
+        }
+        action shoot : Shoot {
+            in image;
+            out picture;
+        }
+
+        // Liaison aux parametres parents
+        bind focus.scene = scene;
+        bind shoot.picture = picture;
+    }
+
+    // Allocation aux constituants logiques
+    part def AutoFocus {
+        doc /* Constituant logique */
+        perform action focus : Focus;
+    }
+
+    part def Imager {
+        doc /* Constituant logique */
+        perform action shoot : Shoot;
+    }
+}"""
+
+_RULES_FUNCTIONAL_BREAKDOWN = """\
+=== RÈGLES DE SYNTAXE SPÉCIFIQUES : FUNCTIONAL BREAKDOWN ===
+
+R-FB1: Les fonctions de service sont des "action def" avec "in" et "out" items.
+R-FB2: Les sous-fonctions sont des "action" (usages) imbriquees dans l action def parente.
+R-FB3: Les liaisons aux parametres parents utilisent "bind subAction.param = parentParam;"
+R-FB4: L allocation aux constituants utilise "part def Constituant { perform action nom : ActionDef; }"
+R-FB5: Tous les noms en CamelCase ASCII sans accents (RS1-RS4).
+R-FB6: Les item def pour les types de flux sont declares au niveau package.
+R-FB7: Si une fonction n est pas decomposee dans le document, la declarer comme action def simple sans sous-actions."""
+
+_TEMPLATE_FUNCTIONAL_BEHAVIOUR = """\
+=== TEMPLATE DE SYNTAXE : FUNCTIONAL BEHAVIOUR (compatible SysON) ===
+
+package 'SystemName - Functional Behaviour' {
+
+    // Types des items echanges
+    item def Scene;
+    item def Image;
+    item def Picture;
+
+    // Definitions des fonctions avec entrees/sorties
+    action def Focus {
+        in scene : Scene;
+        out image : Image;
+    }
+
+    action def Shoot {
+        in image : Image;
+        out picture : Picture;
+    }
+
+    // Chaine fonctionnelle complete avec flux
+    action def TakePictureChain {
+        doc /* Chaine fonctionnelle de bout en bout */
+        in scene : Scene;
+        out picture : Picture;
+
+        action focus : Focus {
+            in scene;
+            out image;
+        }
+
+        action shoot : Shoot {
+            in image;
+            out picture;
+        }
+
+        // Flux entre sous-fonctions
+        flow focus.image to shoot.image;
+
+        // Succession (ordre d execution)
+        first focus then shoot;
+
+        // Liaison aux bornes du systeme
+        bind focus.scene = scene;
+        bind shoot.picture = picture;
+    }
+}"""
+
+_RULES_FUNCTIONAL_BEHAVIOUR = """\
+=== RÈGLES DE SYNTAXE SPÉCIFIQUES : FUNCTIONAL BEHAVIOUR ===
+
+R-BH1: Les flux entre sous-fonctions utilisent "flow source.output to target.input;"
+R-BH2: L ordre d execution utilise "first action1 then action2;" ou le raccourci "then action"
+R-BH3: Les chaines fonctionnelles sont des action def composites contenant les sous-actions et leurs flux.
+R-BH4: Les liaisons aux bornes du systeme utilisent "bind subAction.param = chainParam;"
+R-BH5: Chaque flux du JSON devient un "flow" entre deux sous-actions.
+R-BH6: Les item def sont declares au niveau package avec des noms CamelCase ASCII.
+R-BH7: Pour les boucles de retroaction, utiliser "flow" sans "first/then" (flux continu pendant l execution)."""
+
+_TEMPLATE_FUNCTIONAL_MODES = """\
+=== TEMPLATE DE SYNTAXE : FUNCTIONAL MODES (compatible SysON) ===
+
+package 'SystemName - Functional Modes' {
+
+    // Signaux de transition
+    attribute def PowerOnSignal;
+    attribute def PowerOffSignal;
+    attribute def StartOperationSignal;
+    attribute def StopOperationSignal;
+
+    // References aux fonctions (action def declarees dans Functional Breakdown)
+    action def MonitorSystem;
+    action def ProcessData;
+    action def TransmitData;
+
+    state def FunctionalModes {
+        entry; then ModeOff;
+
+        state ModeOff {
+            doc /* Aucune fonction active */
+        }
+        transition PowerOn
+            first ModeOff
+            accept PowerOnSignal
+            then ModeOn;
+
+        state ModeOn {
+            entry; then Standby;
+
+            state Standby {
+                doc /* Seules les fonctions de surveillance sont actives */
+                perform action monitorSystem : MonitorSystem;
+            }
+            transition StartOp
+                first Standby
+                accept StartOperationSignal
+                then Operating;
+
+            state Operating {
+                doc /* Toutes les fonctions sont actives */
+                perform action monitorSystem : MonitorSystem;
+                perform action processData : ProcessData;
+                perform action transmitData : TransmitData;
+            }
+            transition StopOp
+                first Operating
+                accept StopOperationSignal
+                then Standby;
+        }
+        transition PowerOff
+            first ModeOn
+            accept PowerOffSignal
+            then ModeOff;
+    }
+}"""
+
+_RULES_FUNCTIONAL_MODES = """\
+=== RÈGLES DE SYNTAXE SPÉCIFIQUES : FUNCTIONAL MODES ===
+
+R-FM1: Les modes utilisent "state def" avec "entry; then PremierEtat;". JAMAIS "entry state".
+R-FM2: Les fonctions actives dans un mode utilisent "perform action nomLocal : ActionDef;"
+R-FM3: Les transitions : "transition Nom first Source accept Signal then Cible;"
+R-FM4: Les action def references dans les perform doivent etre declares au niveau package (meme si ce sont des stubs).
+R-FM5: Noms CamelCase ASCII pour tout (etats, signaux, actions).
+R-FM6: Les etats composites contiennent "entry; then" pour leur sous-etat initial.
+R-FM7: JAMAIS de "transition Source then Cible if 'texte francais'". Utiliser accept Signal."""
+
+
+# ============================================================================
+# FONCTIONS SysML v2 — 3 prompts spécialisés par type de diagramme
+# ============================================================================
+
+def build_functional_breakdown_sysml_prompt(
+    model_json: dict,
     rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
 ) -> str:
+    """Construit le prompt SysML v2 pour le diagramme Functional Breakdown."""
+    filtered = {
+        "system_name": model_json.get("system_name", "System"),
+        "functions": model_json.get("functions", []),
+        "functional_behavior": model_json.get("functional_behavior", []),
+    }
+    return build_sysml_prompt(
+        diagram_type="Functional Breakdown",
+        role_suffix="Tu modélises l'arborescence fonctionnelle : fonctions de service décomposées en sous-fonctions, avec allocation aux constituants logiques.",
+        template=_TEMPLATE_FUNCTIONAL_BREAKDOWN,
+        rules=_RULES_FUNCTIONAL_BREAKDOWN,
+        filtered_json=filtered,
+        rag_examples=rag_examples,
+        naming_constraint=naming_constraint,
+    )
+
+
+def build_functional_behaviour_sysml_prompt(
+    model_json: dict,
+    rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
+) -> str:
+    """Construit le prompt SysML v2 pour le diagramme Functional Behaviour (flows)."""
+    filtered = {
+        "system_name": model_json.get("system_name", "System"),
+        "functions": model_json.get("functions", []),
+        "functional_flows": model_json.get("functional_flows", []),
+        "functional_chains": model_json.get("functional_chains", []),
+    }
+    return build_sysml_prompt(
+        diagram_type="Functional Behaviour",
+        role_suffix="Tu modélises les flux entre sous-fonctions avec entrées/sorties et chaînes fonctionnelles de bout en bout.",
+        template=_TEMPLATE_FUNCTIONAL_BEHAVIOUR,
+        rules=_RULES_FUNCTIONAL_BEHAVIOUR,
+        filtered_json=filtered,
+        rag_examples=rag_examples,
+        naming_constraint=naming_constraint,
+    )
+
+
+def build_functional_modes_sysml_prompt(
+    model_json: dict,
+    rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
+) -> str:
+    """Construit le prompt SysML v2 pour le diagramme Functional Modes."""
+    filtered = {
+        "system_name": model_json.get("system_name", "System"),
+        "modes": model_json.get("modes", []),
+        "functions": [{"name": f.get("name")} for f in model_json.get("functions", [])],
+    }
+    return build_sysml_prompt(
+        diagram_type="Functional Modes",
+        role_suffix="Tu modélises la machine à états des modes fonctionnels avec les fonctions actives/inactives dans chaque mode.",
+        template=_TEMPLATE_FUNCTIONAL_MODES,
+        rules=_RULES_FUNCTIONAL_MODES,
+        filtered_json=filtered,
+        rag_examples=rag_examples,
+        naming_constraint=naming_constraint,
+    )
+
+
+# ============================================================================
+# Fonction utilitaire — appelle les 3 prompts
+# ============================================================================
+
+FUNCTIONAL_DIAGRAMS = [
+    ("functional_breakdown", build_functional_breakdown_sysml_prompt),
+    ("functional_behaviour", build_functional_behaviour_sysml_prompt),
+    ("functional_modes", build_functional_modes_sysml_prompt),
+]
+
+
+def get_functional_sysml_prompts(
+    model_json: dict,
+    rag_examples: Optional[List[str]] = None,
+    naming_constraint: str = "",
+) -> list:
     """
-    Construit le prompt pour traduire le modèle fonctionnel JSON
-    en code SysML v2 (Functional Behavior + Functional Chains).
+    Retourne une liste de (diagram_type, prompt_text) pour les 3 diagrammes fonctionnels.
 
     Args:
-        json_model: le modèle JSON sérialisé (FunctionalModel)
+        model_json: le modèle JSON fonctionnel (dict, pas string)
         rag_examples: exemples SysML v2 du RAG (optionnel)
+        naming_constraint: contrainte de nommage des packages précédents
 
     Returns:
-        Le prompt complet (string).
+        Liste de tuples (diagram_type: str, prompt: str)
     """
-    parts: list[str] = []
-
-    # --- BLOC 1 : RÔLE ---
-    parts.append(
-        "Tu es un expert SysML v2 (spécification OMG, release 2026-01). "
-        "Tu traduis un modèle fonctionnel JSON en code SysML v2 valide en notation textuelle."
-    )
-
-    # --- BLOC 2 : EXIGENCES DE FIDÉLITÉ ---
-    parts.append(
-        "=== EXIGENCES DE FIDÉLITÉ ===\n\n"
-        "- Tu traduis UNIQUEMENT ce qui est dans le JSON. Tu n'inventes aucun élément supplémentaire.\n"
-        "- Tu utilises les noms EXACTS du JSON pour tous les identifiants SysML v2.\n"
-        "- Si un champ est vide ou null dans le JSON, tu ne génères PAS de code pour cet élément.\n"
-        "- Les warnings du JSON ne doivent PAS être traduits en code SysML v2 — ils sont uniquement informatifs."
-    )
-
-    # --- BLOC 3 : RÈGLES DE SYNTAXE SysML v2 ---
-    parts.append(_SYSML_SYNTAX_RULES)
-
-    # --- BLOC 4 : MODÈLE JSON À TRADUIRE ---
-    parts.append(
-        "=== MODÈLE JSON À TRADUIRE ===\n\n"
-        f"{json_model}"
-    )
-
-    # --- BLOC 5 : EXEMPLES RAG (optionnel) ---
-    if rag_examples:
-        rag_lines = ["=== EXEMPLES DE SYNTAXE SysML v2 POUR RÉFÉRENCE ==="]
-        for i, example in enumerate(rag_examples[:5], 1):
-            rag_lines.append(f"\nExemple {i}:\n{example}")
-        parts.append("\n".join(rag_lines))
-
-    # --- BLOC 6 : STRUCTURE ATTENDUE DU CODE ---
-    parts.append(_SYSML_CODE_STRUCTURE)
-
-    # --- BLOC 7 : INSTRUCTION FINALE ---
-    parts.append(
-        "=== TON RÉSULTAT ===\n"
-        "Produis UNIQUEMENT le code SysML v2. Pas de markdown, pas de ```, pas d'explication. "
-        "Uniquement le code SysML v2 brut commençant par 'package'."
-    )
-
-    return "\n\n".join(parts)
+    results = []
+    for diagram_type, build_fn in FUNCTIONAL_DIAGRAMS:
+        prompt = build_fn(model_json, rag_examples, naming_constraint=naming_constraint)
+        results.append((diagram_type, prompt))
+    return results

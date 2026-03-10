@@ -1,0 +1,38 @@
+[
+  {
+    "type": "missing_info",
+    "message": "Aucune exigence logique explicite n'est fournie pour le BAS. Les exigences logiques devraient être définies lors de la phase de génération des exigences.",
+    "section": "requirements",
+    "suggestion": "Fournir les exigences logiques formalisées avec des identifiants REQ-LOG-XXX et les constituants qui les satisfont."
+  },
+  {
+    "type": "missing_info",
+    "message": "Le regroupement en sous-systèmes n'est pas explicitement défini dans le document. Deux groupes fonctionnels ont été identifiés mais ne sont pas formalisés dans la structure hiérarchique.",
+    "section": "logical_grouping",
+    "suggestion": "Clarifier si une structure hiérarchique de sous-systèmes est nécessaire et formaliser les regroupements logiques."
+  },
+  {
+    "type": "ambiguity",
+    "message": "Deux capteurs de température distincts (PCE Air Temperature Sensor et ACAC Air Temperature Sensor) produisent tous deux un flux 'mesure température air' vers le Calculateur. La distinction entre ces deux mesures n'est pas explicitement clarifiée dans les ports du Calculateur.",
+    "section": "connections",
+    "suggestion": "Clarifier si le Calculateur reçoit deux mesures de température distinctes ou si elles sont fusionnées. Envisager de renommer les ports du Calculateur pour distinguer les deux sources."
+  },
+  {
+    "type": "inconsistency",
+    "message": "La fonction 'Provide Feedback' est allouée au Calculateur mais n'existe pas dans le modèle fonctionnel validé. Elle semble être une variante de 'Communiquer'.",
+    "section": "function_allocation",
+    "suggestion": "Clarifier si 'Provide Feedback' est synonyme de 'Communiquer' ou s'il s'agit d'une fonction distincte."
+  },
+  {
+    "type": "inconsistency",
+    "message": "La fonction 'Reguler la PRV' est allouée au Calculateur mais n'existe pas dans le modèle fonctionnel validé. Aucune vanne PRV n'est mentionnée dans les constituants logiques.",
+    "section": "function_allocation",
+    "suggestion": "Clarifier le rôle de la PRV et son allocation dans l'architecture logique."
+  },
+  {
+    "type": "missing_info",
+    "message": "Le port 'air régulé T' du PCE et le port 'air régulé (P,T)' du Filter utilisent des noms légèrement différents pour le même flux. La cohérence de la nomenclature n'est pas garantie.",
+    "section": "connections",
+    "suggestion": "Standardiser la nomenclature des ports pour assurer la cohérence entre les constituants."
+  }
+]
