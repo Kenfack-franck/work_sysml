@@ -57,3 +57,8 @@ SysML-v2-Release/
 # === Anciens livrables (remplaces par docs/) ===
 LIVRABLES_v1/
 LIVRABLES_v1.zip
+
+# === Anciens livrables et expériences (v1) ===
+deliverables/
+experiments/
+LIVRABLES_v1/
