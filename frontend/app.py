@@ -164,8 +164,8 @@ def render_sidebar():
     # --- Navigation niveaux ---
     if st.session_state.session_id:
         _render_sidebar_navigation()
-        st.sidebar.markdown("---")
-        _render_sidebar_syson()
+        # st.sidebar.markdown("---")
+        # _render_sidebar_syson()  # SysON: desactive pour le moment
 
 
 def _render_sidebar_status():
@@ -174,21 +174,13 @@ def _render_sidebar_status():
     ok, data, _ = api_call("get", "/api/health", timeout=5)
     if ok:
         st.sidebar.success("🟢 Backend opérationnel")
-        with st.sidebar.expander("Détails", expanded=False):
-            st.caption(f"LLM : {data.get('llm_model', '?')}")
-            llm_status = data.get("llm_status", {})
-            if llm_status:
-                st.caption(f"Clés : {llm_status.get('available_keys', '?')}/{llm_status.get('total_keys', '?')}")
+        llm_status = data.get("llm_status", {})
+        # Afficher le modele reel depuis llm_status (pas settings.LLM_MODEL)
+        llm_model = llm_status.get("model") or data.get("llm_model", "?")
+        llm_provider = llm_status.get("provider") or data.get("llm_provider", "?")
+        st.sidebar.caption(f"LLM : {llm_provider} / {llm_model}")
     else:
         st.sidebar.error("🔴 Backend non accessible")
-
-    with st.sidebar.expander("📊 Stats RAG", expanded=False):
-        ok_r, stats, _ = api_call("get", "/api/rag/stats", timeout=10)
-        if ok_r and stats:
-            st.metric("Chunks indexés", stats.get("total_chunks", 0))
-            st.metric("Fichiers sources", stats.get("unique_files", 0))
-        else:
-            st.caption("Non disponible")
 
 
 def _render_sidebar_sessions():
@@ -276,17 +268,18 @@ def _render_sidebar_navigation():
     st.sidebar.caption("✅ Validé | 🔄 Généré | ⬜ À faire")
 
 
-def _render_sidebar_syson():
-    """Statut SysON."""
-    try:
-        ok, data, _ = api_call("get", "/api/syson/status", timeout=2)
-        if ok and data and data.get("available"):
-            st.sidebar.success("🟢 SysON connecté")
-            st.sidebar.markdown("[Ouvrir SysON ↗](http://localhost:8085)")
-        else:
-            st.sidebar.info("⚪ SysON non disponible")
-    except Exception:
-        pass
+# SysON: desactive pour le moment (integration en cours)
+# def _render_sidebar_syson():
+#     """Statut SysON."""
+#     try:
+#         ok, data, _ = api_call("get", "/api/syson/status", timeout=2)
+#         if ok and data and data.get("available"):
+#             st.sidebar.success("🟢 SysON connecté")
+#             st.sidebar.markdown("[Ouvrir SysON ↗](http://localhost:8085)")
+#         else:
+#             st.sidebar.info("⚪ SysON non disponible")
+#     except Exception:
+#         pass
 
 
 # ============================================================================
@@ -520,39 +513,14 @@ def _render_tab_results(level: str, status: str):
             else:
                 st.warning(str(w))
 
-    # --- Score de validation syntaxique ---
-    validation = result.get("validation_result", {})
-    if validation:
-        st.markdown("#### 🔍 Validation syntaxique")
-        score = validation.get("score", "?")
-        valid = validation.get("valid", True)
-        if valid:
-            st.success(f"Score : **{score}/100** ✅")
-        else:
-            errors = validation.get("errors", [])
-            st.warning(f"Score : **{score}/100** — {len(errors)} erreur(s)")
-            for err in errors:
-                line = err.get("line", "?")
-                msg = err.get("message", "")
-                st.error(f"Ligne {line} : {msg}")
-
     st.markdown("---")
 
-    # --- Boutons d'action ---
-    col1, col2, col3 = st.columns([2, 2, 1])
-    with col1:
-        if status == "generated":
-            if st.button("✅ Valider et passer au suivant", type="primary", use_container_width=True, key=f"validate_{level}"):
-                _do_validate(level)
-        elif status == "validated":
-            st.success("✅ Niveau validé")
-    with col2:
-        use_rag = st.checkbox("🔍 RAG", value=True, key=f"rag_result_{level}")
-        if st.button("🔄 Modifier & Régénérer", use_container_width=True, key=f"patch_result_{level}"):
-            _do_patch(level, use_rag)
-    with col3:
-        if st.button("🔍 Cohérence", key=f"coh_{level}"):
-            _do_coherence(level)
+    # --- Bouton d'action ---
+    if status == "generated":
+        if st.button("✅ Valider et passer au suivant", type="primary", use_container_width=True, key=f"validate_{level}"):
+            _do_validate(level)
+    elif status == "validated":
+        st.success("✅ Niveau validé")
 
 
 def _render_tab_code(level: str):
@@ -577,30 +545,6 @@ def _render_tab_code(level: str):
         label_visibility="collapsed",
         disabled=True,
     )
-
-    # --- Code complet tous niveaux ---
-    st.markdown("---")
-    st.markdown("#### 📦 Code SysML v2 complet (tous niveaux)")
-
-    if st.button("📥 Charger le code complet", key="full_sysml_btn"):
-        with st.spinner("Chargement..."):
-            ok, data, err = api_call("get", f"/api/v2/full-sysml/{st.session_state.session_id}")
-            if ok and data:
-                code = data.get("sysml_code", "")
-                if code and "Aucun niveau" not in code:
-                    st.code(code, language="text", line_numbers=True)
-                    st.text_area(
-                        "Code complet (copier)",
-                        value=code,
-                        height=200,
-                        key="copy_full_sysml",
-                        label_visibility="collapsed",
-                        disabled=True,
-                    )
-                else:
-                    st.info("Aucun niveau généré pour le moment.")
-            else:
-                st.error(err)
 
 
 def _render_tab_debug(level: str):

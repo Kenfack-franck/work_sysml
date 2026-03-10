@@ -129,8 +129,8 @@ async def health_check():
     info = {
         "status": "ok",
         "version": "0.2.0",
-        "llm_provider": settings.LLM_PROVIDER,
-        "llm_model": settings.LLM_MODEL,
+        "llm_provider": llm.get_provider_name() if llm else settings.LLM_PROVIDER,
+        "llm_model": llm.get_model_name() if llm else settings.LLM_MODEL,
         "embedding_model": settings.EMBEDDING_MODEL,
         "sysml_repo_exists": settings.SYSML_REPO_PATH.exists(),
     }

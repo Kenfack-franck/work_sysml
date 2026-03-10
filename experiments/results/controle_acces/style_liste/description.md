@@ -1,0 +1,25 @@
+# Contrôle accès - style_liste
+
+## Description originale
+
+Système de contrôle d'accès bâtiment.
+
+Composants :
+- Lecteur de badges RFID (un par entrée)
+- Contrôleur central
+- Base de données des autorisations
+- Serrure électrique (une par porte)
+- Caméra de surveillance (une par entrée)
+- Poste de sécurité
+
+Flux :
+- Lecteur RFID → Contrôleur central : identifiant badge
+- Contrôleur central → Base de données : requête autorisation
+- Base de données → Contrôleur central : réponse autorisation
+- Contrôleur central → Serrure électrique : commande ouverture/fermeture
+- Contrôleur central → Poste de sécurité : alerte accès refusé
+- Caméra → Poste de sécurité : flux vidéo
+
+Exigences :
+- Disponibilité 24h/24 7j/7
+- Temps de réponse badge → ouverture porte < 2 secondes

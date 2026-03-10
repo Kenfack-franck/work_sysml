@@ -1,0 +1,155 @@
+Le système BAS (Bleed Air System) est un système de prélèvement et de conditionnement d'air intégré au moteur Silvercrest. Il est intercalé entre la turbomachine et l'avion.
+
+=== ACTEURS ET SYSTÈMES EXTERNES ===
+
+Le système interagit avec les entités externes suivantes :
+- L'avionique de l'avion (A/C Avionics) : fournit l'énergie électrique, envoie les consignes de pression et température, envoie les commandes de dégivrage, reçoit les données d'état du système.
+- L'EECS (Electronic Engine Control System) : calculateur moteur qui coordonne les commandes avec le BAS pour la gestion des prélèvements selon la poussée demandée.
+- La turbomachine (cœur du moteur) : source d'air chaud à haute pression pour le prélèvement.
+- Le conduit de soufflante (Fan by-pass duct) : source d'air froid ambiant.
+- La nacelle : reçoit l'air chaud pour le dégivrage et évacue l'air de refroidissement.
+- Le système pneumatique de l'avion (A/C Pneumatic System) : reçoit l'air conditionné et régulé en pression et température.
+- La vanne d'isolement de l'avion (SOV - Shut-Off Valve) : frontière physique en sortie du BAS.
+- L'opérateur de maintenance (Maintenance operator) : technicien qui diagnostique l'état du système, réalise des réparations sous l'aile et maintient le système en conditions opérationnelles.
+- L'atelier de maintenance (Maintenance facility) : installation dédiée à la réparation en atelier des composants déposés.
+
+=== FONCTIONS DE SERVICE (USE CASES) ===
+
+Le système réalise les fonctions de service suivantes :
+
+Fourniture d'air à l'avion (trois sous-fonctions distinctes) :
+1. Pressuriser les réservoirs de l'avion : fournir de l'air régulé en pression au système pneumatique pour la pressurisation des réservoirs.
+2. Dégivrer les ailes : fournir de l'air chaud régulé au système pneumatique de l'avion pour le dégivrage des ailes (wing anti-ice).
+3. Pressuriser et tempérer la cabine : fournir de l'air conditionné en pression et en température au système pneumatique de l'avion pour le conditionnement de la cabine.
+
+Dégivrage nacelle :
+4. Dégivrer la nacelle : envoyer de l'air chaud haute pression via la NAIV vers la nacelle pour le dégivrage moteur (nacelle anti-ice).
+
+Surveillance et maintenance :
+5. Être informé de l'état du système : l'opérateur de maintenance peut lire l'état courant du BAS (mesures, alarmes, défauts) via l'avionique.
+6. Diagnostiquer l'état : l'opérateur de maintenance réalise un diagnostic de l'état de santé du BAS, sur la base des mesures et des codes de défaut.
+7. Réparer sous l'aile : l'opérateur réalise des interventions de maintenance de niveau 1 directement sur l'avion sans déposer les composants.
+8. Maintenir en conditions opérationnelles : opération générique de maintenance incluant le diagnostic et la réparation.
+
+Relation entre use cases de maintenance :
+- "Maintenir en conditions opérationnelles" «include» "Diagnostiquer l'état"
+- "Maintenir en conditions opérationnelles" «include» "Réparer sous l'aile"
+- La réparation en atelier (dépose de composants, réparation en Maintenance facility) est une option si la réparation sous l'aile n'est pas possible.
+
+=== MODES DE FONCTIONNEMENT ===
+
+Le système possède trois modes de fonctionnement :
+- OFF : le système n'est pas alimenté, aucune vanne n'est active.
+- Stand-by : le système est alimenté et communique son état, mais les commandes de flux d'air ne sont pas activées.
+- Running : le système régule activement la pression et la température pour envoyer de l'air à la cabine et/ou ouvre le circuit de dégivrage.
+
+=== CYCLE DE VIE ===
+
+Le système BAS suit les phases de cycle de vie suivantes :
+1. Concept évaluation : analyse des besoins et évaluation de la faisabilité du système BAS.
+2. Développement : conception, développement et qualification du système. Jalons : CR (Critical Review) et QR (Qualification Review) S8.
+3. Production : fabrication en série du BAS. Comprend un sous-cycle de production (Production lifecycle) avec contrôles qualité.
+4. Livraison moteur et BAS : livraison du BAS intégré au moteur, comprenant le stockage intermédiaire et le transport vers le site d'intégration avion.
+   - Stockage intermédiaire : stockage du BAS avant intégration sur l'avion.
+   - Transport : transfert vers l'atelier d'intégration finale.
+5. Montage final : intégration du BAS sur l'avion (A/C).
+6. Exploitation : utilisation opérationnelle du BAS. Comprend deux sous-phases :
+   - Operation : fonctionnement normal pendant les vols.
+   - Maintenance LRU (Line Replaceable Unit) : maintenance de ligne (remplacement de composants LRU).
+7. Maintenance : phase de maintenance approfondie quand l'avion n'est pas en exploitation (A/C not in maintenance facility). Comprend la dépose et réparation en atelier.
+8. Recyclage : fin de vie du BAS, démontage et recyclage des composants.
+
+Transitions :
+- Développement → Production : jalonnée par les revues CR/QR S8.
+- Production → Livraison : déclenchée par la livraison moteur et BAS.
+- Livraison → Montage final : après transport et stockage.
+- Montage final → Exploitation : mise en service sur l'avion.
+- Exploitation ↔ Maintenance : transitions bidirectionnelles (entrée en maintenance + retour en exploitation).
+- Exploitation → Recyclage : fin de vie.
+
+=== ARCHITECTURE FONCTIONNELLE DÉTAILLÉE ===
+
+Les comportements fonctionnels sont décrits au niveau composant::fonction.
+
+Sous-système de Prélèvement d'air :
+- IP Port :: Prélever air (flux pneumatique) : prélèvement primaire d'air chaud depuis la turbomachine via le port Intermediate Pressure.
+  Entrées pneumatiques : :air chaud haute pression IP (depuis turbomachine)
+  Sortie pneumatique : :air chaud IP prélevé
+- HP Port :: Prélever air (flux pneumatique) : prélèvement secondaire depuis le port High Pressure.
+  Entrées pneumatiques : :air chaud haute pression HP (depuis turbomachine)
+  Sortie pneumatique : :air chaud HP prélevé
+- HPV :: Contrôler le prélèvement HP (flux information + pneumatique) : vanne activée si pression IP insuffisante.
+  Entrée information : :commande HPV (depuis Calculateur)
+  Entrée pneumatique : :air chaud HP prélevé
+  Sortie pneumatique : :air chaud HP régulé
+- IPCV :: Empêcher refoulement (flux pneumatique) : clapet anti-retour entre la jonction HP et IP.
+
+Sous-système de Dégivrage Nacelle :
+- NAIV :: Laisser passer l'air (flux pneumatique + information) : vanne d'arrêt qui autorise ou bloque le passage de l'air chaud vers la nacelle.
+  Entrée information : :commande dégivrage nacelle (depuis Calculateur) — flux électrique
+  Entrée pneumatique : :air chaud haute pression (depuis IP port)
+  Sortie pneumatique : :air chaud nacelle
+- ACAC :: Réguler la température nacelle (flux pneumatique) : l'échangeur thermique est aussi utilisé dans le circuit nacelle pour réguler la température de l'air de dégivrage.
+  Entrée pneumatique : :air chaud nacelle (depuis NAIV)
+  Entrée pneumatique : :air ambiant (depuis fan bypass duct)
+  Sortie pneumatique : :air chaud régulé nacelle (vers Nacelle port)
+  Sortie pneumatique : :air tiède (vers nacelle exhaust, air de refroidissement évacué)
+- Air Temperature Sensor :: Mesurer la température (flux information) : mesure la température de l'air après ACAC.
+  Entrée pneumatique : :air chaud régulé nacelle
+  Sortie information : :mesure température air (vers Calculateur)
+- Nacelle port :: Fournir l'air à l'interface Nacelle (flux pneumatique) : interface de sortie vers la nacelle.
+  Entrée pneumatique : :air chaud régulé nacelle (depuis ACAC)
+  Sortie pneumatique : :air chaud nacelle (vers nacelle)
+- NAI press. sensor :: Mesurer la pression NAI (flux information) : mesure la pression après la NAIV.
+  Entrée pneumatique : :air chaud nacelle
+  Sortie information : :mesure pression NAI (vers Calculateur)
+
+Sous-système de Conditionnement (pour l'avion) :
+- PRV :: Réguler pression air (flux pneumatique + information) : vanne qui abaisse et régule la pression selon consigne.
+  Entrée information : :commande PRV (depuis Calculateur)
+  Entrée pneumatique : :air chaud brut
+  Sortie pneumatique : :air chaud pression régulée
+- Exchanger (ACAC) :: Refroidir air (flux pneumatique thermique) : refroidit l'air chaud par échange avec l'air froid.
+  Entrée pneumatique : :air chaud pression régulée
+  Entrée pneumatique : :air froid ambiant (depuis fan bypass)
+  Sortie pneumatique : :air conditionné régulé
+  Sortie pneumatique : :air tiède (évacuation vers nacelle exhaust port)
+- Fan bleed port :: Prélever air froid (flux pneumatique).
+- FAV :: Réguler débit air froid (flux pneumatique + information).
+  Entrée information : :commande FAV (depuis Calculateur)
+- Filter :: Filtrer air (flux pneumatique) : filtre en sortie avant interface avion.
+
+Sous-système de Mesure finale :
+- Bleed press. sensor :: Mesurer pression finale (flux information).
+  Sortie information : :mesure pression bleed (vers Calculateur) — flux information
+- Bleed temp. sensor :: Mesurer température finale (flux information).
+  Sortie information : :mesure température bleed (vers Calculateur) — flux information
+
+Sous-système de Contrôle-Commande :
+- Electronic BAS Control :: Contrôler et Communiquer (flux information + électrique).
+  Entrées information : :consignes pression/température (depuis A/C Avionics), :commande dégivrage nacelle (depuis A/C Avionics)
+  Entrées information : :mesure pression NAI, :mesure pression bleed, :mesure température bleed
+  Sorties électriques : :commande HPV, :commande PRV, :commande FAV, :commande NAIV
+  Sortie information : :statut système (vers A/C Avionics)
+
+Types de flux utilisés dans ce système :
+- Flux pneumatique (air) : tous les flux d'air entre composants — représentés en cyan dans les diagrammes
+- Flux information (données, commandes, mesures) : tous les signaux de commande et de mesure — représentés en rouge
+- Flux électrique (alimentation, signaux discrets) : alimentation et commandes électriques — représentés en orange
+
+=== SCÉNARIOS OPÉRATIONNELS ===
+
+Scénario 1 - Fourniture d'air nominal :
+L'avionique envoie les consignes de pression et température au calculateur. L'air est prélevé sur l'IP Port (flux pneumatique). Le calculateur pilote la PRV (flux électrique : :commande PRV) pour atteindre la pression cible. Simultanément, le calculateur pilote la FAV (flux électrique : :commande FAV) pour réguler la température via l'échangeur. Les capteurs de sortie (bleed press. sensor, bleed temp. sensor) renvoient les mesures (flux information) au calculateur qui ajuste en boucle fermée. L'air régulé sort vers le système pneumatique de l'avion.
+
+Scénario 2 - Dégivrage nacelle :
+L'avionique transmet la commande de dégivrage au calculateur (flux information). Le calculateur ouvre la vanne NAIV (flux électrique : :commande dégivrage nacelle). L'air chaud haute pression traverse la NAIV (flux pneumatique), passe éventuellement dans l'ACAC pour réguler la température (flux pneumatique + thermique), est mesuré par le capteur NAI Press (flux information : :mesure pression NAI), et sort vers la nacelle (flux pneumatique : :air chaud nacelle). L'état est remonté à l'avionique (flux information : :statut système).
+
+=== EXIGENCES ===
+
+Le système doit fonctionner dans une plage de température de -40°C à +85°C.
+Le temps de réponse de la boucle de régulation ne doit pas dépasser 500 millisecondes.
+La pression de sortie régulée doit être maintenue entre 20 et 50 PSI.
+La température de sortie régulée doit être maintenue entre 150°C et 230°C.
+La maintenabilité du système doit permettre le remplacement d'un LRU en moins de 2 heures par un opérateur qualifié.
+Le système doit pouvoir être diagnostiqué sans démontage (diagnostic embarqué accessible via l'avionique).

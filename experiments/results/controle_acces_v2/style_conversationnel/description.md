@@ -1,0 +1,5 @@
+# Contrôle accès - style_conversationnel
+
+## Description originale
+
+En gros, on a un bâtiment et on veut contrôler qui entre et qui sort. L'idée c'est que chaque personne a un badge RFID. Quand quelqu'un veut entrer, il passe son badge devant un lecteur. Le lecteur envoie le numéro du badge à un boîtier central qui vérifie dans une base de données si la personne a le droit d'entrer. Si oui, la porte se déverrouille automatiquement. Si non, rien ne se passe mais une alerte est envoyée au poste de sécurité. Il y a aussi des caméras à chaque entrée qui filment en permanence. Le tout doit marcher tout le temps, jour et nuit, et quand tu badges ça doit être rapide, genre moins de 2 secondes pour que la porte s'ouvre.

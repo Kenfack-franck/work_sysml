@@ -1,0 +1,5 @@
+# Contrôle accès - style_narratif
+
+## Description originale
+
+Chaque matin, les employés arrivent au bâtiment. Ils sortent leur badge et le présentent devant le lecteur RFID situé à côté de la porte d'entrée. Le lecteur reconnaît le badge et transmet son identifiant au contrôleur central du système. Le contrôleur consulte alors la base de données pour vérifier si cet employé est autorisé à entrer. Si l'autorisation est confirmée, le contrôleur commande l'ouverture de la serrure électrique et l'employé peut pousser la porte. Tout cela se passe en moins de 2 secondes. Si le badge n'est pas reconnu ou si la personne n'est pas autorisée, la porte reste fermée et une alerte apparaît sur l'écran du poste de sécurité. Des caméras de surveillance sont installées à chaque entrée et enregistrent en permanence, permettant au personnel de sécurité de voir qui se présente. Le système fonctionne sans interruption, 24 heures sur 24.
